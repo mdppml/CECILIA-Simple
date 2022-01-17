@@ -1,7 +1,6 @@
 //
 // Created by Mete Akgun on 28.12.21.
 //
-//
 
 #ifndef PPAUC_AUC_H
 #define PPAUC_AUC_H
