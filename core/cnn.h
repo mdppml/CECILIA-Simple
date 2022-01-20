@@ -113,7 +113,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             uint64_t *d = MSB(proxy, c, halfSize);
 
             //MUX:
-            maxElements = firstHalf; //TODO MSelectShare(firstHalf, secondHalf, d, halfSize);
+            maxElements = MUX(proxy, firstHalf, secondHalf, d, halfSize);
         }
         //prepare next round:
         cmpVectorSize = halfSize;
@@ -201,7 +201,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t win
                     uint64_t *d = MSB(proxy, c, vectorLength);
 
                     //MUX:
-                    maxElements = firstHalf; // TODO MSelectShare(firstHalf, secondHalf, d, vectorLength);
+                    maxElements = MUX(proxy, firstHalf, secondHalf, d, vectorLength);
                 }
                 //prepare next round:
                 cmpWindowVectorSize = halfSize;
