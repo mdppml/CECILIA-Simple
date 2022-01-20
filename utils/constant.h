@@ -19,6 +19,8 @@
 #define MAX_SAMPLE 0xfffff
 #define MAX_SAMPLE_MASK 0x7ffff
 
+#define MAX_MATRIX_SIZE 1048576
+
 
 #define DEBUG_FLAG 0
 
