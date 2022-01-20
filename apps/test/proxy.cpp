@@ -80,7 +80,6 @@ void MMOC_Test(Party *proxy){
     uint64_t x[sz];
     for (int i=0;i<sz;i++)
         x[i] = proxy->generateRandom()&N1_MASK;
-
     proxy->SendBytes(CORE_MMC,sz);
     uint64_t *r = MOC(proxy,x,sz);
     // checking the result

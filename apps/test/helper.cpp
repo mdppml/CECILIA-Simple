@@ -11,7 +11,8 @@ int main(int argc, char* argv[]) {
         if (op == CORE_MMSB){
             int sz = helper->ReadInt();
             MSB(helper,0,sz);
-        }if (op == CORE_MSB){
+        }
+        else if (op == CORE_MSB){
             MSB(helper,0);
         }
         else if (op == CORE_MC){
@@ -20,6 +21,7 @@ int main(int argc, char* argv[]) {
         else if (op == CORE_MMC){
             int sz = helper->ReadInt();
             MOC(helper,0,sz);
+
         }
         else if (op == CORE_CMP){
             CMP(helper,0,0);
