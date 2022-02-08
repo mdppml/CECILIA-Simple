@@ -51,7 +51,7 @@ static double* random_1D_data(Party *proxy, int size, int max_num=10, bool neg_f
  *                  window row size
  *         (matrix column size * matrix row size) will be the dimension of the matrix (m_size) and the generated matrix data will contain (m_size * matrix_number) values
  */
-static std::tuple<double*, uint32_t*> random_window_matrix(Party *proxy, uint8_t matrix_number=2, double max_num=255.99, bool neg_flag=true){
+static double* random_window_matrix(Party *proxy, uint8_t matrix_number=2, double max_num=255.99, bool neg_flag=true){
     cout << "Generate matrix with random values... " << endl;
     uint32_t mColSize = 0, mRowSize = 0;
     uint32_t w_dim = 0; // w_rows = 0;
@@ -70,15 +70,14 @@ static std::tuple<double*, uint32_t*> random_window_matrix(Party *proxy, uint8_t
         mRowSize = proxy->generateCommonRandom() % L;
     }
 
-    cout << "mR=" << mRowSize << "; mC=" << mColSize << "; window=" << w_dim << " x " << w_dim << endl;
+    //cout << "mR=" << mRowSize << "; mC=" << mColSize << "; window=" << w_dim << " x " << w_dim << endl;
     uint64_t mSize = mRowSize * mColSize;
-    //                                          for the 4 random parts: matrix A and B, mTmp A and B
-    double *randData = new double [mSize*matrix_number];
+    //                            for the 4 random parts: matrix A and B, mTmp A and B
+    double *randData = new double [mSize*matrix_number + 4]; // +4 for the 4 values specifying matrix + window dimensions
     randData = random_1D_data(proxy, mSize*matrix_number, max_num, neg_flag);
-    uint32_t* sizes = new uint32_t [4]; // std::make_tuple(mColSize, mRowSize, w_dim, 0) // four dimensions to be specified: mColSize, mRowSize, wColSize, wRowSize
-    sizes[0] = mColSize;
-    sizes[1] = mRowSize;
-    sizes[2] = w_dim;
-    sizes[3] = 0; //w_rows;
-    return std::tie(randData, sizes);
+    randData[-4] = mColSize;
+    randData[-3] = mRowSize;
+    randData[-2] = w_dim;
+    randData[-1] = 0; //w_rows;
+    return randData;
 }

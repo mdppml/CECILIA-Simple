@@ -261,7 +261,7 @@ void MAX_Test(Party *proxy, double* random_matrix, uint32_t mCols, uint32_t mRow
     uint64_t mSize = mCols * mRows;
     uint64_t *shareOfMatrix = new uint64_t [mSize];
     shareOfMatrix = proxy->createShare(random_matrix, mSize);
-    // print1DMatrixByWindows("Ground truth matrix for MAX", shareOfMatrix, mRows, mCols, mRows, mCols);
+    print1DMatrixByWindows("Ground truth matrix for MAX", random_matrix, mRows, mCols, mRows, mCols);
 
     proxy->SendBytes(CNN_MAX, mSize);
 
@@ -368,16 +368,12 @@ int main(int argc, char* argv[]) {
     MMUX_Test(proxy);
 
     // generate random matrix for MAX tests:
-    double * random_matrix;
-    uint32_t * matrix_dimensions = new uint32_t [4]; // this will always contain 4 values: mColSize, mRowSize, wColSize, wRowSize
-    cout << "randMatrix: " << random_matrix << " dims: " << matrix_dimensions << "; matrix_dims: " << matrix_dimensions << endl;
-    std::tuple(random_matrix, matrix_dimensions) = random_window_matrix(proxy, 2);
-    cout << "created tuple. Accessing values..." << "; matrix_dims: " << matrix_dimensions << endl;
-    uint32_t mColSize = matrix_dimensions[0];
-    uint32_t mRowSize = matrix_dimensions[1];
-    uint32_t wColSize = matrix_dimensions[2];
-    uint32_t wRowSize = matrix_dimensions[3];
-    cout << "dimensions are: " << mColSize << " x " << mRowSize << " with windows " << wColSize << " x " << wColSize << " " << endl;
+    double * random_matrix = random_window_matrix(proxy, 2);
+    uint32_t mColSize = random_matrix[-4];
+    uint32_t mRowSize = random_matrix[-3];
+    uint32_t wColSize = random_matrix[-2];
+    uint32_t wRowSize = random_matrix[-1];
+    //cout << "dimensions are: " << mColSize << " x " << mRowSize << " with windows " << wColSize << " x " << wColSize << " " << endl;
 
     MAX_Test(proxy, random_matrix, mColSize, mRowSize);
     //MMAX_Test(proxy, random_matrix, mColSize, mRowSize, wColSize, wColSize); //TODO adapt to asymmetric window size

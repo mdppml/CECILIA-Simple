@@ -5,6 +5,7 @@
 #ifndef PPAUC_CNN_H
 #define PPAUC_CNN_H
 
+
 #include "core.h"
 
 // please write your functions here. (RELU, MAXPOOL, vs...)
@@ -21,7 +22,6 @@
  * @param w_col - number of columns per window
  */
 void print1DMatrixByWindows(string const &str1, uint64_t* matrix, uint32_t m_row, uint32_t m_col, uint32_t w_row, uint32_t w_col) {
-    uint32_t rowNumberOfWin = floor(m_col/w_col);
     uint64_t mSize = m_col*m_row;
     double *mConverted = convert2double(matrix, mSize);
     cout << "======================= " << str1 << " =======================" << endl << endl;
@@ -39,6 +39,32 @@ void print1DMatrixByWindows(string const &str1, uint64_t* matrix, uint32_t m_row
                 cout << "|\t";
             }
             cout << mConverted[i*m_col + j] << " \t " ;
+        }
+        cout << "|" << endl;
+    }
+    for(uint8_t d = 0; d < m_col; d++){
+        cout << " _ _ _ _ _ _ _ _";
+    }
+    cout << endl << "==============================================================" << endl;
+}
+
+void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, uint32_t m_col, uint32_t w_row,
+                             uint32_t w_col) {
+    cout << "======================= " << str1 << " =======================" << endl << endl;
+    for(uint32_t i = 0; i < m_row; i++) {
+        //delimiter between windows in horizontal direction
+        if(i % w_row == 0){
+            for(uint8_t d = 0; d < m_col; d++){
+                cout << " _ _ _ _ _ _ _ _";
+            }
+            cout << endl;
+        }
+        for(uint32_t j = 0; j < m_col; j++){
+            //delimiter between windows in vertical direction
+            if(j % w_col == 0){
+                cout << "|\t";
+            }
+            cout << matrix[i*m_col + j] << " \t " ;
         }
         cout << "|" << endl;
     }

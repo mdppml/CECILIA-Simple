@@ -86,8 +86,8 @@ int main(int argc, char* argv[]) {
 
     cout << "___MMAXPOOL___: " << endl;
     cout << "Ground Truth: " << endl;
-    print1DMatrixByWindows("matrix for MAX", matrix, matrix_row_size, matrix_col_size, 1, 1);
-    print1DMatrixByWindows("matrix for MMAX", matrix, matrix_row_size, matrix_col_size, window_size, window_size);
+    print1DMatrixByWindows("matrix for MAX", doubleMatrix, matrix_row_size, matrix_col_size, 1, 1);
+    print1DMatrixByWindows("matrix for MMAX", doubleMatrix, matrix_row_size, matrix_col_size, window_size, window_size);
     delete []matrix;
 
     proxy->SendBytes(CNN_MAX, matrix_size);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     proxy->SendBytes(CNN_MMAX, mmaxParams);
     maxElements = MAX(proxy, shareOfMatrix, matrix_size, window_size);
 
-    print1DMatrixByWindows("Final result MMAX", REC(proxy, maxElements, numberOfWins), 1, numberOfWins, 1, 1);
+    print1DMatrixByWindows("Final result MMAX", convert2double(REC(proxy, maxElements, numberOfWins), numberOfWins, 0), 1, numberOfWins, 1, 1);
 
 
     // CNN inference pipeline, call functions sequantially for inference (Matrix MUL, MAXPOOL, RELU, vs...)
