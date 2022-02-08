@@ -1,9 +1,10 @@
 #include <iostream>
 #include "../../core/core.h"
+#include "../../core/cnn.h"
 
 int main(int argc, char* argv[]) {
-    uint16_t port = atoi(argv[2]);
     string address(argv[1]);
+    uint16_t port = atoi(argv[2]);
 
     Party *helper = new Party(HELPER,port,address);
     while (1){
@@ -41,6 +42,17 @@ int main(int argc, char* argv[]) {
         else if (op == CORE_MMUL){
             int sz = helper->ReadInt();
             MUL(helper,0, 0, sz);
+        }
+        else if (op == CNN_MAX){
+            int matrix_size = helper->ReadInt();
+            MAX(helper,NULL, matrix_size);
+        }
+        else if (op == CNN_MMAX){
+            int mmaxParams = helper->ReadInt();
+            uint32_t matrix_size = (mmaxParams >> 16);
+            uint16_t window_size = (mmaxParams & 0b0000000011111111);
+            cout << "It is: mSize = " << matrix_size << " and wCols = " << window_size << endl;
+            MAX(helper,NULL, matrix_size, window_size);
         }
         else if (op == CORE_END)
             break;

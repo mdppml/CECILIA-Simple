@@ -96,7 +96,7 @@ randomness - defines if random size matrix is generated: 0=no (4 more params are
 test - must be one out of 0,1,2 or 3: 
        0 : subtract elementwise
        1 : resort matrix 
-       2 : MAX
+       2 : MAX_VAL
        3 : MMAX 
 ```
 

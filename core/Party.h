@@ -186,8 +186,8 @@ public:
 private:
     role p_role;
     int socket_p1,socket_p2,socket_helper;
-    uint8_t buffer[40000000];
-    uint8_t buffer2[40000000];
+    uint8_t buffer[BUFFER_SIZE];
+    uint8_t buffer2[BUFFER_SIZE];
     uint32_t common_seed;
     uint32_t seed;
 
