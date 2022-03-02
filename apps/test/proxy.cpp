@@ -13,6 +13,7 @@ using namespace std;
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
 constexpr int sz = 1000;
+constexpr int WSZ = 10;
 void MUL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -254,67 +255,67 @@ void MMUX_Test(Party *proxy){
         cout<<"Vectorized MUX works incorrectly"<<endl;
 
 }
-void MAX_Test(Party *proxy, double* random_matrix, uint32_t mCols, uint32_t mRows){
+void MAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t mSize = mCols * mRows;
-    uint64_t *shareOfMatrix = new uint64_t [mSize];
-    shareOfMatrix = proxy->createShare(random_matrix, mSize);
-    print1DMatrixByWindows("Ground truth matrix for MAX", random_matrix, mRows, mCols, mRows, mCols);
+    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, sz, 32), sz);
 
-    proxy->SendBytes(CNN_MAX, mSize);
+    proxy->SendBytes(CNN_MAX, sz);
 
-    uint64_t max = MAX(proxy, shareOfMatrix, mSize);
+    uint64_t max = MAX(proxy, shareOfMatrix, sz);
     uint64_t reconstructed_max_value = REC(proxy, max);
     //cout << "RECONSTRUCTED MAX = " << reconstructed_max_value << endl;
 
     // checking the result
     double computed_max_value = MIN_VAL;
-    for(uint32_t i = 0; i<mSize; i++){
-        double matrixVal = random_matrix[i];
-        //cout << to_string(matrixVal) << " > " << to_string(refMax) << " ? --> ";
+    for(uint32_t i = 0; i<sz; i++){
+        double matrixVal = convert2double(REC(proxy, shareOfMatrix[i]));
         if (matrixVal > computed_max_value){
             computed_max_value = matrixVal;
         }
     }
     // TODO check for precision > 0
-    u_int64_t comp_result = convert2uint64(computed_max_value, 0);
-    if(comp_result == reconstructed_max_value){
+    double pp_result = convert2double(reconstructed_max_value, 0);
+    if(computed_max_value == pp_result){
         cout<<"MAX works correctly"<<endl;
     }
     else{
         cout<<"MAX works incorrectly" <<endl;
-        cout<< "computed: " << reconstructed_max_value << " should be: " << comp_result << endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_max_value << endl;
     }
-
 }
-void MMAX_Test(Party *proxy, double* random_matrix, uint32_t mCols, uint32_t mRows, uint32_t wCols, uint32_t wRows){
+
+
+void MMAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling vectorized MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t mSize = mCols * mRows;
-    uint64_t *shareOfMatrix = new uint64_t [mSize];
-    shareOfMatrix = proxy->createShare(random_matrix, mSize);
-    //print1DMatrixByWindows("Ground truth matrix for vectorized MAX", shareOfMatrix, mRows, mCols, wRows, wCols);
+    uint16_t mCols = WSZ*10;
+    uint16_t mRows = WSZ*10;
+    uint64_t mSize = mCols*mRows;
+    uint16_t wCols = WSZ;
+    uint16_t wRows = WSZ;
 
-    uint32_t mmaxParams;
-    //contains matrix_size bitwise at 16 MSBs and window size at the 16 LSBs
-    mmaxParams = ((uint64_t)mSize << 16) + (uint64_t) wCols;
-    cout << "It should be: mSize = " << mSize << " and wCols = " << wCols << endl;
+    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
+
+    uint64_t mmaxParams;
+    //contains mRows bitwise at 16 MSBs, then mCols at next 16 MSBs and window size at the 16 LSBs (16 are still reserved for different win size)
+    mmaxParams = ((uint64_t)mRows << 48) + ((uint64_t)mCols << 32) + (uint64_t) wCols;
+
     proxy->SendBytes(CNN_MMAX, mmaxParams);
-    uint64_t *max = MAX(proxy, shareOfMatrix, mSize, wCols);
+    uint64_t *max = MAX(proxy, shareOfMatrix, mRows, mCols, wCols);
 
     uint64_t number_of_windows = floor(mSize/(wCols*wRows));
     uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
 
     // checking the result
     bool flag = true;
-    uint64_t *resorted = new uint64_t [mSize];
-    resorted = RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
+    //uint64_t *resorted = new uint64_t [mSize];
+    //resorted = RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
 
     // TODO check for precision > 0
-    double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize, 0);
+    double *d_matrix = convert2double(REC(proxy, shareOfMatrix, mSize), mSize, 0);
     double *computed_max = new double[number_of_windows];
 
     for(uint32_t win = 0; win < mRows; win++){
@@ -337,6 +338,69 @@ void MMAX_Test(Party *proxy, double* random_matrix, uint32_t mCols, uint32_t mRo
     else{
         cout<<"Vectorized MAX works incorrectly"<<endl;
     }
+}
+
+void RELU_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling RELU";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    uint64_t x = proxy->createShare(convert2double(proxy->generateCommonRandom()));
+
+    proxy->SendBytes(CNN_RELU);
+    uint64_t relu = RELU(proxy, x);
+    uint64_t reconstructed_relu = REC(proxy, relu);
+
+    // checking the result
+    double computed_relu = -1;
+    double originalX = convert2double(REC(proxy, x));
+    if (originalX > 0){
+        computed_relu = originalX;
+    }
+    else{
+        //cout << "X = " << to_string(computed_relu) << " --> RELU = 0." << endl;
+        computed_relu = 0;
+    }
+
+    double pp_result = convert2double(reconstructed_relu, 0);
+    if(computed_relu == pp_result){
+        cout<<"RELU works correctly"<<endl;
+    }
+    else{
+        cout<<"RELU works incorrectly" <<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;
+    }
+
+}
+
+void DRLU_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling DRLU";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    uint64_t x = proxy->createShare(convert2double(proxy->generateRandom()));
+
+    proxy->SendBytes(CNN_DRLU);
+    uint64_t drelu = DRELU(proxy, x);
+    uint64_t reconstructed_drelu = REC(proxy, drelu);
+
+    // checking the result
+    double computed_drelu = -1;
+    double originalX = convert2double(REC(proxy, x));
+    if (originalX > 0){
+        computed_drelu = originalX;
+    }
+    else{
+        cout << "X = " << to_string(computed_drelu) << " --> RELU = 0." << endl;
+    }
+
+    double pp_result = convert2double(reconstructed_drelu, 0);
+    if(computed_drelu == pp_result){
+        cout<<"DRLU works correctly"<<endl;
+    }
+    else{
+        cout<<"DRLU works incorrectly" <<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_drelu << endl;
+    }
+
 }
 
 int main(int argc, char* argv[]) {
@@ -367,17 +431,11 @@ int main(int argc, char* argv[]) {
     MUX_Test(proxy);
     MMUX_Test(proxy);
 
-    // generate random matrix for MAX tests:
-    double * random_matrix = random_window_matrix(proxy, 2);
-    uint32_t mColSize = random_matrix[-4];
-    uint32_t mRowSize = random_matrix[-3];
-    uint32_t wColSize = random_matrix[-2];
-    uint32_t wRowSize = random_matrix[-1];
-    //cout << "dimensions are: " << mColSize << " x " << mRowSize << " with windows " << wColSize << " x " << wColSize << " " << endl;
+    MAX_Test(proxy);
+    //MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-    MAX_Test(proxy, random_matrix, mColSize, mRowSize);
-    //MMAX_Test(proxy, random_matrix, mColSize, mRowSize, wColSize, wColSize); //TODO adapt to asymmetric window size
-
+    RELU_Test(proxy);
+    DRLU_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

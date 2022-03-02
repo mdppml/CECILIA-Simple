@@ -7,9 +7,7 @@
 
 
 #include "core.h"
-
-// please write your functions here. (RELU, MAXPOOL, vs...)
-
+#include "../utils/flib.h"
 
 /**
  * Prints the given matrix in a way to show the values in a column and row based format while also different windows of
@@ -83,11 +81,16 @@ void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, 
  * @return vector d where each element is the result of the according elements a-b.
  */
 uint64_t* SUB(uint64_t *a, uint64_t *b, uint32_t length){
-    uint64_t *subtractedValues = new uint64_t [length];
+    std::unique_ptr<uint64_t[]> subtractedValues(new uint64_t (length));
+    if( subtractedValues.get() == nullptr ) {
+        cout << "Insufficient memory" << endl;
+        return nullptr;
+    }
     for(uint32_t i = 0; i<length; i++){
         subtractedValues[i] = *(a+i) - *(b+i);
+        //cout << "(a-b = c) " << to_string(a[i]) << to_string(b[i]) << " = " << to_string(subtractedValues[i]) << endl;
     }
-    return subtractedValues;
+    return subtractedValues.get();
 }
 
 
@@ -113,7 +116,7 @@ uint64_t* SUB(uint64_t *a, uint64_t *b, uint32_t length){
  * @param resortedMatrix pointer to the resulting resorted Matrix, which will have length of m_cols * m_rows
  * @return the resorted matrix
  */
-uint64_t * RST(uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
+void RST(const uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
     uint32_t winSize = w_cols * w_rows;
     uint32_t numberOfWins = (m_cols * m_rows) / winSize;
     uint32_t winsPerRow = m_cols / w_cols;
@@ -121,7 +124,7 @@ uint64_t * RST(uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_co
 
     while(w_count < numberOfWins){
         //cout << w_count << " out of " << numberOfWins << " windows."<< endl;
-        uint32_t  windowStart = w_rows * m_cols * floor(w_count / winsPerRow);
+        auto  windowStart = static_cast<uint32_t>(w_rows * m_cols * floor(w_count / winsPerRow));
         uint32_t winsRow = (w_count % winsPerRow) * w_cols;
         for(uint32_t  j = 0; j<w_cols; j++){
             for(uint32_t i = 0; i<w_rows; i++){
@@ -134,7 +137,6 @@ uint64_t * RST(uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_co
         }
         w_count++;
     }
-    return resortedMatrix;
 }
 
 /**
@@ -144,16 +146,17 @@ uint64_t * RST(uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_co
  * @return The maximum element which was found in mShare.
  */
 uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
-    /**Compares values by splitting the matrix in two halves and comparing each value to its counterpart at the same position in the other half.
-    If size of the given matrix is odd, there will be a residue, which is stored in residue. */
+    /** MAIN IDEA:
+     * Compare values by splitting the matrix in two halves and
+     * comparing each value to its counterpart at the same position in the other half.
+     * If size of the given matrix is odd, there will be a residue, which is stored in residue.
+     */
 
-    uint32_t cmpVectorSize =
-            matrix_size / 2; //size of resulting vector after cmp, MUX and its divided by 2 is size of each half.
+    uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX and its divided by 2 is size of each half.
     bool isResidueStored = false;
-
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t *maxElements = mShare;
-        uint64_t *firstHalf = new uint64_t[matrix_size / 2];
+        auto *firstHalf = new uint64_t[matrix_size / 2];
         uint64_t *secondHalf;
         uint64_t residue; //there is at most one residual element.
 
@@ -203,10 +206,10 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             //if cmpVectorSize is odd, store the last element as residue
             if (halfSize > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
-                MSB(proxy, 0, halfSize);
+                MSB(proxy, nullptr, halfSize);
 
                 //MUX:
-                MUX(proxy, 0, 0, 0, halfSize);
+                MUX(proxy, nullptr, nullptr, nullptr, halfSize);
             }
             //prepare next round:
             cmpVectorSize = halfSize;
@@ -219,12 +222,19 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
 /**
  * Maxpooling of a matrix of size matrix_size and non overlapping windows of size window_size. Address of the first
  * address in the matrix is mShare. as the matrix is processed as secret shares.
- * @param mShare - share of the matrix
- * @param matrix_size - number of elements in the matrix mShare
+ * @param mShare - share of the matrix where values of a window are to be expected subsequently and then values of the
+ * next value will follow (so not rows are concatenated containing values of all windows over all columns but windows
+ * are concatenated).
+ * @param m_rows - number of rows in the matrix mShare.
+ * @param m_cols - number of columns in the matrix mShare.
  * @param window_size - size of the window in both dimensions (symmetric windows possible only)
  * @return the maximum element per window, therefore floor(matrix_size / (window_size*window_size)) elements in a vector
  */
-uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t window_size){
+uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, uint32_t window_size){
+    uint32_t matrix_size = m_rows * m_cols;
+    std::unique_ptr<uint64_t[]> resorted(new uint64_t (matrix_size));
+    RST(mShare, m_cols, m_rows, window_size, window_size, resorted.get());
+
     //compare within one window for each window:
     uint32_t window_length = window_size * window_size;
     uint32_t cmpWindowVectorSize = window_length; //size of resulting vector after cmp, MUX and its divided by 2 is size of each half.
@@ -234,12 +244,12 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t win
     uint64_t mProcessing_start = 0;                     // variables needed if matrix_size increases MAX_MATRIX_SIZE
     uint32_t mProcessing_length = matrix_size;          // first compute maxpool for max number of elements possible:
 
-    /*if(matrix_size > MAX_MATRIX_SIZE){
+    if(matrix_size > MAX_MATRIX_SIZE){
         mProcessing_length = MAX_MATRIX_SIZE - (MAX_MATRIX_SIZE % window_length); // ensure that full windows are processed
-        cout << "matrix contains to many elements. " << mProcessing_length << " will be prcessed which are " << to_string(mProcessing_length/window_length) << " windows of length " << window_length << endl;
-    }*/
+        cout << "matrix contains to many elements. " << mProcessing_length << " will be processed which are " << to_string(mProcessing_length/window_length) << " windows of length " << window_length << endl;
+    }
     uint32_t numberOfWins;
-    uint64_t *maxElements = new uint64_t[matrix_size/window_length];
+    auto maxElements = new uint64_t[matrix_size / window_length];
 
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint32_t storedBufferVals = 0; // number of elements stored in the buffer --> needed to check if there is still capacity
@@ -247,14 +257,19 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t win
 
         do {
             numberOfWins = static_cast<uint32_t >(floor(mProcessing_length / window_length));
-            cout << "number of windows: " << numberOfWins << endl;
+            cout << "processing Length = " << to_string(mProcessing_length) << ", numberOfWins= " << to_string(numberOfWins) << endl;
             /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
             If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
-            uint64_t *firstHalf = new uint64_t[numberOfWins * window_size];
-            uint64_t *secondHalf = new uint64_t[numberOfWins * window_size];
-            uint64_t *residue = new uint64_t[numberOfWins]; //if there are residues, for each window there is one element --> size is number of windows.
+            //uint64_t *firstHalf = new uint64_t[numberOfWins * window_size];
+            //uint64_t *secondHalf = new uint64_t[numberOfWins * window_size];
+            //uint64_t *residue = new uint64_t[numberOfWins]; //if there are residues, for each window there is one element --> size is number of windows.
+            uint64_t comparisons = (numberOfWins * window_length) / 2;
+            std::unique_ptr<uint64_t[]> firstHalf(new uint64_t (comparisons));
+            std::unique_ptr<uint64_t[]> secondHalf(new uint64_t (comparisons));
+            std::unique_ptr<uint64_t[]> residue(new uint64_t (comparisons));
             while (cmpWindowVectorSize > 1) {
                 uint32_t halfSize = static_cast<uint8_t>(floor(cmpWindowVectorSize / 2));
+
                 cout << "vector size to be compared per win: " << cmpWindowVectorSize << "; halfsize= " << halfSize << endl;
                 for (uint32_t i = 0; i < numberOfWins; i++) {
                     uint64_t *currWindowStart = mShare + mProcessing_start + i * cmpWindowVectorSize;
@@ -268,31 +283,35 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t win
                             halfSize++;                                   //one half of window increases size by 1 because of residue
                             uint32_t posInHalfes = (i + 1) * halfSize - 1;
 
-                            *(firstHalf + posInHalfes) = residue[i];
-                            *(secondHalf + posInHalfes) = *(currWindowStart + cmpWindowVectorSize -
+                            firstHalf[posInHalfes] = residue[i];
+                            secondHalf[posInHalfes] = *(currWindowStart + cmpWindowVectorSize -
                                                             1); //last element of current window vector
                         } else {                           //no residue stored up to now:
                             cout << "store " << i << "th value in buffer" << endl;
                             isResidueInBuffer = true;                   //dont set isResidueStored directly, as then residues in one loop iteration would be treated differently
-                            *(residue + i) = *(currWindowStart + cmpWindowVectorSize - 1);
+                            residue[i] = *(currWindowStart + cmpWindowVectorSize - 1);
                         }
                     }
                     uint32_t vHalfIndex = i * halfSize;
+                    cout << "store in first and second half: vHalfIndex=" << to_string(vHalfIndex) << endl;
                     for (uint32_t j = 0; j < halfSize; j++) {
-                        *(firstHalf + vHalfIndex + j) = *(currWindowStart + j);
-                        *(secondHalf + vHalfIndex + j) = *(currWindowMiddle + j);
+                        cout << to_string(j) << "currWinStart = " << currWindowStart + j << "of " <<  " was store? ";
+                        firstHalf[vHalfIndex + j] = *(currWindowStart + j);
+                        cout << to_string(firstHalf[vHalfIndex + j]) << endl << "currWinMiddle = " << to_string(*(currWindowMiddle+ j)) << " was store? ";
+                        secondHalf[vHalfIndex + j] = *(currWindowMiddle + j);
+                        cout << to_string(secondHalf[vHalfIndex + j]) << endl;
                     }
                 }
                 uint32_t vectorLength = halfSize * numberOfWins;
                 if (vectorLength > 0) {          // maximums are not yet found
                     //compare: a-b =c and then MSB(c) =d
                     cout << "start SUB... vectorLength= " << vectorLength << endl;
-                    uint64_t *c = SUB(firstHalf, secondHalf, vectorLength);
+                    uint64_t *c = SUB(firstHalf.get(), secondHalf.get(), vectorLength);
                     cout << "finished SUB: " << c << "; start MSB..." << endl;
                     uint64_t *d = MSB(proxy, c, vectorLength);
                     cout << "finished MSB: " << d << "; start MUX..." << endl;
                     //MUX:
-                    maxElements = MUX(proxy, firstHalf, secondHalf, d, vectorLength);
+                    maxElements = MUX(proxy, firstHalf.get(), secondHalf.get(), d, vectorLength);
                     cout << "MUX = " << maxElements << endl;
                 }
                 //prepare next round:
@@ -350,10 +369,10 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t win
                     //compare: a-b =c and then MSB(c) =d
                     //SUB(0, 0, vectorLength);
                     cout <<"vectorLength = " << vectorLength << endl;
-                    MSB(proxy, 0, vectorLength);
+                    MSB(proxy, nullptr, vectorLength);
                     //cout << "finished MSB; start MUX..." << endl;
                     //MUX:
-                    MUX(proxy, 0, 0, 0, vectorLength);
+                    MUX(proxy, nullptr, nullptr, nullptr, vectorLength);
                     //cout << "finished MUX." << endl;
                 }
                 //prepare next round:
@@ -367,9 +386,231 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size, uint32_t win
                 mProcessing_length = MAX_MATRIX_SIZE;
             }
         } while (mProcessing_start + mProcessing_length <= matrix_size);
-        return NULL;
+        return nullptr;
     }
 }
+
+
+
+/**
+ * Method for private computation of the RELU function.
+ * @param proxy
+ * @param x - variable x for which to compute RELU(x)
+ * @return
+ */
+uint64_t RELU(Party* proxy, uint64_t x){
+    cout << "RELU was called... " << endl;
+    role p_role = proxy->getPRole();
+    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+        auto *commonValues = new uint64_t [3];
+        for (uint8_t i=0; i<3; i++){
+            commonValues[i] = proxy->generateCommonRandom();
+        }
+        uint8_t * buffer = proxy->getBuffer1();
+        int socket_helper = proxy->getSocketHelper();
+
+        // create even random shares
+        uint64_t e_0 = proxy->generateRandom() & EVEN_MASK; //ensure e_0 is even
+        uint64_t e_1 = proxy->generateRandom() & EVEN_MASK; //ensure e_1 is even
+        uint64_t e[] = {e_0, e_1};
+
+        // init
+        bool f, g, h;
+        f = proxy->generateCommonRandom() & 0x1;
+        g = proxy->generateCommonRandom() & 0x1;
+        h = proxy->generateCommonRandom() & 0x1;
+        //cout << "bools: " << f << " " << g << " " << h << " " << endl;
+
+        // make the shares more random by adding i to e_i for S_i:
+        e[f] += p_role;
+        uint64_t d = MOC(proxy, x); //TODO should this not be MC mod K instead of L?
+        uint64_t z = x - d;
+
+        // compute parts of a, b and c:
+        auto *values = new uint64_t [6];
+        values[0] = p_role * f * L - z;                  // a_0
+        values[1] = p_role * (1 - f) * L - z;            // a_1
+        values[2] = (x + e[g]) * commonValues[0];        // b_0
+        values[3] = (x + e[1 - g]) * commonValues[1];    // b_1
+        values[4] = (x + e[h]) * commonValues[2];        // c_0
+        values[5] = (x + e[1 - h]) * commonValues[3];    // c_1
+
+        // proxy sends a,b and c to HELPER:
+        unsigned char *ptr_out = &buffer[0];
+        addVal2CharArray(values, &ptr_out, 6);
+        Send(socket_helper, buffer, 6 * 8);
+
+        // receive fresh share from helper
+        Receive(socket_helper, buffer, 8 * 8); // order is ab[0], ab[1], ab[2], ab[3], ac[0], ac[1], ac[2], ac[3]
+
+        uint64_t r2_inverse = getModularInverse(commonValues[2]);
+        // ac[2f]
+        uint64_t em = buffer[2*f+4] * r2_inverse;
+
+        uint64_t r0_inverse = getModularInverse(commonValues[0]);
+        // ab[2f]
+        uint64_t xm = buffer[2*f] * r0_inverse - em;
+        z = x - xm;
+        return z;
+    }
+    else if (p_role == HELPER) {
+        cout << "helper entered RELU" << endl;
+        int socket_p1 = proxy->getSocketP1();
+        int socket_p2 = proxy->getSocketP2();
+
+        uint8_t * buffer = proxy->getBuffer1();
+        uint8_t * buffer2 = proxy->getBuffer2();
+
+        MOC(proxy, NULL);
+
+        Receive(socket_p1, buffer, 6 * 8);
+        Receive(socket_p2, buffer2, 6 * 8);
+        unsigned char *ptr = &buffer[0];
+        unsigned char *ptr2 = &buffer2[0];
+
+        auto *reconstructedVals = new uint64_t [6];
+        for (uint i = 0; i < 6; i++) {
+            reconstructedVals[i] = (*(ptr + i) + *(ptr2 + i));
+            // 6 values expected per party --> first two (a values) are reconstructed and divided by K
+            if (i < 2){
+                reconstructedVals[i] /= (L/2); // K = LMOD/2
+            }
+        }
+        // reconstruct values a, b and c obtained from proxy 1 and 2
+        auto *ab = new uint64_t [4];
+        auto *ac = new uint64_t [4];
+        ab[0] = reconstructedVals[0] * reconstructedVals[2]; // a_0 * b_0
+        ab[1] = reconstructedVals[0] * reconstructedVals[3]; // a_0 * b_1
+        ab[2] = reconstructedVals[1] * reconstructedVals[2]; // a_1 * b_0
+        ab[3] = reconstructedVals[1] * reconstructedVals[3]; // a_1 * b_1
+
+        ac[0] = reconstructedVals[0] * reconstructedVals[4]; // a_0 * c_0
+        ac[1] = reconstructedVals[0] * reconstructedVals[5]; // a_0 * c_1
+        ac[2] = reconstructedVals[1] * reconstructedVals[4]; // a_1 * c_0
+        ac[3] = reconstructedVals[1] * reconstructedVals[5]; // a_1 * c_1
+        //cout << "ab and ac are calculated" << endl;
+
+        // create fresh shares
+        auto *share1 = new uint64_t [8];
+        auto *share2 = new uint64_t [8];
+        for (uint i = 0; i < 4; i++) {
+            uint64_t tmp = proxy->generateRandom();
+            share1[i] = tmp;
+            share2[i] = ab[i] - tmp;
+
+            tmp = proxy->generateRandom();
+            share1[i+4] = tmp;
+            share2[i+4] = ac[i] - tmp;
+        }
+
+        // send shares to proxy 1 and 2
+        unsigned char *ptr_back = &buffer[0];
+        unsigned char *ptr_back2 = &buffer2[0];
+        addVal2CharArray(share1, &ptr_back, 8);
+        addVal2CharArray(share2, &ptr_back2, 8);
+        cout << "added values to array: socket= " << socket_p1 << ", buffer= " << &buffer << endl;
+        thread thr1 = thread(Send, socket_p1, buffer, 8 * 8);
+        thread thr2 = thread(Send, socket_p2, buffer2, 8 * 8);
+        cout << "send to proxies DONE" << endl;
+
+        thr1.join();
+        thr2.join();
+        return 0;
+    }
+    else{
+        cout << "No proxy role recognized." << endl;
+        return -1;
+    }
+}
+
+
+/**
+ * Method for private computation of the derivative of the RELU function.
+ * @param proxy
+ * @param x - variable x for which to compute RELU'(x), the derivative of the RELU function.
+ * @return
+ */
+uint64_t DRELU(Party* proxy, uint64_t x){
+    cout << "entered DRELU" << endl;
+    uint64_t K = (L / 2);
+    uint8_t exchangingBit = 2;
+    role p_role = proxy->getPRole();
+    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+        uint8_t * buffer = proxy->getBuffer1();
+        int socket_helper = proxy->getSocketHelper();
+
+        // init
+        bool commonRandom;
+        commonRandom = proxy->generateCommonRandom() & 0x1;
+
+        uint64_t d = MOC(proxy, x); //TODO MC with mod K or with mod L (latter one is what its currently)
+        uint64_t z = x - d;
+
+        // compute parts of a, b and c:
+        auto *values = new uint64_t [6];
+        values[0] = p_role * commonRandom * K - z;       // a_0
+        values[1] = p_role * (1 - commonRandom) * K - z; // a_1
+
+        // proxy sends a,b and c to HELPER:
+        unsigned char *ptr_out = &buffer[0];
+        addVal2CharArray(values, &ptr_out, exchangingBit);
+        Send(socket_helper, buffer, exchangingBit * 8);
+
+        // receive fresh share from helper
+        Receive(socket_helper, buffer, exchangingBit * 8); // order is share of a[0], a[1]
+
+        z = p_role - buffer[commonRandom];
+        return z;
+    }
+    else if (p_role == HELPER) {
+        cout << "helper entered RELU" << endl;
+        int socket_p1 = proxy->getSocketP1();
+        int socket_p2 = proxy->getSocketP2();
+
+        uint8_t * buffer = proxy->getBuffer1();
+        uint8_t * buffer2 = proxy->getBuffer2();
+
+        MOC(proxy, NULL);
+
+        Receive(socket_p1, buffer, exchangingBit * 8);
+        Receive(socket_p2, buffer2, exchangingBit * 8);
+        unsigned char *ptr = &buffer[0];
+        unsigned char *ptr2 = &buffer2[0];
+
+        auto *reconstructedVals = new uint64_t [exchangingBit];
+        for (uint i = 0; i < exchangingBit; i++) {
+            reconstructedVals[i] = (*(ptr + i) + *(ptr2 + i)) / K;
+        }
+
+        // create fresh shares
+        auto *share1 = new uint64_t [exchangingBit];
+        auto *share2 = new uint64_t [exchangingBit];
+        for (uint i = 0; i < exchangingBit; i++) {
+            uint64_t tmp = proxy->generateRandom();
+            share1[i] = tmp;
+            share2[i] = reconstructedVals[i] - tmp;
+        }
+
+        // send shares to proxy 1 and 2
+        unsigned char *ptr_back = &buffer[0];
+        unsigned char *ptr_back2 = &buffer2[0];
+        addVal2CharArray(share1, &ptr_back, exchangingBit);
+        addVal2CharArray(share2, &ptr_back2, exchangingBit);
+        cout << "added values to array: socket= " << socket_p1 << ", buffer= " << &buffer << endl;
+        thread thr1 = thread(Send, socket_p1, buffer, exchangingBit * 8);
+        thread thr2 = thread(Send, socket_p2, buffer2, exchangingBit * 8);
+        cout << "send to proxies DONE" << endl;
+
+        thr1.join();
+        thr2.join();
+        return 0;
+    }
+    else{
+        cout << "No proxy role recognized." << endl;
+        return -1;
+    }
+}
+
 
 #endif //PPAUC_CNN_H
 

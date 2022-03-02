@@ -33,8 +33,6 @@ uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=N) {
     return (a + b) & mask;
 }
 
-
-
 uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=N) {
 
     uint64_t *b = new uint64_t[sz];
@@ -404,7 +402,7 @@ uint64_t MOC(Party* proxy, uint64_t x) {
         return z_1;
     }
     else if ( proxy->getPRole() == HELPER) {
-        cout << "start helper MOC" << endl;
+        //cout << "start helper MOC" << endl;
         unsigned char *ptr_out = proxy->getBuffer1();
         unsigned char *ptr_out2 = proxy->getBuffer2();
         // helper picks a random number in the ring 2^63
@@ -412,12 +410,11 @@ uint64_t MOC(Party* proxy, uint64_t x) {
         // helper creates two shares for y in the ring 2^63: ya_1 and ya_2
         uint64_t ya_1 = proxy->generateRandom() & N1_MASK;
         uint64_t ya_2 = (y - ya_1) & N1_MASK;
-        cout << "generated randoms" << endl;
+
         // adding ya_1 and ya_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.
         addVal2CharArray(ya_1, &ptr_out);
         addVal2CharArray(ya_2, &ptr_out2);
 
-        cout << "added value to char array" << endl;
         // helper creates two boolean shares for each bit of y : yb_1 and yb_2
         // writing yb_1 and yb_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.
         for (int j = 0; j < L - 1; j++) {
@@ -434,7 +431,6 @@ uint64_t MOC(Party* proxy, uint64_t x) {
             w = 1;
 
         // creating two boolean shares of w : w_1 and w_2
-        cout << "create bool shares" << endl;
         uint8_t w_1 = proxy->generateRandom() % 2;
         uint8_t w_2 = w ^w_1;
         // writing w_1 and w_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.

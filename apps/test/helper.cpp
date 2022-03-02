@@ -22,7 +22,6 @@ int main(int argc, char* argv[]) {
         else if (op == CORE_MMC){
             int sz = helper->ReadInt();
             MOC(helper,0,sz);
-
         }
         else if (op == CORE_CMP){
             CMP(helper,0,0);
@@ -44,15 +43,22 @@ int main(int argc, char* argv[]) {
             MUL(helper,0, 0, sz);
         }
         else if (op == CNN_MAX){
+            cout << "MAX was called..." << endl;
             int matrix_size = helper->ReadInt();
             MAX(helper,NULL, matrix_size);
         }
         else if (op == CNN_MMAX){
             int mmaxParams = helper->ReadInt();
-            uint32_t matrix_size = (mmaxParams >> 16);
+            uint16_t mRows = (mmaxParams >> 48);
+            uint16_t mCols = (mmaxParams >> 32);
             uint16_t window_size = (mmaxParams & 0b0000000011111111);
-            cout << "It is: mSize = " << matrix_size << " and wCols = " << window_size << endl;
-            MAX(helper,NULL, matrix_size, window_size);
+            MAX(helper, nullptr, mRows, mCols, window_size);
+        }
+        else if (op == CNN_RELU){
+            RELU(helper, 0);
+        }
+        else if (op == CNN_DRLU){
+            DRELU(helper, 0);
         }
         else if (op == CORE_END)
             break;

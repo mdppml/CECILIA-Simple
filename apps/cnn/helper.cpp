@@ -15,9 +15,10 @@ int main(int argc, char* argv[]) {
         }
         else if (op == CNN_MMAX){
             int mmaxParams = helper->ReadInt();
-            uint16_t matrix_size = (mmaxParams >> 16);
+            uint16_t mRows = (mmaxParams >> 48);
+            uint16_t mCols = (mmaxParams >> 32);
             uint16_t window_size = (mmaxParams & 0b0000000011111111);
-            MAX(helper, nullptr, matrix_size, window_size);
+            MAX(helper, nullptr, mRows, mCols, window_size);
         }
         else if (op == CNN_RST){
             int sz = helper->ReadInt();

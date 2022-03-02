@@ -118,5 +118,22 @@ uint64_t* convert2uint64(double* x, uint32_t size, int precision=FRAC) {
     return res;
 }
 
+/**
+ * Get the MoDular Inverse (MDI) of a given number a with specified modulo. For the resulting/returned value b must hold
+ *      ab mod(modulo) are congruent to 1.
+ * @param a the value for which the modular inverse shall be calculated.
+ * The modulo under which a and the inverse are multiplied equal to 1 will always be the ring size.
+ * @return the modular inverse of a under the ring size of 16.
+ */
+uint64_t getModularInverse(uint64_t a){
+    // start with 1 because 0 does not have an inverse value.
+    for (uint64_t x = 1; x < N; x++){
+        // use bitwise and instead of %: faster, and because N = 0xf...
+        if (((a & N) * (x & N)) & N == 1) {
+            return x;
+        }
+    }
+    return 0;
+}
 
 #endif //PML_FLIB_H
