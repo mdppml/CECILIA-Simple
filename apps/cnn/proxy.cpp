@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <assert.h>
 #include "../../core/cnn.h"
+#include <sstream>
 using namespace std;
 
 

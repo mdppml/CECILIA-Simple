@@ -382,23 +382,20 @@ void DRLU_Test(Party *proxy){
     uint64_t reconstructed_drelu = REC(proxy, drelu);
 
     // checking the result
-    double computed_drelu = -1;
-    double originalX = convert2double(REC(proxy, x));
-    if (originalX > 0){
-        computed_drelu = 1;
-    }
-    else{
-        //cout << "X = " << to_string(computed_drelu) << " --> RELU = 0." << endl;
-        computed_drelu = 0;
-    }
 
-    double pp_result = convert2double(reconstructed_drelu, 0);
-    if(computed_drelu == pp_result){
+    double originalX = convert2double(REC(proxy, x));
+    uint64_t computed_drelu = 0;
+    if (originalX > 0)
+        computed_drelu = 1;
+
+
+    //double pp_result = convert2double(reconstructed_drelu, 0); dont need to convert to double relu is integer value delete this line
+    if(computed_drelu == reconstructed_drelu){
         cout<<"DRLU works correctly"<<endl;
     }
     else{
         cout<<"DRLU works incorrectly" <<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_drelu << endl;
+        cout<< "computed: " << reconstructed_drelu << " should be: " << computed_drelu << endl;
     }
 
 }

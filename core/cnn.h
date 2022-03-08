@@ -539,88 +539,70 @@ uint64_t RELU(Party* proxy, uint64_t x){
  * @return
  */
 uint64_t DRELU(Party* proxy, uint64_t x){
-    cout << "entered DRELU" << endl;
-    uint64_t K = (N>>1); // use the ring size N
-    cout << "K = " << K << " L = " << L << endl;
+    uint64_t K = (N>>1); // N is the ring size - 1 = 2^64 -1
+    // K is 2^63 - 1
     uint8_t exchangingBit = 2;
-    role p_role = proxy->getPRole();
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint8_t * buffer = proxy->getBuffer1();
-        int socket_helper = proxy->getSocketHelper();
+        //int socket_helper = proxy->getSocketHelper(); // you dont need to assign proxy->getSocketHelper() to a variable.  proxy->getSocketHelper() is a getter for the socket of the helper. delete this line
 
         // init
-        uint64_t commonRandom;
-        commonRandom = proxy->generateCommonRandom() & 0x1;
+        uint64_t f = proxy->generateCommonRandom() & 0x1;
 
-        cout << "rec x = " << REC(proxy, x) << endl;
-
-
-        uint64_t t = x & K;
-        uint64_t d = MOC(proxy, t); //TODO MC with mod K or with mod L (latter one is what its currently)
+        uint64_t t = x & K; // get first L-1 bit of the share
+        K += 1; // increase K by 1 K is 2^63
+        uint64_t d = MOC(proxy, t);
         uint64_t z = x - d;
-        cout << "z = " << REC(proxy, z) << endl;
+
 
         // compute parts of a:
         uint64_t values[exchangingBit];
-        values[0] = p_role * commonRandom * K - z;       // a_0
-        values[1] = p_role * (1 - commonRandom) * K - z; // a_1
+        values[0] = proxy->getPRole() * f * K - z;       // a_0
+        values[1] = proxy->getPRole() * (1 - f) * K - z; // a_1
 
-        cout << "a_0: " << REC(proxy, values[0]) << " a_1: " << REC(proxy, values[1]) << endl;
         // proxy sends a,b and c to HELPER:
-        unsigned char *ptr_out = &buffer[0];
-        addVal2CharArray(values, &ptr_out, exchangingBit);
-        Send(socket_helper, buffer, exchangingBit * 8);
+        unsigned char *ptr = proxy->getBuffer1();
+        addVal2CharArray(values, &ptr, exchangingBit);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8);
 
         // receive fresh share from helper
-        Receive(socket_helper, buffer, exchangingBit * 8); // order is share of a[0], a[1]
-        cout << "a0: " << REC(proxy, buffer[0]) << " a1: " << REC(proxy, buffer[1]) << endl;
-        z = p_role - buffer[commonRandom];
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8); // order is share of a[0], a[1]
+        ptr = proxy->getBuffer1();
+        z = proxy->getPRole() -  convert2Long(&ptr);
+        if (f)  // if f is 1  we get the next long value in the buffer.
+            z = proxy->getPRole() -  convert2Long(&ptr);
+
+        //z = p_role - buffer[commonRandom]; we can not do this. buffer[0] is a single byte, we need 8 bytes for the output. delete this line the correct one is above
+
         return z;
     }
-    else if (p_role == HELPER) {
+    else if (proxy->getPRole() == HELPER) {
         K += 1;
-        cout << "helper entered DRELU K =" << K << endl;
-        int socket_p1 = proxy->getSocketP1();
-        int socket_p2 = proxy->getSocketP2();
-
-        uint8_t * buffer = proxy->getBuffer1();
-        uint8_t * buffer2 = proxy->getBuffer2();
-
         MOC(proxy, NULL);
 
-        Receive(socket_p1, buffer, exchangingBit * 8);
-        Receive(socket_p2, buffer2, exchangingBit * 8);
-        unsigned char *ptr = &buffer[0];
-        unsigned char *ptr2 = &buffer2[0];
+        Receive(proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
+        Receive(proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
+        unsigned char *ptr1 = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
 
-        auto *reconstructedVals = new uint64_t [exchangingBit];
-        for (uint i = 0; i < exchangingBit; i++) {
-            reconstructedVals[i] = (*(ptr + i) + *(ptr2 + i)) / K;
-        }
+        uint64_t reconstructedVals[exchangingBit];
+        reconstructedVals[0] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
+        reconstructedVals[1] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
 
+        ptr1 = proxy->getBuffer1();
+        ptr2 = proxy->getBuffer2();
 
-        // create fresh shares
-        auto *share1 = new uint64_t [exchangingBit];
-        auto *share2 = new uint64_t [exchangingBit];
-        for (uint i = 0; i < exchangingBit; i++) {
-            uint64_t tmp = proxy->generateRandom();
-            share1[i] = tmp;
-            share2[i] = reconstructedVals[i] - tmp;
-            cout << "rec" << i << " " << reconstructedVals[i] << endl;
-        }
+        uint64_t tmp = proxy->generateRandom();
+        addVal2CharArray(tmp,&ptr1);
+        addVal2CharArray(reconstructedVals[0]-tmp,&ptr2);
+        tmp = proxy->generateRandom();
+        addVal2CharArray(tmp,&ptr1);
+        addVal2CharArray(reconstructedVals[1]-tmp,&ptr2);
 
-        // send shares to proxy 1 and 2
-        unsigned char *ptr_back = &buffer[0];
-        unsigned char *ptr_back2 = &buffer2[0];
-        addVal2CharArray(share1, &ptr_back, exchangingBit);
-        addVal2CharArray(share2, &ptr_back2, exchangingBit);
-        cout << "added values to array: socket= " << socket_p1 << ", buffer= " << &buffer << endl;
-        thread thr1 = thread(Send, socket_p1, buffer, exchangingBit * 8);
-        thread thr2 = thread(Send, socket_p2, buffer2, exchangingBit * 8);
-        cout << "send to proxies DONE" << endl;
-
+        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
+        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
         thr1.join();
         thr2.join();
+
         return 0;
     }
     else{
