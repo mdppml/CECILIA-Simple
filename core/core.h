@@ -646,8 +646,9 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
 
         unsigned char *ptr_out = proxy->getBuffer1();
         unsigned char *ptr_out2 = proxy->getBuffer2();
+        cout << "created buffer (MSB)" << endl;
         uint64_t* d = MOC(proxy,0,sz);
-
+        cout << "finished MOC (called by MSB)" << endl;
 
         thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz * 8 * 2);
         thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8 * 2);

@@ -45,14 +45,29 @@ int main(int argc, char* argv[]) {
         else if (op == CNN_MAX){
             cout << "MAX was called..." << endl;
             int matrix_size = helper->ReadInt();
-            MAX(helper,NULL, matrix_size);
+            MAX(helper,nullptr, matrix_size);
+            cout << "MAX finished." << endl;
         }
         else if (op == CNN_MMAX){
-            int mmaxParams = helper->ReadInt();
-            uint16_t mRows = (mmaxParams >> 48);
-            uint16_t mCols = (mmaxParams >> 32);
-            uint16_t window_size = (mmaxParams & 0b0000000011111111);
-            MAX(helper, nullptr, mRows, mCols, window_size);
+            cout << "MMAX was called..." << endl;
+            uint8_t *buffer = helper->getBuffer1();
+            uint8_t *buffer2 = helper->getBuffer2();
+
+            thread thr1 = thread(Receive,helper->getSocketP1(), buffer, 8 * 4);
+            thread thr2 = thread(Receive,helper->getSocketP2(), buffer2, 8 * 4);
+            thr1.join();
+            thr2.join();
+
+            uint64_t mRows = buffer[0];
+            uint64_t mCols = buffer[1];
+            uint64_t window_size = buffer[2];
+            if (mRows == buffer2[0] and mCols == buffer2[1] and window_size == buffer2[2] and buffer[3] == buffer2[3]){
+                cout << "mRows = " << mRows << ", mCols = " << mCols << ", wSize = " << window_size << endl;
+                MAX(helper, nullptr, mRows, mCols, window_size);
+            }
+            else{
+                cout << "ERROR: received mmax parameters were not matching each other..." << endl;
+            }
         }
         else if (op == CNN_RELU){
             RELU(helper, 0);

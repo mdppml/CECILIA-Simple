@@ -8,6 +8,7 @@
 
 #include "../../core/cnn.h"
 #include "../../utils/test_functions.h"
+#include "../../utils/flib.h"
 using namespace std;
 
 constexpr int MIN_VAL = -100;
@@ -259,31 +260,17 @@ void MAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
+    uint32_t mRows = WSZ*10;
+    uint32_t mCols = WSZ*10;
+    uint64_t mSize = mCols*mRows;
+
+    uint32_t wRows = WSZ;
+    uint32_t wCols = WSZ;
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, sz, 32), sz);
+    auto *resorted = new uint64_t [sz];
+    RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
 
-    proxy->SendBytes(CNN_MAX, sz);
 
-    uint64_t max = MAX(proxy, shareOfMatrix, sz);
-    uint64_t reconstructed_max_value = REC(proxy, max);
-    //cout << "RECONSTRUCTED MAX = " << reconstructed_max_value << endl;
-
-    // checking the result
-    double computed_max_value = MIN_VAL;
-    for(uint32_t i = 0; i<sz; i++){
-        double matrixVal = convert2double(REC(proxy, shareOfMatrix[i]));
-        if (matrixVal > computed_max_value){
-            computed_max_value = matrixVal;
-        }
-    }
-    // TODO check for precision > 0
-    double pp_result = convert2double(reconstructed_max_value, 0);
-    if(computed_max_value == pp_result){
-        cout<<"MAX works correctly"<<endl;
-    }
-    else{
-        cout<<"MAX works incorrectly" <<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_max_value << endl;
-    }
 }
 
 
@@ -291,19 +278,31 @@ void MMAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling vectorized MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint16_t mCols = WSZ*10;
-    uint16_t mRows = WSZ*10;
+    auto *mmaxParams = new uint64_t [4];
+    uint32_t mRows = WSZ*10;
+    mmaxParams[0] = mRows;
+    uint32_t mCols = WSZ*10;
+    mmaxParams[1] = mCols;
     uint64_t mSize = mCols*mRows;
-    uint16_t wCols = WSZ;
-    uint16_t wRows = WSZ;
+
+    uint32_t wRows = WSZ;
+    mmaxParams[2] = wRows;
+    uint32_t wCols = WSZ;
+    mmaxParams[3] = wCols;
 
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
 
-    uint64_t mmaxParams;
-    //contains mRows bitwise at 16 MSBs, then mCols at next 16 MSBs and window size at the 16 LSBs (16 are still reserved for different win size)
-    mmaxParams = ((uint64_t)mRows << 48) + ((uint64_t)mCols << 32) + (uint64_t) wCols;
+    uint8_t * buffer = proxy->getBuffer1();
+    int socket_helper = proxy->getSocketHelper();
 
-    proxy->SendBytes(CNN_MMAX, mmaxParams);
+    proxy->SendBytes(CNN_MMAX);
+    unsigned char *ptr_out = &buffer[0];
+    addVal2CharArray(mmaxParams, &ptr_out, 4);
+    Send(socket_helper, buffer, 4 * 8);
+
+    //contains mRows bitwise at 16 MSBs, then mCols at next 16 MSBs and window size at the 16 LSBs (16 are still reserved for different win size)
+    //mmaxParams = ((uint64_t)mRows << 48) + ((uint64_t)mCols << 32) + (uint64_t) wCols;
+    //TODO send mmaxParams in buffer!!
     uint64_t *max = MAX(proxy, shareOfMatrix, mRows, mCols, wCols);
 
     uint64_t number_of_windows = floor(mSize/(wCols*wRows));
@@ -386,10 +385,11 @@ void DRLU_Test(Party *proxy){
     double computed_drelu = -1;
     double originalX = convert2double(REC(proxy, x));
     if (originalX > 0){
-        computed_drelu = originalX;
+        computed_drelu = 1;
     }
     else{
-        cout << "X = " << to_string(computed_drelu) << " --> RELU = 0." << endl;
+        //cout << "X = " << to_string(computed_drelu) << " --> RELU = 0." << endl;
+        computed_drelu = 0;
     }
 
     double pp_result = convert2double(reconstructed_drelu, 0);
@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-    MUL_Test(proxy);
+    /**MUL_Test(proxy);
     MMUL_Test(proxy);
 
     MOC_Test(proxy);
@@ -431,10 +431,13 @@ int main(int argc, char* argv[]) {
     MUX_Test(proxy);
     MMUX_Test(proxy);
 
-    MAX_Test(proxy);
+    MAX_Test(proxy);*/
+
+    //RST_TEST(proxy);
+
     //MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-    RELU_Test(proxy);
+    //RELU_Test(proxy);
     DRLU_Test(proxy);
 
     proxy->SendBytes(CORE_END);

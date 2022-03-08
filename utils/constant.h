@@ -20,7 +20,7 @@
 #define MAX_SAMPLE 0xfffff
 #define MAX_SAMPLE_MASK 0x7ffff
 
-#define MAX_MATRIX_SIZE 500
+#define MAX_MATRIX_SIZE 20000
 #define BUFFER_SIZE 40000000
 
 
