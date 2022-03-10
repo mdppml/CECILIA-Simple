@@ -264,6 +264,39 @@ void MAX_Test(Party *proxy){
     uint32_t mCols = WSZ*10;
     uint64_t mSize = mCols*mRows;
 
+    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
+
+    proxy->SendBytes(CNN_MAX, mSize);
+    uint64_t max = MAX(proxy, shareOfMatrix, mSize);
+
+    // checking the result
+    double computed_max = -1;
+    for(uint32_t position = 0; position < mSize; position++){
+        double matrixVal = convert2double(REC(proxy, shareOfMatrix[position]));
+        if (matrixVal > computed_max){
+            computed_max = matrixVal;
+        }
+    }
+
+    double pp_result = convert2double(REC(proxy, max), 0);
+    if(computed_max == pp_result){
+        cout<<"MAX works correctly"<<endl;
+    }
+    else{
+        cout<<"MAX works incorrectly" <<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_max << endl;
+    }
+
+}
+
+void RST_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling MAX";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    uint32_t mRows = WSZ*10;
+    uint32_t mCols = WSZ*10;
+    uint64_t mSize = mCols*mRows;
+
     uint32_t wRows = WSZ;
     uint32_t wCols = WSZ;
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, sz, 32), sz);
@@ -272,7 +305,6 @@ void MAX_Test(Party *proxy){
 
 
 }
-
 
 void MMAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling vectorized MAX";
@@ -416,7 +448,7 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-    /**MUL_Test(proxy);
+    MUL_Test(proxy);
     MMUL_Test(proxy);
 
     MOC_Test(proxy);
@@ -431,14 +463,14 @@ int main(int argc, char* argv[]) {
     MUX_Test(proxy);
     MMUX_Test(proxy);
 
-    MAX_Test(proxy);*/
+    MAX_Test(proxy);
 
     //RST_TEST(proxy);
 
     //MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
     //RELU_Test(proxy);
-    DRLU_Test(proxy);
+    //DRLU_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

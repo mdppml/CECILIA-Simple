@@ -152,7 +152,6 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
      * comparing each value to its counterpart at the same position in the other half.
      * If size of the given matrix is odd, there will be a residue, which is stored in residue.
      */
-
     uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX and its divided by 2 is size of each half.
     bool isResidueStored = false;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -189,6 +188,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             cmpVectorSize = halfSize;
         }
         delete[]firstHalf;
+        cout << "max = " << convert2double(REC(proxy, maxElements[0])) << endl;
         return maxElements[0]; // should only contain one element at the end.
     }
     else if ( proxy->getPRole() == HELPER) {
@@ -556,7 +556,7 @@ uint64_t DRELU(Party* proxy, uint64_t x){
 
 
         uint64_t t = x & K;
-        uint64_t d = MOC(proxy, t); //TODO MC with mod K or with mod L (latter one is what its currently)
+        uint64_t d = MOC(proxy, t);
         uint64_t z = x - d;
         cout << "z = " << REC(proxy, z) << endl;
 
@@ -566,7 +566,7 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         values[1] = p_role * (1 - commonRandom) * K - z; // a_1
 
         cout << "a_0: " << REC(proxy, values[0]) << " a_1: " << REC(proxy, values[1]) << endl;
-        // proxy sends a,b and c to HELPER:
+        // proxy sends a to HELPER:
         unsigned char *ptr_out = &buffer[0];
         addVal2CharArray(values, &ptr_out, exchangingBit);
         Send(socket_helper, buffer, exchangingBit * 8);
