@@ -290,7 +290,7 @@ void MAX_Test(Party *proxy){
 }
 
 void RST_Test(Party *proxy){
-    cout<<setfill ('*')<<setw(50)<<"Calling MAX";
+    cout<<setfill ('*')<<setw(50)<<"Calling RST";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
     uint32_t mRows = WSZ*10;
@@ -299,11 +299,12 @@ void RST_Test(Party *proxy){
 
     uint32_t wRows = WSZ;
     uint32_t wCols = WSZ;
-    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, sz, 32), sz);
+    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize, 32), mSize);
     auto *resorted = new uint64_t [sz];
+    print1DMatrixByWindows("RST original", convert2double(REC(proxy, shareOfMatrix, mSize), mSize), mCols, mRows, wRows, wCols);
     RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
 
-
+    print1DMatrixByWindows("RST finished: resorted", convert2double(REC(proxy, resorted, mSize), mSize), mCols, mRows, wRows, wCols);
 }
 
 void MMAX_Test(Party *proxy){
@@ -414,23 +415,20 @@ void DRLU_Test(Party *proxy){
     uint64_t reconstructed_drelu = REC(proxy, drelu);
 
     // checking the result
-    double computed_drelu = -1;
-    double originalX = convert2double(REC(proxy, x));
-    if (originalX > 0){
-        computed_drelu = 1;
-    }
-    else{
-        //cout << "X = " << to_string(computed_drelu) << " --> RELU = 0." << endl;
-        computed_drelu = 0;
-    }
 
-    double pp_result = convert2double(reconstructed_drelu, 0);
-    if(computed_drelu == pp_result){
+    double originalX = convert2double(REC(proxy, x));
+    uint64_t computed_drelu = 0;
+    if (originalX > 0)
+        computed_drelu = 1;
+
+
+    //double pp_result = convert2double(reconstructed_drelu, 0); dont need to convert to double relu is integer value delete this line
+    if(computed_drelu == reconstructed_drelu){
         cout<<"DRLU works correctly"<<endl;
     }
     else{
         cout<<"DRLU works incorrectly" <<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_drelu << endl;
+        cout<< "computed: " << reconstructed_drelu << " should be: " << computed_drelu << endl;
     }
 
 }
@@ -465,12 +463,12 @@ int main(int argc, char* argv[]) {
 
     MAX_Test(proxy);
 
-    //RST_TEST(proxy);
+    //RST_Test(proxy);
 
     //MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-    //RELU_Test(proxy);
-    //DRLU_Test(proxy);
+    RELU_Test(proxy);
+    DRLU_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

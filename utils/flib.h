@@ -65,8 +65,7 @@ void addVal2CharArray(uint8_t val[],unsigned char **ptr, int sz){
 }
 void addVal2CharArray(uint64_t *val, unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
-        (**ptr)=(val[i])&0xff;
-        (*ptr)++;
+        addVal2CharArray(val[i],ptr);
     }
 }
 uint8_t bit(uint64_t val,uint8_t ind){
