@@ -409,14 +409,11 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
 uint64_t RELU(Party* proxy, uint64_t x){
     uint64_t K = (N>>1); // N is the ring size - 1 = 2^64 -1
 
-    role p_role = proxy->getPRole();
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         auto *commonValues = new uint64_t [3];
         for (uint8_t i=0; i<3; i++){
             commonValues[i] = proxy->generateCommonRandom();
         }
-        uint8_t *buffer = proxy->getBuffer1();
-        int socket_helper = proxy->getSocketHelper();
 
         // create even random shares
         uint64_t e_0 = proxy->generateRandom() & EVEN_MASK; //ensure e_0 is even
@@ -431,7 +428,7 @@ uint64_t RELU(Party* proxy, uint64_t x){
         //cout << "bools: " << f << " " << g << " " << h << " " << endl;
 
         // make the shares more random by adding i to e_i for S_i:
-        e[f] += p_role;
+        e[f] += proxy->getPRole();
 
         uint64_t t = x & K; // get first L-1 bit of the share
 
@@ -440,49 +437,46 @@ uint64_t RELU(Party* proxy, uint64_t x){
 
         // compute parts of a, b and c:
         auto *values = new uint64_t [6];
-        values[0] = p_role * f * K - z;                  // a_0
-        values[1] = p_role * (1 - f) * K - z;            // a_1
+        values[0] = proxy->getPRole() * f * K - z;                  // a_0
+        values[1] = proxy->getPRole() * (1 - f) * K - z;            // a_1
         values[2] = (x + e[g]) * commonValues[0];        // b_0
         values[3] = (x + e[1 - g]) * commonValues[1];    // b_1
         values[4] = (x + e[h]) * commonValues[2];        // c_0
         values[5] = (x + e[1 - h]) * commonValues[3];    // c_1
 
         // proxy sends a,b and c to HELPER:
-        unsigned char *ptr_out = &buffer[0];
+        unsigned char *ptr_out = proxy->getBuffer1();
         addVal2CharArray(values, &ptr_out, 6);
-        Send(socket_helper, buffer, 6 * 8);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 6 * 8);
 
         // receive fresh share from helper
-        Receive(socket_helper, buffer, 8 * 8); // order is ab[0], ab[1], ab[2], ab[3], ac[0], ac[1], ac[2], ac[3]
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8 * 8); // order is ab[0], ab[1], ab[2], ab[3], ac[0], ac[1], ac[2], ac[3]
 
         uint64_t r2_inverse = getModularInverse(commonValues[2]);
         // ac[2f]
-        uint64_t em = buffer[2*f+4] * r2_inverse;
+        uint64_t em = convert2Long(&ptr_out + 2*f+4 ) * r2_inverse;
 
         uint64_t r0_inverse = getModularInverse(commonValues[0]);
         // ab[2f]
-        uint64_t xm = buffer[2*f] * r0_inverse - em;
+        uint64_t xm = convert2Long(&ptr_out + 2*f) * r0_inverse - em;
         z = x - xm;
         return z;
     }
-    else if (p_role == HELPER) {
+    else if (proxy->getPRole() == HELPER) {
         K += 1; // increase K by 1 K is 2^63
-        int socket_p1 = proxy->getSocketP1();
-        int socket_p2 = proxy->getSocketP2();
 
-        uint8_t * buffer = proxy->getBuffer1();
         uint8_t * buffer2 = proxy->getBuffer2();
 
         MOC(proxy, NULL);
 
-        Receive(socket_p1, buffer, 6 * 8);
-        Receive(socket_p2, buffer2, 6 * 8);
-        unsigned char *ptr = &buffer[0];
-        unsigned char *ptr2 = &buffer2[0];
+        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 6 * 8);
+        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 6 * 8);
+        unsigned char *ptr = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
 
         auto *reconstructedVals = new uint64_t [6];
         for (uint i = 0; i < 6; i++) {
-            reconstructedVals[i] = (*(ptr + i) + *(ptr2 + i));
+            reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
             // 6 values expected per party --> first two (a values) are reconstructed and divided by K
             if (i < 2){
                 reconstructedVals[i] /= K;
@@ -516,13 +510,13 @@ uint64_t RELU(Party* proxy, uint64_t x){
         }
 
         // send shares to proxy 1 and 2
-        unsigned char *ptr_back = &buffer[0];
-        unsigned char *ptr_back2 = &buffer2[0];
+        unsigned char *ptr_back = proxy->getBuffer1();
+        unsigned char *ptr_back2 = proxy->getBuffer2();
         addVal2CharArray(share1, &ptr_back, 8);
         addVal2CharArray(share2, &ptr_back2, 8);
 
-        thread thr1 = thread(Send, socket_p1, buffer, 8 * 8);
-        thread thr2 = thread(Send, socket_p2, buffer2, 8 * 8);
+        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8 * 8);
+        thread thr2 = thread(Send, proxy->getSocketP2(), buffer2, 8 * 8);
 
         thr1.join();
         thr2.join();
@@ -542,7 +536,6 @@ uint64_t DRELU(Party* proxy, uint64_t x){
     // K is 2^63 - 1
     uint8_t exchangingBit = 2;
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        //int socket_helper = proxy->getSocketHelper(); // you dont need to assign proxy->getSocketHelper() to a variable.  proxy->getSocketHelper() is a getter for the socket of the helper. delete this line
 
         // init
         uint64_t f = proxy->generateCommonRandom() & 0x1;
@@ -568,7 +561,7 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         ptr = proxy->getBuffer1();
         z = proxy->getPRole() -  convert2Long(&ptr);
         if (f)  // if f is 1  we get the next long value in the buffer.
-            z = proxy->getPRole() -  convert2Long(&ptr);
+            z = proxy->getPRole() - convert2Long(&ptr);
 
         //z = p_role - buffer[commonRandom]; we can not do this. buffer[0] is a single byte, we need 8 bytes for the output. delete this line the correct one is above
 
@@ -603,10 +596,6 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         thr2.join();
 
         return 0;
-    }
-    else{
-        cout << "No proxy role recognized." << endl;
-        return -1;
     }
 }
 
