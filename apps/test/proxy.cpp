@@ -314,12 +314,12 @@ void MMAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // INIT PARAMETER
     uint64_t mmaxParams[4];
-    mmaxParams[0] = WSZ; // matrix Rows
-    mmaxParams[1] = WSZ; // matrix Columns
+    mmaxParams[0] = WSZ*3; // matrix Rows
+    mmaxParams[1] = WSZ*3; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
 
-    mmaxParams[2] = WSZ/2; // window rows
-    mmaxParams[3] = WSZ/2;  // window columns
+    mmaxParams[2] = WSZ; // window rows
+    mmaxParams[3] = WSZ;  // window columns
 
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
 
@@ -343,7 +343,7 @@ void MMAX_Test(Party *proxy){
     // TODO check for precision > 0
     double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
     double computed_max[number_of_windows];
-    cout << "compute comparison for " << number_of_windows << " windows" << endl;
+
     for(uint32_t win = 0; win < number_of_windows; win++){
         for(uint32_t win_element = 0; win_element < window_length; win_element++){
             double matrixVal = d_matrix[window_length*win + win_element];

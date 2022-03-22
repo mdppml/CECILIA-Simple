@@ -244,194 +244,99 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
     bool isResidueStored = false;
     bool isResidueInBuffer = false;
 
-    //uint64_t mProcessing_start = 0;                     // variables needed if matrix_size increases MAX_MATRIX_SIZE
-    //uint32_t mProcessing_length = matrix_size;          // first compute maxpool for max number of elements possible:
-
-    /**if(matrix_size > MAX_MATRIX_SIZE){
-        mProcessing_length = MAX_MATRIX_SIZE - (MAX_MATRIX_SIZE % (window_length * m_cols)); // ensure that full rows of windows are processed
-        cout << "matrix contains to many elements. " << mProcessing_length << " will be processed which are " << to_string(mProcessing_length/window_length) << " windows of length " << window_length << endl;
-    }*/
     uint32_t numberOfWins;
-    cout << "Individual parts are starting...: processingLength= " << matrix_size << ", windowLength = " << window_length << endl;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        //uint32_t storedBufferVals = 0; // number of elements stored in the buffer --> needed to check if there is still capacity
-
-        // RESORT matrix to have all values of a window subsequently
-                                //w_rows                              w_cols
-        uint64_t rowToProcess = window_size * matrix_size / (m_cols * window_size); // window_size * (numberOfWins / (m_cols/window_size));                            mProcessing_length
-        cout << "rows are " << m_rows << "; computed " << rowToProcess<< endl;
-        uint64_t resorted [matrix_size]; // mProcessing_length
+        auto *resorted = new uint64_t [matrix_size];                // RESORT matrix to have all values of a window subsequently
         // only rows calculated because always complete rows of windows are processed
-        RST(mShare, m_cols, rowToProcess, window_size, window_size, resorted);
-        print1DMatrixByWindows("resorted reconstructed Matrix", REC(proxy, resorted, matrix_size), m_rows, m_cols, 1, window_length);
-        uint64_t *matrixToProcess = resorted; //TODO remove when test is not here anymore.
-        //do { // loop through parts of the matrix if needed to be partitioned.
-            numberOfWins = static_cast<uint32_t>(floor(matrix_size / window_length)); //mProcessing_length
-            uint64_t *maxElements = new uint64_t [numberOfWins]; //mProcessing_length (instead of matrix_size)
-            u_int32_t comparisons;
+        RST(mShare, m_cols, m_rows, window_size, window_size, resorted);
+        numberOfWins = matrix_size / window_length;
+        auto *maxElements = new uint64_t [numberOfWins];
+        uint32_t comparisons;
 
-            while (cmpWindowVectorSize > 1) {
-                /**Compares values in a given window by splitting the window in two halves and comparing each value to
-                 * its counterpart at the same position in the other half. If size of the given windowVector is odd,
-                 * there will be a residue, which is stored in residue.
-                 * All three vectors are initialized within the loop to free space as less and less space is required.*/
-                auto halfSize = static_cast<uint32_t>(floor(cmpWindowVectorSize / 2)); // elements per win in halves.
-                cout << "cmpVectorSize: " << cmpWindowVectorSize << "; halfSize: " << halfSize << endl;
+        while (cmpWindowVectorSize > 1) {
+            /**Compares values in a given window by splitting the window in two halves and comparing each value to
+             * its counterpart at the same position in the other half. If size of the given windowVector is odd,
+             * there will be a residue, which is stored in residue.
+             * All three vectors are initialized within the loop to free space as less and less space is required.*/
+            uint32_t halfSize = cmpWindowVectorSize / 2; // elements per win in halves.
 
-                comparisons = halfSize * numberOfWins;
-                uint64_t firstHalf [comparisons];
-                uint64_t secondHalf [comparisons];
-                uint64_t residue [numberOfWins]; //if there are residues, for each window there is one element --> size is number of windows.
+            comparisons = halfSize * numberOfWins;
+            uint64_t firstHalf [comparisons];
+            uint64_t secondHalf [comparisons];
+            uint64_t residue [numberOfWins]; //if there are residues, for each window there is one element --> size is number of windows.
 
 
-                for (uint32_t i = 0; i < numberOfWins; i++) {
-                    uint64_t *currWindowStart = (matrixToProcess + i * cmpWindowVectorSize); //reinterpret_cast<uint64_t *>(&mShare + mProcessing_start + i * cmpWindowVectorSize);
-                    uint64_t *currWindowMiddle = currWindowStart + halfSize;
-                    //if cmpWindowVectorSize is odd, store the last element as residue
-                    //TODO equal to: & 1    ?
-                    if (cmpWindowVectorSize % 2 == 1) {                   //there is an residue remaining
-                        if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
-                            if (i == 0){                                  // only once for all windows:
-                                isResidueInBuffer = false;                //after processing all windows, buffer is remembered to be empty; dont set isResidueStored directly otherwise residues in one loop iteration are treated differently
-                                halfSize++;                               //one half of window increases size by 1 because of residue
-                                comparisons += numberOfWins;              // for each window, 1 element more
-                                cmpWindowVectorSize++;
-                            }
-                            uint32_t posInHalfes = (i + 1) * halfSize - 1;
-
-                            firstHalf[posInHalfes] = residue[i];
-                            secondHalf[posInHalfes] = *(currWindowStart + cmpWindowVectorSize - 1); //last element of current window vector
+            for (uint32_t i = 0; i < numberOfWins; i++) {
+                uint64_t *currWindowStart = (resorted + i * cmpWindowVectorSize);
+                uint64_t *currWindowMiddle = currWindowStart + halfSize;
+                //if cmpWindowVectorSize is odd, store the last element as residue
+                if (cmpWindowVectorSize & 1) {                   //there is an residue remaining
+                    if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
+                        if (i == 0){                                  // only once for all windows:
+                            isResidueInBuffer = false;                //after processing all windows, buffer is remembered to be empty; dont set isResidueStored directly otherwise residues in one loop iteration are treated differently
+                            halfSize++;                               //one half of window increases size by 1 because of residue
+                            comparisons += numberOfWins;              // for each window, 1 element more
+                            cmpWindowVectorSize++;
                         }
-                        else {                                          //no residue stored up to now:
-                            isResidueInBuffer = true;                   //dont set isResidueStored directly, as then residues in one loop iteration would be treated differently
-                            residue[i] = *(currWindowStart + cmpWindowVectorSize - 1);
-                        }
+                        uint32_t posInHalfes = (i + 1) * halfSize - 1;
+
+                        firstHalf[posInHalfes] = residue[i];
+                        secondHalf[posInHalfes] = *(currWindowStart + cmpWindowVectorSize - 1); //last element of current window vector
                     }
-                    uint64_t vHalfIndex = i * halfSize;         // index at which values of window i are to be stored.
-                    for (uint32_t j = 0; j < halfSize; j++) {   // splitting the windows on firstHalf and secondHalf
-                        firstHalf[vHalfIndex + j] = *(currWindowStart + j);
-                        secondHalf[vHalfIndex + j] = *(currWindowMiddle + j);
-                    }
-                }
-                if (comparisons > 0) {          // maximums are not yet found
-                    //compare: a-b =c and then MSB(c) =d
-                    uint64_t *c = SUB(firstHalf, secondHalf, comparisons);
-                    uint64_t *d = MSB(proxy, c, comparisons);
-                    //MUX: returns for each position i: firstHalf[i] if d[i] = 0; secondHalf[i] if d[i] = 1
-                    matrixToProcess = MUX(proxy, firstHalf, secondHalf, d, comparisons);
-                    for (uint32_t m = 0; m < comparisons; m++){
-                        cout << to_string(m) << endl;
-                        cout << "SUB: " << convert2double(REC(proxy, firstHalf[m])) << " - " << convert2double(REC(proxy, secondHalf[m])) << " = " << c[m] << endl;
-                        cout << "MSB: " << d[m] << endl;
-                        cout << "MUX = " << convert2double(REC(proxy, matrixToProcess[m])) << endl;
+                    else {                                          //no residue stored up to now:
+                        isResidueInBuffer = true;                   //dont set isResidueStored directly, as then residues in one loop iteration would be treated differently
+                        residue[i] = *(currWindowStart + cmpWindowVectorSize - 1);
                     }
                 }
-                //prepare next round:
-                cmpWindowVectorSize = halfSize;
-                isResidueStored = isResidueInBuffer;
-            }
-            /**mProcessing_start += mProcessing_length + 1;                                            // next start where current part ended.
-            if (mProcessing_start < matrix_size){
-                mProcessing_length = matrix_size - mProcessing_start;                                   // remaining length to process
-                numberOfWins = static_cast<uint32_t>(floor(mProcessing_length / window_length));     // remaining windows in there
-                cout << "processing start now " << mProcessing_start << "; length now " << mProcessing_length << endl;
-            }
-            else{
-                mProcessing_length = 0; //nothing more to process
-            }
-            if (mProcessing_length > MAX_MATRIX_SIZE) {
-                // remaining data is still too big
-                mProcessing_length = MAX_MATRIX_SIZE - (MAX_MATRIX_SIZE % window_length);
-            }
-            if ((numberOfWins + storedBufferVals) <= BUFFER_SIZE){
-                unsigned char *buffer = proxy->getBuffer1();
-                // there is still capacity to store more elements:
-                for (int i=0;i<numberOfWins;i++){
-                    addVal2CharArray(maxElements[i], &buffer);
+                uint64_t vHalfIndex = i * halfSize;         // index at which values of window i are to be stored.
+                for (uint32_t j = 0; j < halfSize; j++) {   // splitting the windows on firstHalf and secondHalf
+                    firstHalf[vHalfIndex + j] = *(currWindowStart + j);
+                    secondHalf[vHalfIndex + j] = *(currWindowMiddle + j);
                 }
-                storedBufferVals += numberOfWins;
             }
-            else{
-                // empty buffer TODO
-            }*/
-        //} while (mProcessing_start + mProcessing_length <= matrix_size && mProcessing_length > 0);
-        // all windows were processed --> put data in maxElements and empty buffer
-        //numberOfWins = static_cast<uint32_t>(floor(matrix_size / window_length));
+            if (comparisons > 0) {          // maximums are not yet found
+                //compare: a-b =c and then MSB(c) =d
+                uint64_t *c = SUB(firstHalf, secondHalf, comparisons);
+                uint64_t *d = MSB(proxy, c, comparisons);
+                //MUX: returns for each position i: firstHalf[i] if d[i] = 0; secondHalf[i] if d[i] = 1
+                resorted = MUX(proxy, firstHalf, secondHalf, d, comparisons);
+            }
+            //prepare next round:
+            cmpWindowVectorSize = halfSize;
+            isResidueStored = isResidueInBuffer;
+        }
         for (uint32_t m = 0; m < numberOfWins; m++){
-            maxElements[m] = matrixToProcess[m];
+            maxElements[m] = resorted[m];
         }
-        // TEST
-        uint64_t* reconstructed_max = REC(proxy, maxElements, numberOfWins);
-        bool flag = true;
-        double *d_matrix = convert2double(REC(proxy, resorted, matrix_size), matrix_size, 0);
-        double computed_max[numberOfWins];
-        cout << "compute comparison for " << numberOfWins << " windows" << endl;
-        for(uint32_t win = 0; win < numberOfWins; win++){
-            for(uint32_t win_element = 0; win_element < window_length; win_element++){
-                double matrixVal = d_matrix[window_length*win + win_element];
-                if (matrixVal > computed_max[win]){
-                    computed_max[win] = matrixVal;
-                }
-            }
-            cout << win << ": max said " << convert2double(reconstructed_max[win]) << "; computed " << computed_max[win] << endl;
-            // TODO check for precision > 0
-            if (computed_max[win] != convert2double(reconstructed_max[win], 0)){
-                flag = false;
-                //break;
-            }
-        }
-        cout << "TEST was " << flag << endl;
         return maxElements;
     }
     else if ( proxy->getPRole() == HELPER) {
-        //do {
-            numberOfWins = static_cast<uint32_t >(floor(matrix_size / window_length)); // mProcessing_length
-            cout << "numberOfWins= " << to_string(numberOfWins) << endl;
-            /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
-            If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
-            while (cmpWindowVectorSize > 1) {
-                auto halfSize = static_cast<uint32_t>(floor(cmpWindowVectorSize / 2));
-                cout << "cmpVectorSize: " << cmpWindowVectorSize << "; halfSize: " << halfSize << endl;
-                // doesn not need to be in for loop (see P0/P1) as there, bool values are set to same in each iteration
-                if (cmpWindowVectorSize % 2 == 1) {                   //there is an residue remaining
-                    if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
-                        isResidueInBuffer = false;                    //after processing all windows, buffer is remembered to be empty; dont set isResidueStored directly otherwise residues in one loop iteration are treated differently
-                        halfSize++;                                   //one half of window increases size by 1 because of residue
-                    }
-                    else {
-                        isResidueInBuffer = true;
-                    }
+        numberOfWins = matrix_size / window_length;
+        /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
+        If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
+        while (cmpWindowVectorSize > 1) {
+            auto halfSize = cmpWindowVectorSize / 2;
+            if (cmpWindowVectorSize & 1) {                   //there is an residue remaining
+                if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
+                    isResidueInBuffer = false;                    //after processing all windows, buffer is remembered to be empty; dont set isResidueStored directly otherwise residues in one loop iteration are treated differently
+                    halfSize++;                                   //one half of window increases size by 1 because of residue
                 }
-
-                auto vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
-                if (vectorLength > 0) {          // maximums are not yet found
-                    //compare: a-b =c and then MSB(c) =d
-                    MSB(proxy, nullptr, vectorLength);
-                    //MUX:
-                    MUX(proxy, nullptr, nullptr, nullptr, vectorLength);
+                else {
+                    isResidueInBuffer = true;
                 }
-                //prepare next round:
-                cmpWindowVectorSize = halfSize;
-                isResidueStored = isResidueInBuffer;
             }
-            cout << "finished inner while loop... " << endl;
-            //mProcessing_start += mProcessing_length + 1; // next start where current part ended.
-            // next start where current part ended.
-            /*if (mProcessing_start < matrix_size){
-                mProcessing_length = matrix_size - mProcessing_start;                                   // remaining length to process
-                numberOfWins = static_cast<uint32_t>(floor(mProcessing_length / window_length));     // remaining windows in there
-                cout << "processing start now " << mProcessing_start << "; length now " << mProcessing_length << endl;
-            }
-            else{
-                mProcessing_length = 0; //nothing more to process
-            }
-            if (mProcessing_length > MAX_MATRIX_SIZE) {
-                // remaining data is still too big
-                mProcessing_length = MAX_MATRIX_SIZE - (MAX_MATRIX_SIZE % window_length);
-            }
-        } while (mProcessing_start + mProcessing_length <= matrix_size && mProcessing_length > 0);*/
 
-        cout << "finished outer while loop... " << endl;
+            auto vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
+            if (vectorLength > 0) {          // maximums are not yet found
+                //compare: a-b =c and then MSB(c) =d
+                MSB(proxy, nullptr, vectorLength);
+                //MUX:
+                MUX(proxy, nullptr, nullptr, nullptr, vectorLength);
+            }
+            //prepare next round:
+            cmpWindowVectorSize = halfSize;
+            isResidueStored = isResidueInBuffer;
+        }
         return nullptr;
     }
 }
