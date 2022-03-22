@@ -14,7 +14,7 @@ using namespace std;
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
 constexpr int sz = 1000;
-constexpr int WSZ = 10;
+constexpr int WSZ = 4;
 void MUL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -293,72 +293,66 @@ void RST_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RST";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t mRows = WSZ*10;
-    uint32_t mCols = WSZ*10;
+    uint32_t mRows = 6;
+    uint32_t mCols = 4;
     uint64_t mSize = mCols*mRows;
 
-    uint32_t wRows = WSZ;
-    uint32_t wCols = WSZ;
+    uint32_t wRows = 2;
+    uint32_t wCols = 2;
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize, 32), mSize);
     auto *resorted = new uint64_t [sz];
-    print1DMatrixByWindows("RST original", convert2double(REC(proxy, shareOfMatrix, mSize), mSize), mCols, mRows, wRows, wCols);
+    print1DMatrixByWindows("RST original", convert2double(REC(proxy, shareOfMatrix, mSize), mSize), mRows, mCols, wRows, wCols);
     RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
 
-    print1DMatrixByWindows("RST finished: resorted", convert2double(REC(proxy, resorted, mSize), mSize), mCols, mRows, wRows, wCols);
+    uint64_t wElements = wRows * wCols;
+    uint64_t numberOfWins = mSize / wElements;
+    print1DMatrixByWindows("RST finished: resorted", convert2double(REC(proxy, resorted, mSize), mSize), numberOfWins, wElements, 1, 1);
 }
 
 void MMAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling vectorized MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    // INIT PARAMETER
+    uint64_t mmaxParams[4];
+    mmaxParams[0] = WSZ; // matrix Rows
+    mmaxParams[1] = WSZ; // matrix Columns
+    uint64_t mSize = mmaxParams[1] * mmaxParams[0];
 
-    auto *mmaxParams = new uint64_t [4];
-    uint32_t mRows = WSZ*10;
-    mmaxParams[0] = mRows;
-    uint32_t mCols = WSZ*10;
-    mmaxParams[1] = mCols;
-    uint64_t mSize = mCols*mRows;
-
-    uint32_t wRows = WSZ;
-    mmaxParams[2] = wRows;
-    uint32_t wCols = WSZ;
-    mmaxParams[3] = wCols;
+    mmaxParams[2] = WSZ/2; // window rows
+    mmaxParams[3] = WSZ/2;  // window columns
 
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
 
-    uint8_t * buffer = proxy->getBuffer1();
-    int socket_helper = proxy->getSocketHelper();
-
+    // PERFORMING MMAX
     proxy->SendBytes(CNN_MMAX);
-    unsigned char *ptr_out = &buffer[0];
+
+    unsigned char *ptr_out = proxy->getBuffer1();
     addVal2CharArray(mmaxParams, &ptr_out, 4);
-    Send(socket_helper, buffer, 4 * 8);
+    Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
 
-    //contains mRows bitwise at 16 MSBs, then mCols at next 16 MSBs and window size at the 16 LSBs (16 are still reserved for different win size)
-    //mmaxParams = ((uint64_t)mRows << 48) + ((uint64_t)mCols << 32) + (uint64_t) wCols;
-    //TODO send mmaxParams in buffer!!
-    uint64_t *max = MAX(proxy, shareOfMatrix, mRows, mCols, wCols);
+    uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[3]);
 
-    uint64_t number_of_windows = floor(mSize/(wCols*wRows));
+    // TESTING
+    uint64_t window_length = mmaxParams[2] * mmaxParams[3];
+    uint64_t number_of_windows = floor(mSize/window_length);
     uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
 
-    // checking the result
     bool flag = true;
-    //uint64_t *resorted = new uint64_t [mSize];
-    //resorted = RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
-
+    uint64_t resorted [mSize];
+    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[2], mmaxParams[3], resorted);
     // TODO check for precision > 0
-    double *d_matrix = convert2double(REC(proxy, shareOfMatrix, mSize), mSize, 0);
-    double *computed_max = new double[number_of_windows];
-
-    for(uint32_t win = 0; win < mRows; win++){
-        for(uint32_t win_element = 0; win_element < mCols; win_element++){
-            double matrixVal = d_matrix[win_element];
+    double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
+    double computed_max[number_of_windows];
+    cout << "compute comparison for " << number_of_windows << " windows" << endl;
+    for(uint32_t win = 0; win < number_of_windows; win++){
+        for(uint32_t win_element = 0; win_element < window_length; win_element++){
+            double matrixVal = d_matrix[window_length*win + win_element];
             if (matrixVal > computed_max[win]){
                 computed_max[win] = matrixVal;
             }
         }
         // TODO check for precision > 0
-        if (computed_max[win] != convert2double(reconstructed_max[win], 0)){
+        if (computed_max[win] != convert2double(reconstructed_max[win])){
             flag = false;
             break;
         }
@@ -415,7 +409,6 @@ void DRLU_Test(Party *proxy){
     uint64_t reconstructed_drelu = REC(proxy, drelu);
 
     // checking the result
-
     double originalX = convert2double(REC(proxy, x));
     uint64_t computed_drelu = 0;
     if (originalX > 0)
@@ -463,9 +456,9 @@ int main(int argc, char* argv[]) {
 
     MAX_Test(proxy);
 
-    //RST_Test(proxy);
+    //RST_Test(proxy); // works (needs much space in console as it prints matrices)
 
-    //MMAX_Test(proxy); //TODO adapt to asymmetric window size
+    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
     RELU_Test(proxy);
     DRLU_Test(proxy);

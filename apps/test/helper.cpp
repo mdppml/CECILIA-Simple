@@ -43,30 +43,33 @@ int main(int argc, char* argv[]) {
             MUL(helper,0, 0, sz);
         }
         else if (op == CNN_MAX){
-            cout << "MAX was called..." << endl;
             int matrix_size = helper->ReadInt();
             MAX(helper,nullptr, matrix_size);
-            cout << "MAX finished." << endl;
         }
         else if (op == CNN_MMAX){
             cout << "MMAX was called..." << endl;
-            uint8_t *buffer = helper->getBuffer1();
-            uint8_t *buffer2 = helper->getBuffer2();
 
-            thread thr1 = thread(Receive,helper->getSocketP1(), buffer, 8 * 4);
-            thread thr2 = thread(Receive,helper->getSocketP2(), buffer2, 8 * 4);
-            thr1.join();
-            thr2.join();
+            Receive(helper->getSocketP1(), helper->getBuffer1(), 8 * 4);
+            Receive(helper->getSocketP2(), helper->getBuffer2(), 8 * 4);
 
-            uint64_t mRows = buffer[0];
-            uint64_t mCols = buffer[1];
-            uint64_t window_size = buffer[2];
-            if (mRows == buffer2[0] and mCols == buffer2[1] and window_size == buffer2[2] and buffer[3] == buffer2[3]){
-                cout << "mRows = " << mRows << ", mCols = " << mCols << ", wSize = " << window_size << endl;
-                MAX(helper, nullptr, mRows, mCols, window_size);
+            unsigned char* ptr = helper->getBuffer1();
+            unsigned char* ptr2 = helper->getBuffer2();
+            uint64_t mmaxParams [4];
+            bool areParamsMatching = true;
+            for (uint8_t i = 0; i < 4; i++){
+                mmaxParams[i] = convert2Long(&ptr);
+                uint64_t p2 = convert2Long(&ptr2);
+                if (mmaxParams[i] != p2){
+                    cout << "Parameters from P0 and P1 must match... " << convert2double(mmaxParams[i]) << " != " << convert2double(p2) << endl;
+                    areParamsMatching = false;
+                }
+            }
+            if (mmaxParams[0] > 0 and mmaxParams[1] > 0 and mmaxParams[2] > 0 and mmaxParams[2] <= mmaxParams[0] and mmaxParams[2] <= mmaxParams[1] and areParamsMatching){
+                MAX(helper, nullptr, mmaxParams[0], mmaxParams[1], mmaxParams[2]);
+                cout << "finished MMAX" << endl;
             }
             else{
-                cout << "ERROR: received mmax parameters were not matching each other..." << endl;
+                cout << "ERROR: received mmax parameters were not matching each other or were not in valid range..." << endl;
             }
         }
         else if (op == CNN_RELU){
