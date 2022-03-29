@@ -260,8 +260,8 @@ void MAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t mRows = WSZ*10;
-    uint32_t mCols = WSZ*10;
+    uint32_t mRows = WSZ*15;
+    uint32_t mCols = WSZ*15;
     uint64_t mSize = mCols*mRows;
 
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
@@ -278,9 +278,10 @@ void MAX_Test(Party *proxy){
         }
     }
 
-    double pp_result = convert2double(REC(proxy, max), 0);
+    double pp_result = convert2double(REC(proxy, max));
     if(computed_max == pp_result){
         cout<<"MAX works correctly"<<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_max << endl;
     }
     else{
         cout<<"MAX works incorrectly" <<endl;
@@ -316,8 +317,8 @@ void MMAX_Test(Party *proxy){
 
     // INIT PARAMETER
     uint64_t mmaxParams[4];
-    mmaxParams[0] = WSZ*3; // matrix Rows
-    mmaxParams[1] = WSZ*3; // matrix Columns
+    mmaxParams[0] = WSZ*10; // matrix Rows
+    mmaxParams[1] = WSZ*10; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
 
     mmaxParams[2] = WSZ; // window rows
@@ -434,8 +435,8 @@ void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(convert2double(2));
-    uint64_t y = proxy->createShare(convert2double(4));
+    uint64_t x = proxy->createShare(2);
+    uint64_t y = proxy->createShare(4);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
@@ -448,12 +449,12 @@ void DIV_Test(Party *proxy){
     double computed_div = originalX / originalY;
 
 
-    if(computed_div == convert2double(reconstructed_div)){
+    if(computed_div == reconstructed_div){
         cout<<"DIV works correctly"<<endl;
     }
     else{
         cout<<"DIV works incorrectly" <<endl;
-        cout<< "computed: " << convert2double(reconstructed_div) << " should be: " << computed_div << endl;
+        cout<< "computed: " << reconstructed_div << " should be: " << computed_div << endl;
     }
 
 }
@@ -490,12 +491,12 @@ int main(int argc, char* argv[]) {
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
 
-    MMAX_Test(proxy); //TODO adapt to asymmetric window size
+    //MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-    RELU_Test(proxy);
-    DRLU_Test(proxy);
+    //RELU_Test(proxy);
+    //DRLU_Test(proxy);
 
-    DIV_Test(proxy);
+    //DIV_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

@@ -163,7 +163,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
         uint64_t residue; //there is at most one residual element.
 
         while (cmpVectorSize > 1) {
-            uint32_t halfSize = static_cast<uint8_t>(floor(cmpVectorSize / 2));
+            uint32_t halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
 
             for (uint32_t i = 0; i < halfSize; i++){
                 firstHalf[i] = maxElements[i];
@@ -199,7 +199,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
         /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
         If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
         while (cmpVectorSize > 1) {
-            uint32_t halfSize = static_cast<uint8_t>(floor(cmpVectorSize / 2));
+            uint32_t halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
             if (cmpVectorSize % 2 == 1) {                   //there is an residue remaining
                 if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
                     halfSize++;                                //each half of window increases size by 1 because of residues

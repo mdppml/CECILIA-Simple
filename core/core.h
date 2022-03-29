@@ -1067,7 +1067,7 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
             uint64_t res = (((c * 1.0) / d) * PRECISION);
             z = z - res;
         }
-        cout << "z = " << convert2double(REC(proxy, z)) << endl;
+        cout << "z = " << REC(proxy, z) << endl;
         return z;
     } else {
         return -1;

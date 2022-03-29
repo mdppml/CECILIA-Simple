@@ -8,7 +8,7 @@
 
 #define L 64
 #define LP 67
-#define FRAC 0
+#define FRAC 20
 #define N 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
