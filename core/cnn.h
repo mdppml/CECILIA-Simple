@@ -191,8 +191,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             //prepare next round:
             cmpVectorSize = halfSize;
         }
-        uint64_t max = maxElements[0];// should only contain one element at the end.
-        //cout << "max = " << convert2double(REC(proxy, max)) << endl;
+        uint64_t max = maxElements[0];                          // should only contain one element at the end.
         delete [] maxElements;
         return max;
     }

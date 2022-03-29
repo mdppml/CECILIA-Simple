@@ -78,6 +78,9 @@ int main(int argc, char* argv[]) {
         else if (op == CNN_DRLU){
             DRELU(helper, 0);
         }
+        else if (op == CORE_DIV){
+            DIV(helper, 0, 0);
+        }
         else if (op == CORE_END)
             break;
     }

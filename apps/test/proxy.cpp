@@ -312,6 +312,8 @@ void RST_Test(Party *proxy){
 void MMAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling vectorized MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    int precision = 3;
+
     // INIT PARAMETER
     uint64_t mmaxParams[4];
     mmaxParams[0] = WSZ*3; // matrix Rows
@@ -351,7 +353,6 @@ void MMAX_Test(Party *proxy){
                 computed_max[win] = matrixVal;
             }
         }
-        // TODO check for precision > 0
         if (computed_max[win] != convert2double(reconstructed_max[win])){
             flag = false;
             break;
@@ -363,6 +364,9 @@ void MMAX_Test(Party *proxy){
     }
     else{
         cout<<"Vectorized MAX works incorrectly"<<endl;
+        print1DMatrixByWindows("Matrix: ", d_matrix, mmaxParams[0], mmaxParams[1], mmaxParams[2], mmaxParams[3]);
+        print1DMatrixByWindows("computed max values (test): ", computed_max, 1, number_of_windows, 1, 1);
+        print1DMatrixByWindows("VS result from method: ", convert2double(reconstructed_max, number_of_windows), 1, number_of_windows, 1, 1);
     }
 }
 
@@ -378,7 +382,9 @@ void RELU_Test(Party *proxy){
 
     // checking the result
     double computed_relu = -1;
-    double originalX = convert2double(REC(proxy, x));
+    uint64_t recX = REC(proxy, x);
+    recX = recX << FRAC; //TODO how to include fraction here?
+    double originalX = convert2double( recX);
     if (originalX > 0){
         computed_relu = originalX;
     }
@@ -388,7 +394,7 @@ void RELU_Test(Party *proxy){
     }
 
     double pp_result = convert2double(reconstructed_relu, 0);
-    if(computed_relu == pp_result){
+    if((computed_relu) == pp_result){
         cout<<"RELU works correctly"<<endl;
     }
     else{
@@ -414,14 +420,40 @@ void DRLU_Test(Party *proxy){
     if (originalX > 0)
         computed_drelu = 1;
 
-
-    //double pp_result = convert2double(reconstructed_drelu, 0); dont need to convert to double relu is integer value delete this line
     if(computed_drelu == reconstructed_drelu){
         cout<<"DRLU works correctly"<<endl;
     }
     else{
         cout<<"DRLU works incorrectly" <<endl;
         cout<< "computed: " << reconstructed_drelu << " should be: " << computed_drelu << endl;
+    }
+
+}
+
+void DIV_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling DIV";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    uint64_t x = proxy->createShare(convert2double(2));
+    uint64_t y = proxy->createShare(convert2double(4));
+
+    proxy->SendBytes(CORE_DIV);
+    uint64_t div = DIV(proxy, x, y);
+    uint64_t reconstructed_div = REC(proxy, div);
+
+    // checking the result
+    double originalX = convert2double(REC(proxy, x));
+    double originalY = convert2double(REC(proxy, y));
+    cout << "X: " << originalX << " Y: " << originalY << endl;
+    double computed_div = originalX / originalY;
+
+
+    if(computed_div == convert2double(reconstructed_div)){
+        cout<<"DIV works correctly"<<endl;
+    }
+    else{
+        cout<<"DIV works incorrectly" <<endl;
+        cout<< "computed: " << convert2double(reconstructed_div) << " should be: " << computed_div << endl;
     }
 
 }
@@ -462,6 +494,8 @@ int main(int argc, char* argv[]) {
 
     RELU_Test(proxy);
     DRLU_Test(proxy);
+
+    DIV_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
