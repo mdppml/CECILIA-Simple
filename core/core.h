@@ -2,16 +2,15 @@
 // Created by Mete Akgun on 28.12.21.
 //
 
-#ifndef PPAUC_CORE_H
-#define PPAUC_CORE_H
+#ifndef CORE_H
+#define CORE_H
 
 #include "Party.h"
-
+#include "../utils/test_functions.h"
 #include <thread>
 #include <mutex>
 
-
-uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=N) {
+uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
 
     uint64_t b;
     if ( proxy->getPRole() == P1) {
@@ -33,7 +32,7 @@ uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=N) {
     return (a + b) & mask;
 }
 
-uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=N) {
+uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
 
     uint64_t *b = new uint64_t[sz];
     if ( proxy->getPRole() == P1 ) {
@@ -62,6 +61,51 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=N) {
     }
     for (int i = 0; i < sz; i++) {
         b[i] = (a[i] + b[i]) & mask;
+    }
+    return b;
+}
+
+uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
+    // Reconstruct a secret shared 2D array
+    uint64_t **b = new uint64_t*[n_row];
+    if (proxy->getPRole() == P1) {
+        unsigned char *ptr = proxy->getBuffer1();
+        for (int i = 0; i < n_row; i++) {
+            b[i] = new uint64_t[n_col];
+            for( int j = 0; j < n_col; j++) {
+                addVal2CharArray(a[i][j], &ptr);
+            }
+        }
+        Send(proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
+        Receive(proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
+        ptr = proxy->getBuffer1();
+        for (int i = 0; i < n_row; i++) {
+            for(int j = 0; j < n_col; j++) {
+                b[i][j] = convert2Long(&ptr);
+            }
+        }
+
+    } else if (proxy->getPRole() == P2) {
+        unsigned char *ptr = proxy->getBuffer1();
+        for (int i = 0; i < n_row; i++) {
+            for( int j = 0; j < n_col; j++) {
+                addVal2CharArray(a[i][j], &ptr);
+            }
+        }
+        Send(proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
+        Receive(proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
+        ptr = proxy->getBuffer1();
+        for (int i = 0; i < n_row; i++) {
+            b[i] = new uint64_t[n_col];
+            for( int j = 0; j < n_col; j++) {
+                b[i][j] = convert2Long(&ptr);
+            }
+        }
+    }
+    for (int i = 0; i < n_row; i++) {
+        for( int j = 0; j < n_col; j++) {
+            b[i][j] = (a[i][j] + b[i][j]);
+        }
     }
     return b;
 }
@@ -97,6 +141,78 @@ void GenerateMultiplicationTriple(Party* proxy, uint64_t **mt1, uint64_t **mt2, 
 
         // cout << mt1[0][i] << " " << mt2[0][i] << " " <<  mt1[1][i] << " " << mt2[1][i] << " " << mt1[2][i] << " " << mt2[2][i] << endl;
     }
+}
+
+uint64_t MUX(Party* proxy, uint64_t x, uint64_t y, uint64_t b) {
+
+    if ( proxy->getPRole() == P1) {
+        uint64_t r1 = proxy->generateCommonRandom(), r2 = proxy->generateCommonRandom(), r3 = proxy->generateCommonRandom(), r4 = proxy->generateCommonRandom();
+        //uint64_t s = proxy->generateRandom();
+        //x = x + s ;
+        //y = y + s;
+        uint64_t m1 = (b * (x - y)) - (r3*(x-y)) - (r3*r4) - (r2*b);
+        //m1 = m1 >> FRAC;
+        uint64_t m2 = b + r1;
+        uint64_t m3 = x - y + r4;
+        unsigned char *ptr = proxy->getBuffer1();
+        addVal2CharArray(m2, &ptr);
+        addVal2CharArray(m3, &ptr);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
+        ptr = proxy->getBuffer1();
+        m1 = m1 + convert2Long(&ptr);
+        m1 = m1 >> FRAC;
+        x = x - m1;
+
+
+        return x;
+    } else if ( proxy->getPRole() == P2) {
+        uint64_t r1 = proxy->generateCommonRandom(), r2 = proxy->generateCommonRandom(), r3 = proxy->generateCommonRandom(), r4 = proxy->generateCommonRandom();
+        //uint64_t s = proxy->generateRandom();
+        //x = x + s;
+        //y = y + s;
+        uint64_t m1 = (b * (x - y)) - (r1*(x-y)) - (r1*r2) - (r4*b);
+        //m1 = -1 * ((-1 * m1) >> FRAC);
+        uint64_t m2 = x - y + r2;
+        uint64_t m3 = b + r3;
+        unsigned char *ptr = proxy->getBuffer1();
+        //addVal2CharArray(m1, &ptr);
+        addVal2CharArray(m2, &ptr);
+        addVal2CharArray(m3, &ptr);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
+        ptr = proxy->getBuffer1();
+        m1 = m1 + convert2Long(&ptr);
+        m1 = -1 * ((-1 * m1) >> FRAC);
+        x = x - m1 ;
+
+        return x;
+    } else if ( proxy->getPRole() == HELPER) {
+        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 16);
+        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 16);
+        unsigned char *ptr = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
+        //uint64_t m1 = convert2Long(&ptr);
+        uint64_t m2 = convert2Long(&ptr);
+        uint64_t m3 = convert2Long(&ptr);
+        //uint64_t m4 = convert2Long(&ptr2);
+        uint64_t m5 = convert2Long(&ptr2);
+        uint64_t m6 = convert2Long(&ptr2);
+
+        uint64_t m = /*m1 + m4 -*/ (m2 * m5) + (m3 * m6);
+
+        uint64_t m1 = proxy->generateRandom();
+        m2 = m - m1;
+
+        ptr = proxy->getBuffer1();
+        addVal2CharArray(m1, &ptr);
+        Send(proxy->getSocketP1(), proxy->getBuffer1(), 8);
+        ptr2 = proxy->getBuffer2();
+        addVal2CharArray(m2, &ptr2);
+        Send(proxy->getSocketP2(), proxy->getBuffer2(), 8);
+        return 0;
+    }
+    return -1;
 }
 
 uint64_t* MUX(Party* proxy, uint64_t *x, uint64_t *y, uint64_t *b, uint32_t sz) {
@@ -183,77 +299,7 @@ uint64_t* MUX(Party* proxy, uint64_t *x, uint64_t *y, uint64_t *b, uint32_t sz) 
         thr2.join();
         return NULL;
     }
-}
-
-uint64_t MUX(Party* proxy, uint64_t x, uint64_t y, uint64_t b) {
-
-    if ( proxy->getPRole() == P1) {
-        uint64_t r1 = proxy->generateCommonRandom(), r2 = proxy->generateCommonRandom(), r3 = proxy->generateCommonRandom(), r4 = proxy->generateCommonRandom();
-        //uint64_t s = proxy->generateRandom();
-        //x = x + s ;
-        //y = y + s;
-        uint64_t m1 = (b * (x - y)) - (r3*(x-y)) - (r3*r4) - (r2*b);
-        //m1 = m1 >> FRAC;
-        uint64_t m2 = b + r1;
-        uint64_t m3 = x - y + r4;
-        unsigned char *ptr = proxy->getBuffer1();
-        addVal2CharArray(m2, &ptr);
-        addVal2CharArray(m3, &ptr);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
-        ptr = proxy->getBuffer1();
-        m1 = m1 + convert2Long(&ptr);
-        m1 = m1 >> FRAC;
-        x = x - m1;
-
-
-        return x;
-    } else if ( proxy->getPRole() == P2) {
-        uint64_t r1 = proxy->generateCommonRandom(), r2 = proxy->generateCommonRandom(), r3 = proxy->generateCommonRandom(), r4 = proxy->generateCommonRandom();
-        //uint64_t s = proxy->generateRandom();
-        //x = x + s;
-        //y = y + s;
-        uint64_t m1 = (b * (x - y)) - (r1*(x-y)) - (r1*r2) - (r4*b);
-        //m1 = -1 * ((-1 * m1) >> FRAC);
-        uint64_t m2 = x - y + r2;
-        uint64_t m3 = b + r3;
-        unsigned char *ptr = proxy->getBuffer1();
-        //addVal2CharArray(m1, &ptr);
-        addVal2CharArray(m2, &ptr);
-        addVal2CharArray(m3, &ptr);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
-        ptr = proxy->getBuffer1();
-        m1 = m1 + convert2Long(&ptr);
-        m1 = -1 * ((-1 * m1) >> FRAC);
-        x = x - m1 ;
-
-        return x;
-    } else if ( proxy->getPRole() == HELPER) {
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 16);
-        unsigned char *ptr = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
-        //uint64_t m1 = convert2Long(&ptr);
-        uint64_t m2 = convert2Long(&ptr);
-        uint64_t m3 = convert2Long(&ptr);
-        //uint64_t m4 = convert2Long(&ptr2);
-        uint64_t m5 = convert2Long(&ptr2);
-        uint64_t m6 = convert2Long(&ptr2);
-
-        uint64_t m = /*m1 + m4 -*/ (m2 * m5) + (m3 * m6);
-
-        uint64_t m1 = proxy->generateRandom();
-        m2 = m - m1;
-
-        ptr = proxy->getBuffer1();
-        addVal2CharArray(m1, &ptr);
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        ptr2 = proxy->getBuffer2();
-        addVal2CharArray(m2, &ptr2);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), 8);
-        return 0;
-    }
+    return NULL;
 }
 
 uint8_t PCB(Party* proxy, uint64_t a, uint8_t *b, int L1) {
@@ -306,6 +352,7 @@ uint8_t PCB(Party* proxy, uint64_t a, uint8_t *b, int L1) {
         Send(proxy->getSocketP2(), proxy->getBuffer2(), 1);
         return 0;
     }
+    return -1;
 }
 
 uint8_t *PCB(Party* proxy, uint64_t *a, uint8_t *b, uint32_t sz, int L1) {
@@ -364,8 +411,9 @@ uint8_t *PCB(Party* proxy, uint64_t *a, uint8_t *b, uint32_t sz, int L1) {
         }
         Send(proxy->getSocketP1(), proxy->getBuffer1(), sz);
         Send(proxy->getSocketP2(), proxy->getBuffer2(), sz);
-        return 0;
+        return NULL;
     }
+    return NULL;
 }
 
 uint64_t MOC(Party* proxy, uint64_t x) {
@@ -373,14 +421,14 @@ uint64_t MOC(Party* proxy, uint64_t x) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t z_1;
         uint64_t ya;
-        uint8_t yb[L-1];
+        uint8_t yb[L_BIT - 1];
         uint8_t w;
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), (8 + L));
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), (8 + L_BIT));
         unsigned char *ptr = proxy->getBuffer1();
         // an arithmetic share of y from the helper  : ya
         ya = convert2Long(&ptr);
         // boolean shares of each bit of y: yb
-        convert2Array(&ptr, &yb[0], L - 1);
+        convert2Array(&ptr, &yb[0], L_BIT - 1);
         // a boolean share of whether addition of arithmetic shares (ya_1+ya_2) of y wraps around in the ring 2^63 :w
         w = (*ptr);
         // z1 is x+ya
@@ -388,7 +436,7 @@ uint64_t MOC(Party* proxy, uint64_t x) {
         // z is the reconstruction of z_1. From z, P1 or P2 can not learn x because x is masked with ya.
         uint64_t z = REC(proxy, z_1,N1_MASK);
         // computes y>z where yb are boolean shares of each bit of y
-        uint8_t wc = PCB(proxy, z, yb, L - 1);
+        uint8_t wc = PCB(proxy, z, yb, L_BIT - 1);
 
         // w=1 means there is an overflow
         // wc=1 means there is an overflow
@@ -417,7 +465,7 @@ uint64_t MOC(Party* proxy, uint64_t x) {
 
         // helper creates two boolean shares for each bit of y : yb_1 and yb_2
         // writing yb_1 and yb_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.
-        for (int j = 0; j < L - 1; j++) {
+        for (int j = 0; j < L_BIT - 1; j++) {
             uint8_t k = (y >> j) & 0x1;
             uint8_t yb_1 = proxy->generateRandom() % LP;
             uint8_t yb_2 = mod(k - yb_1, LP);
@@ -438,15 +486,16 @@ uint64_t MOC(Party* proxy, uint64_t x) {
         addVal2CharArray(w_2, &ptr_out2);
 
         // sending values to P1 and P2
-        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), (8 + L));
-        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), (8 + L));
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), (8 + L_BIT));
+        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), (8 + L_BIT));
         thr1.join();
         thr2.join();
 
         // P1 and P2 will call PrivateCompareBool
-        uint8_t tmp = PCB(proxy, 0, 0, L - 1);
-        return NULL;
+        uint8_t tmp = PCB(proxy, 0, 0, L_BIT - 1);
+        return 0;
     }
+    return -1;
 }
 
 uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
@@ -455,19 +504,19 @@ uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t *z_1 = new uint64_t[sz];
         uint64_t *ya = new uint64_t[sz];
-        uint8_t *yb = new uint8_t[sz * (L - 1)];
+        uint8_t *yb = new uint8_t[sz * (L_BIT - 1)];
         uint8_t *w = new uint8_t[sz];
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (8 + L));
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (8 + L_BIT));
         unsigned char *ptr = proxy->getBuffer1();
         for (int i = 0; i < sz; i++) {
             ya[i] = convert2Long(&ptr);
-            convert2Array(&ptr, &yb[i * (L - 1)], L - 1);
+            convert2Array(&ptr, &yb[i * (L_BIT - 1)], L_BIT - 1);
             w[i] = (*ptr);
             ptr++;
             z_1[i] = (x[i] + ya[i]) & N1_MASK;
         }
         uint64_t *z = REC(proxy, z_1, sz, N1_MASK);
-        uint8_t *wc = PCB(proxy, z, yb, sz, L - 1);
+        uint8_t *wc = PCB(proxy, z, yb, sz, L_BIT - 1);
 
         for (int i = 0; i < sz; i++) {
             w[i] = w[i] ^ wc[i];
@@ -489,7 +538,7 @@ uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
             uint64_t ya_2 = (y - ya_1) & N1_MASK;
             addVal2CharArray(ya_1, &ptr_out);
             addVal2CharArray(ya_2, &ptr_out2);
-            for (int j = 0; j < L - 1; j++) {
+            for (int j = 0; j < L_BIT - 1; j++) {
                 uint8_t k = (y >> j) & 0x1;
                 uint8_t yb_1 = proxy->generateRandom() % LP;
                 uint8_t yb_2 = mod(k - yb_1, LP);
@@ -505,15 +554,17 @@ uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
             addVal2CharArray(w_2, &ptr_out2);
         }
 
-        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L));
-        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L));
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L_BIT));
+        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L_BIT));
         thr1.join();
         thr2.join();
         // P1 and P2 will call MPrivateCompareBool
-        uint8_t *tmp = PCB(proxy,0, 0, sz, L - 1);
+        uint8_t *tmp = PCB(proxy, 0, 0, sz, L_BIT - 1);
         return NULL;
     }
+    return NULL;
 }
+
 uint64_t MSB(Party *proxy, uint64_t x) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t d_k = x & N1_MASK;
@@ -587,10 +638,10 @@ uint64_t MSB(Party *proxy, uint64_t x) {
         thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), 8 * 2);
         thr1.join();
         thr2.join();
-        return NULL;
+        return 0;
     }
+    return -1;
 }
-
 
 uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -679,6 +730,7 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
         thr2.join();
         return NULL;
     }
+    return NULL;
 }
 
 uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
@@ -696,17 +748,18 @@ uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
         uint64_t* m = MSB(proxy, 0,sz);
         return NULL;
     }
-
+    return NULL;
 }
+
 uint64_t CMP(Party* proxy, uint64_t x, uint64_t y) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t diff = x - y;
         return  (proxy->getPRole()<<FRAC) - MSB(proxy, diff);
     }else if ( proxy->getPRole() == HELPER) {
         uint64_t m = MSB(proxy,0);
-        return NULL;
+        return 0;
     }
-
+    return -1;
 }
 
 uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
@@ -900,7 +953,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
      * Output(s)
      * Returns an uint64_t vector containing the share of the result of the multiplication
      */
-    //ncall_mmul++;
+    cout << "MUL:Size: " << size << endl;
     if(DEBUG_FLAG >= 1)
         cout << "************************************************************\nMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
@@ -913,7 +966,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             PMUL(proxy,0, 0, partial_size);
             filled_size += partial_size;
         }
-
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
 
         /*if(DEBUG_FLAG >= 2)
@@ -942,9 +994,634 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     return nullptr;
 }
 
+uint64_t EXP(Party* proxy, uint64_t a) {
+    /*
+     * Note that this function considers only the specific number of least significant bits not to cause overflow.
+     * This is different for positive and negative powers.
+     *
+     * Input(s)
+     * a: the value that will be used as the power of exp
+     * n_bits: the number of bits that one can need to cover the largest possible power
+     *
+     * Output(s)
+     * Returns the arithmetic secret share of exp(a)
+     */
+    int p_role = proxy->getPRole();
+    int n_bits = proxy->getNBits();
+    int neg_n_bits = proxy->getNegNBits();
+    if (p_role == P1 || p_role == P2) {
+        // compute the absolute of the input value
+        uint64_t msb_a = MSB(proxy, a);
+        uint64_t abs_a = ((uint64_t) 0) - a;
 
+        // selection of the correct contribution from each bit of the input value based on the msb of the input value
+        uint64_t *pos_e_contributions = new uint64_t[n_bits + 1];
+        uint64_t *neg_e_contributions = new uint64_t[n_bits + 1];
+        uint64_t *one_contributions = new uint64_t[n_bits];
+        uint64_t *repeated_msb_a = new uint64_t[n_bits + 1];
 
+        pos_e_contributions[0] = a;
+        neg_e_contributions[0] = abs_a;
+        repeated_msb_a[0] = msb_a;
 
-#endif //PPAUC_CORE_H
+        for (int i = n_bits - 1; i >= 0; i--) {
+            pos_e_contributions[n_bits - i] = p_role * convert2uint64(exp(pow(2, i - FRAC)));
+            if (i > neg_n_bits - 1) {
+                neg_e_contributions[n_bits - i] = p_role * (((uint64_t) 1) << FRAC);
+            } else {
+                neg_e_contributions[n_bits - i] = p_role * convert2uint64(1.0 / exp(pow(2, i - FRAC)));
+            }
+            one_contributions[(n_bits - 1) - i] = p_role * (((uint64_t) 1) << FRAC);
+            repeated_msb_a[n_bits - i] = msb_a;
+        }
+
+        uint64_t *e_contributions = MUX(proxy, pos_e_contributions, neg_e_contributions, repeated_msb_a, n_bits + 1);
+        uint64_t new_a = e_contributions[0];
+        e_contributions = &e_contributions[1];
+        uint64_t horse = REC(proxy, new_a);
+
+        // arrange all the shifted versions of the input value for MMSB
+        uint64_t *partial_a = new uint64_t[n_bits];
+        uint64_t tmp = new_a << (L_BIT - n_bits);
+        for (int i = 0; i < n_bits; i++) {
+            partial_a[i] = tmp << i;
+        }
+
+        uint64_t *bit_shares = MSB(proxy, partial_a, n_bits);
+        uint64_t *at = REC(proxy, bit_shares, n_bits);
+
+        // selection of the contribution of the bits of the value
+        uint64_t *contributions = MUX(proxy, one_contributions, e_contributions, bit_shares, n_bits);
+
+        // binary-tree-based multiplication of the contributions into the exponential
+        uint64_t res = 1;
+        int current_size = n_bits;
+        bool flag = false;
+        uint64_t remaining = 0;
+
+        for (int i = 0; i < (int) ceil(log2(n_bits)); i++) {
+            uint64_t *tmp1 = contributions;
+            uint64_t *tmp2 = &contributions[current_size / 2];
+
+            if (current_size % 2 == 1) {
+                if (!flag) {
+                    remaining = contributions[current_size - 1];
+                    flag = true;
+                } else {
+                    tmp1 = new uint64_t[(current_size + 1) / 2];
+                    tmp2 = new uint64_t[(current_size + 1) / 2];
+
+                    size_t partial_size = current_size / 2;
+
+                    copy(contributions, contributions + partial_size + 1, tmp1);
+                    copy(contributions + partial_size + 1, contributions + current_size, tmp2);
+
+                    tmp2[current_size / 2] = remaining;
+
+                    current_size++;
+
+                    flag = false;
+                }
+            }
+            contributions = MUL(proxy, tmp1, tmp2, current_size / 2);
+            current_size /= 2;
+        }
+        return contributions[0];
+    }
+    else if (p_role == HELPER) {
+        MSB(proxy, 0);
+        MUX(proxy, 0, 0, 0, n_bits + 1);
+        MSB(proxy, 0, n_bits);
+        MUX(proxy, 0, 0, 0, n_bits);
+
+        int current_size = n_bits;
+        bool flag = false;
+        for (int i = 0; i < (int) ceil(log2(n_bits)); i++) {
+            if (current_size % 2 == 1) {
+                if (!flag) {
+                    flag = true;
+                } else {
+                    current_size++;
+                    flag = false;
+                }
+            }
+            MUL(proxy, 0, 0, current_size / 2);
+            current_size /= 2;
+        }
+
+        return 0;
+    }
+    return 0;
+}
+
+uint64_t* EXP(Party* proxy, uint64_t *a, uint32_t size) {
+    /*
+     * Note that this function considers only the specific number of least significant bits not to cause overflow.
+     * This is different for positive and negative powers.
+     *
+     * Input(s)
+     * a: the vector of values that will be used as the power of exp
+     * n_bits: the number of bits that one can need to cover the largest possible power
+     *
+     * Output(s)
+     * Returns the arithmetic secret share of exp(a)
+     */
+    int p_role = proxy->getPRole();
+    int n_bits = proxy->getNBits();
+    int neg_n_bits = proxy->getNegNBits();
+
+    if (p_role == P1 || p_role == P2) {
+        // compute the absolute of the input value
+        uint64_t* msb_a = MSB(proxy, a, size);
+        uint64_t* abs_a = new uint64_t[size];
+        for(uint32_t i = 0; i < size; i++) {
+            abs_a[i] = ((uint64_t) 0) - a[i];
+        }
+
+        // compute the possible contribution of positive and negative values
+        uint64_t* pec = new uint64_t[n_bits];
+        uint64_t* nec = new uint64_t[n_bits];
+        if(p_role == P2) {
+            for (int i = n_bits - 1; i >= 0; i--) {
+                pec[n_bits - i - 1] = convert2uint64(exp(pow(2, i - FRAC)));
+                if (i > neg_n_bits - 1) {
+                    nec[n_bits - i - 1] = (((uint64_t) 1) << FRAC);
+                } else {
+                    nec[n_bits - i - 1] = convert2uint64(1.0 / exp(pow(2, i - FRAC)));
+                }
+            }
+        }
+        else {
+            for (int i = n_bits - 1; i >= 0; i--) {
+                pec[n_bits - i - 1] = 0;
+                nec[n_bits - i - 1] = 0;
+            }
+        }
+
+        // selection of the correct contribution from each bit of the input value based on the msb of the input value
+        uint64_t *pos_e_contributions = new uint64_t[size * (n_bits + 1)]; // if the value is positive
+        uint64_t *neg_e_contributions = new uint64_t[size * (n_bits + 1)]; // if the value is negative
+        uint64_t *one_contributions = new uint64_t[size * n_bits]; // if the bit is zero regardless of the sign
+        uint64_t *repeated_msb_a = new uint64_t[size * (n_bits + 1)]; // this will be used as a selection bit for the contributions of all bits
+
+        for(uint32_t i = 0; i < size; i++) {
+            pos_e_contributions[i * (n_bits + 1)] = a[i];
+            neg_e_contributions[i * (n_bits + 1)] = abs_a[i];
+            repeated_msb_a[i * (n_bits + 1)] = msb_a[i];
+            for (int bi = 0; bi < n_bits; bi++) {
+                pos_e_contributions[(i * (n_bits + 1)) + bi + 1] = pec[bi];
+                neg_e_contributions[(i * (n_bits + 1)) + bi + 1] = nec[bi];
+                one_contributions[(i * n_bits) + bi] = p_role * (((uint64_t) 1) << FRAC);
+                repeated_msb_a[(i * (n_bits + 1)) + bi + 1] = msb_a[i];
+            }
+        }
+        uint64_t *e_contributions = MUX(proxy, pos_e_contributions, neg_e_contributions, repeated_msb_a, size * (n_bits + 1));
+
+        uint64_t* new_a = new uint64_t[size];
+        uint64_t* selected_e_contributions = new uint64_t[size * n_bits];
+        for(uint32_t i = 0; i < size; i++) {
+            new_a[i] = e_contributions[i * (n_bits + 1)];
+            for(uint32_t j = 0; j < n_bits; j++) {
+                selected_e_contributions[(i * n_bits) + j] = e_contributions[(i * (n_bits + 1)) + j + 1];
+            }
+        }
+
+        // arrange all the shifted versions of the input value for MMSB
+        uint64_t *partial_a = new uint64_t[size * n_bits];
+        for(uint32_t i = 0; i < size; i++) {
+            for (uint32_t j = 0; j < n_bits; j++) {
+                partial_a[(i * n_bits) + j] = new_a[i] << (L_BIT - n_bits + j);
+            }
+        }
+
+        // get secret shared form of the bits of the values that could contribute into the result
+        uint64_t *bit_shares = MSB(proxy, partial_a, size * n_bits);
+
+        // selection of the contribution of the bits of the value
+        uint64_t *contributions = MUX(proxy, one_contributions, selected_e_contributions, bit_shares, size * n_bits);
+
+        // binary-tree-based multiplication of the contributions into the exponential
+        int cs = n_bits;
+        bool flag = false;
+        uint64_t* remaining = new uint64_t[size];
+        uint64_t *tmp1, *tmp2;
+        for (int j = 0; j < (int) ceil(log2(n_bits)); j++) {
+            tmp1 = contributions;
+            tmp2 = &contributions[cs / 2];
+
+            if (cs % 2 == 1) {
+                if (!flag) {
+                    for(uint32_t i = 0; i < size; i++){
+                        remaining[i] = contributions[(i * cs) + cs - 1];
+                    }
+
+                    tmp1 = new uint64_t[size * (cs / 2)];
+                    tmp2 = new uint64_t[size * (cs / 2)];
+
+                    for( uint32_t i = 0; i < size; i++) {
+                        copy(contributions + (i * cs), contributions + (i * cs) + (cs / 2), tmp1 + (i * (cs / 2)));
+                        copy(contributions + (i * cs) + (cs / 2), contributions + (i * cs) + 2 * (cs / 2), tmp2 + (i * (cs / 2)));
+                    }
+
+                    flag = true;
+                } else {
+                    tmp1 = new uint64_t[size * ((cs + 1) / 2)];
+                    tmp2 = new uint64_t[size * ((cs + 1) / 2)];
+
+                    size_t partial_size = cs / 2;
+
+                    for(uint32_t i = 0; i < size; i++) {
+                        copy(contributions + (i * cs), contributions + (i * cs) + ((cs + 1) / 2), tmp1 + (i * ((cs + 1) / 2)));
+                        copy(contributions + (i * cs) + ((cs + 1) / 2), contributions + ((i + 1) * cs), tmp2 + (i * ((cs + 1) / 2)));
+                        tmp2[(i + 1) * ((cs + 1) / 2) - 1] = remaining[i];
+                    }
+
+                    cs++;
+                    flag = false;
+                }
+            }
+            else {
+                tmp1 = new uint64_t[size * (cs / 2)];
+                tmp2 = new uint64_t[size * (cs / 2)];
+
+                for( uint32_t i = 0; i < size; i++) {
+                    copy(contributions + (i * cs), contributions + (i * cs) + (cs / 2), tmp1 + (i * (cs / 2)));
+                    copy(contributions + (i * cs) + (cs / 2), contributions + ((i + 1) * cs), tmp2 + (i * (cs / 2)));
+                }
+            }
+            delete [] contributions;
+            contributions = MUL(proxy, tmp1, tmp2, size * (cs / 2));
+
+            delete [] tmp1;
+            delete [] tmp2;
+
+            cs /= 2;
+        }
+
+        // deleting dynamically allocated arrays
+        delete [] msb_a;
+        delete [] abs_a;
+        delete [] pec;
+        delete [] nec;
+        delete [] pos_e_contributions;
+        delete [] neg_e_contributions;
+        delete [] one_contributions;
+        delete [] repeated_msb_a;
+        delete [] e_contributions;
+        delete [] partial_a;
+        delete [] bit_shares;
+        delete [] remaining;
+
+        return contributions;
+    }
+    else if ( p_role == HELPER) {
+        MSB(proxy, 0, size);
+        MUX(proxy, 0, 0, 0, size * (n_bits + 1));
+        MSB(proxy, 0, size * n_bits);
+        MUX(proxy, 0, 0, 0, size * n_bits);
+
+        int current_size = n_bits;
+        bool flag = false;
+        for (int i = 0; i < (int) ceil(log2(n_bits)); i++) {
+            if (current_size % 2 == 1) {
+                if (!flag) {
+                    flag = true;
+                } else {
+                    current_size++;
+                    flag = false;
+                }
+            }
+            MUL(proxy, 0, 0, size * (current_size / 2));
+            current_size /= 2;
+        }
+
+        return 0;
+    }
+    else {
+        return nullptr;
+    }
+}
+
+uint64_t* PSUM(Party* proxy, uint64_t *a, uint32_t size, uint32_t d) {
+    // PartialSum: sum the elements of each section separately
+    // Input(s)
+    // x: the vector on which we perform the partial summation
+    // size: the length of the vector x
+    // d: the size of the part that we will use to partition x
+    int p_role = proxy->getPRole();
+    if(p_role == P1 || p_role == P2) {
+        uint64_t *ps_x = new uint64_t[size / d];
+        for(uint32_t base = 0; base < size; base += d) {
+            uint64_t tmp = 0;
+            for(uint32_t i = 0; i < d; i++) {
+                tmp += a[base + i];
+            }
+            ps_x[base / d] = tmp;
+        }
+        return ps_x;
+    }
+    else {
+        return NULL;
+    }
+}
+
+uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+    // This function computes the dot product of two single arithmetically shared vectors.
+    // Input(s)
+    // x and y: vectors of the given size
+    // size: the lenght of the vectors
+    // Return(s)
+    // The dot product of x and y as a single value
+    int p_role = proxy->getPRole();
+    if(p_role == P1 || p_role == P2) {
+        // compute elementwise multiplication of vectors
+        uint64_t *ew_xy = MUL(proxy, a, b, size);
+        // sum the result of the multiplications to obtain the dot product
+        uint64_t res = 0;
+        for(uint32_t i = 0; i < size; i++) {
+            res += ew_xy[i];
+        }
+        delete [] ew_xy;
+
+        return res;
+    }
+    else if(p_role == HELPER) {
+        MUL(proxy, 0, 0, size);
+        return 0;
+    }
+    else {
+        return -1;
+    }
+}
+
+uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) {
+    // This function computes the dot product of arithmetically shared vectors, which are formed by vectors.
+    // Input(s)
+    // x and y: vectors formed by vectors of given size
+    // size: the lenght of the vectors
+    // d: the size of the partial vectors forming the main vectors
+    // Return(s)
+    // Dot product of the given (size/d) vectors as a vector of (size / d)
+    int p_role = proxy->getPRole();
+    if(p_role == P1 || p_role == P2) {
+        // compute elementwise multiplication of vectors
+        uint64_t *ew_xy = MUL(proxy, a, b, size);
+        // sum the vectors in the main vector
+        uint64_t *dp_shr = PSUM(proxy, ew_xy, size, d);
+
+        delete [] ew_xy;
+
+        return dp_shr;
+    }
+    else if(p_role == HELPER) {
+        MUL(proxy, 0, 0, size);
+        return NULL;
+    }
+    else {
+        return NULL;
+    }
+
+}
+
+uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+    /*
+     * Perform multiplication of matrices a and b. The function assumes that the number of columns of a equals to
+     * the number of rows of b.
+     *
+     * Input(s)
+     * a: two dimensional matrix of size a_row-by-a_col
+     * b: two dimensional matrix of size a_col-by-b_col
+     *
+     * Output(s)
+     * Returns a matrix of size a_row-by-b_col
+     */
+    int p_role = proxy->getPRole();
+    if (p_role == P1 || p_role == P2) {
+        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        uint32_t size = a_row * a_col * b_col;
+        uint64_t *concat_a = new uint64_t[size];
+        uint64_t *concat_b = new uint64_t[size];
+
+        for (uint32_t i = 0; i < size; i++) {
+            concat_a[i] = a[i / (a_col * b_col)][i % a_col];
+            concat_b[i] = b[i % a_col][(i % (a_col * b_col)) / a_col];
+        }
+
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+
+        // recover the resulting matrix
+        uint64_t **res = new uint64_t *[a_row];
+        uint32_t ind = 0;
+        uint64_t tmp_sum;
+        for (uint32_t i = 0; i < a_row; i++) {
+            res[i] = new uint64_t[b_col];
+            for (uint32_t j = 0; j < b_col; j++) {
+                tmp_sum = 0;
+                for (uint32_t k = ind; k < ind + a_col; k++) {
+                    tmp_sum += tmp[k];
+                }
+                ind += a_col;
+                res[i][j] = tmp_sum;
+            }
+        }
+
+        delete[] concat_a;
+        delete[] concat_b;
+        delete[] tmp;
+
+        return res;
+    }
+    else if( p_role == HELPER) {
+        // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
+        MUL(proxy, NULL, NULL, a_row);
+        return NULL;
+    }
+    else {
+        return NULL;
+    }
+}
+
+uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+    /*
+     * Perform several multiplications of matrices of size a_row-by-a_col and a_col-by-b_col stored in a and b.
+     *
+     * Input(s)
+     * a: three dimensional matrix of size n_matrices-by-a_row-by-a_col
+     * b: three dimensional matrix of size n_matrices-by-a_col-by-b_col
+     *
+     * Output(s)
+     * Returns a matrix of size n_matrices-by-a_row-by-b_col
+     */
+    int p_role = proxy->getPRole();
+    if (p_role == P1 || p_role == P2) {
+        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        uint32_t size = n_matrices * a_row * a_col * b_col;
+        uint32_t size2 = a_row * a_col * b_col;
+        uint64_t *concat_a = new uint64_t[size];
+        uint64_t *concat_b = new uint64_t[size];
+
+        for(uint32_t n = 0; n < n_matrices; n++) {
+            for (uint32_t i = 0; i < size2; i++) {
+                concat_a[size2 * n + i] = a[n][i / (a_col * b_col)][i % a_col];
+                concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
+            }
+        }
+
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+
+        // recover the resulting matrix
+        uint64_t ***res = new uint64_t **[n_matrices];
+        uint32_t ind = 0;
+        uint64_t tmp_sum;
+        for(uint32_t n = 0; n < n_matrices; n++) {
+            res[n] = new uint64_t*[a_row];
+            for (uint32_t i = 0; i < a_row; i++) {
+                res[n][i] = new uint64_t[b_col];
+                for (uint32_t j = 0; j < b_col; j++) {
+                    tmp_sum = 0;
+                    for (uint32_t k = ind; k < ind + a_col; k++) {
+                        tmp_sum += tmp[k];
+                    }
+                    ind += a_col;
+                    res[n][i][j] = tmp_sum;
+                }
+            }
+        }
+
+        delete[] concat_a;
+        delete[] concat_b;
+        delete[] tmp;
+
+        return res;
+    }
+    else if( p_role == HELPER) {
+        if(a_row <= 0) {
+            throw invalid_argument("core::MATMATMUL-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
+        }
+        // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
+        MUL(proxy, 0, 0, a_row);
+        return NULL;
+    }
+    else {
+        return nullptr;
+    }
+}
+
+uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uint32_t a_col) {
+    /*
+     * Perform multiplication of matrice a and vector b. The function assumes that the number of columns of a equals to
+     * the length of b.
+     *
+     * Input(s)
+     * a: two dimensional matrix of size a_row-by-a_col
+     * b: a vector of size a_col
+     *
+     * Output(s)
+     * Returns a vector of length a_row
+     */
+    int p_role = proxy->getPRole();
+    if (p_role == P1 || p_role == P2) {
+        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        uint32_t size = a_row * a_col;
+        uint64_t *concat_a = new uint64_t[size];
+        uint64_t *concat_b = new uint64_t[size];
+
+        for (uint32_t i = 0; i < size; i++) {
+            concat_a[i] = a[i / a_col][i % a_col];
+            concat_b[i] = b[i % a_col];
+        }
+
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+
+        // recover the resulting vector
+        uint64_t *res = new uint64_t [a_row];
+        uint32_t ind = 0;
+        uint64_t tmp_sum;
+        for (uint32_t i = 0; i < a_row; i++) {
+            tmp_sum = 0;
+            for (uint32_t k = ind; k < ind + a_col; k++) {
+                tmp_sum += tmp[k];
+            }
+            ind += a_col;
+            res[i] = tmp_sum;
+        }
+
+        delete[] concat_a;
+        delete[] concat_b;
+        delete[] tmp;
+
+        return res;
+    }
+    else if(p_role == HELPER) {
+        // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
+        return MUL(proxy, NULL, NULL, a_row);
+    }
+    else {
+        return nullptr;
+    }
+}
+
+uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col) {
+    /*
+     * Perform n_matrices multiplications of matrices of size a_row-by-a_col and vectors of size a_col stored in a and
+     * b, respectively.
+     *
+     * Input(s)
+     * a: three dimensional matrix of size n_matrices-by-a_row-by-a_col
+     * b: two dimensional matrix of size n_matrices-by-a_col
+     *
+     * Output(s)
+     * Returns a two-dimensional matrix of size n_matrices-by-a_row
+     */
+    int p_role = proxy->getPRole();
+    if (p_role == P1 || p_role == P2) {
+        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        uint32_t size = n_matrices * a_row * a_col;
+        uint32_t size2 = a_row * a_col;
+        uint64_t *concat_a = new uint64_t[size];
+        uint64_t *concat_b = new uint64_t[size];
+
+        for(uint32_t n = 0; n < n_matrices; n++) {
+            for (uint32_t i = 0; i < size2; i++) {
+                concat_a[size2 * n + i] = a[n][i / a_col][i % a_col];
+                concat_b[size2 * n + i] = b[n][i % a_col];
+            }
+        }
+
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+
+        // recover the resulting vector
+        uint64_t **res = new uint64_t*[n_matrices];
+        uint32_t ind = 0;
+        uint64_t tmp_sum;
+        for(uint32_t n = 0; n < n_matrices; n++) {
+            res[n] = new uint64_t[a_row];
+            for (uint32_t i = 0; i < a_row; i++) {
+                tmp_sum = 0;
+                for (uint32_t k = ind; k < ind + a_col; k++) {
+                    tmp_sum += tmp[k];
+                }
+                ind += a_col;
+                res[n][i] = tmp_sum;
+            }
+        }
+
+        delete[] concat_a;
+        delete[] concat_b;
+        delete[] tmp;
+
+        return res;
+    }
+    else if( p_role == HELPER) {
+        // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
+        MUL(proxy, NULL, NULL, a_row);
+        return NULL;
+    }
+    else {
+        return nullptr;
+    }
+}
+
+#endif //CORE_H
 
 
