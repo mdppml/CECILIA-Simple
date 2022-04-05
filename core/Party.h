@@ -40,7 +40,37 @@ public:
         }
         SetCommonSeed();
 
+        // compute the number of bits for exponential
+        // for positive power
+        bool flag = false;
+        int used_bits = 0;
+        // for negative power
+        bool neg_flag = false;
+        int zero_bits = 0;
+        for(int i = 7; i >= 0; i--) {
+            // positive power
+            int n_bits_by_i = ceil(log2(exp(pow(2, i))));
+            if(L_BIT - 1 - 2 * FRAC - n_bits_by_i - used_bits >= 0) {
+                used_bits += n_bits_by_i;
+                max_power += pow(2, i);
+            }
+            if(!flag && L_BIT - 2 - 2 * FRAC - n_bits_by_i >= 0) {
+                flag = true;
+                n_bits += i + 1;
+            }
 
+            // negative power
+            int n_zero_bits_by_i = abs(floor(log2(exp(pow(2, i))))); // how many bits are zero after the comma
+            if(zero_bits + n_zero_bits_by_i < FRAC - 1) {
+                zero_bits += n_zero_bits_by_i;
+                min_power -= pow(2, i);
+
+                if(!neg_flag) {
+                    neg_flag = true;
+                    neg_n_bits += i + 1;
+                }
+            }
+        }
     }
 
     ~Party() {
@@ -55,7 +85,6 @@ public:
             close(socket_p2);
         }
     }
-
 
     void SetCommonSeed() {
         if (p_role == P1) {
@@ -107,6 +136,7 @@ public:
         }
         return share;
     }
+
     uint64_t* createShare(double *val, uint32_t sz){
         uint64_t *v = convert2uint64(val,sz);
         uint64_t *share = new uint64_t[sz];
@@ -119,6 +149,23 @@ public:
             }
         }
 
+        return share;
+    }
+
+    uint64_t** createShare(double **val, uint32_t n_row, uint32_t n_col){
+        uint64_t **v = convert2uint64(val, n_row, n_col);
+        uint64_t **share = new uint64_t*[n_row];
+        for (uint32_t i = 0; i < n_row; i++){
+            share[i] = new uint64_t[n_col];
+            for(uint32_t j = 0; j < n_col; j++) {
+                if (p_role ==P1) {
+                    share[i][j] = generateCommonRandom();
+                }
+                else{
+                    share[i][j] = v[i][j] - generateCommonRandom();
+                }
+            }
+        }
         return share;
     }
 
@@ -139,7 +186,24 @@ public:
             return 0;
     }
 
-    void SendBytes(op o, uint32_t sz = 0,int L1 = 0) {
+//    void SendBytes(op o, uint32_t sz = 0,int L1 = 0) {
+//        if (p_role == P1) {
+//            unsigned char *ptr = &buffer[0];
+//            size_t s = 1;
+//            addVal2CharArray((uint8_t) o, &ptr);
+//            if (sz != 0) {
+//                addVal2CharArray((uint32_t) sz, &ptr);
+//                s += 4;
+//            }
+//            if (L1 != 0) {
+//                addVal2CharArray((uint8_t) L1, &ptr);
+//                s += 1;
+//            }
+//            Send(socket_helper, buffer, s);
+//        }
+//    }
+
+    void SendBytes(op o, uint32_t sz = 0, uint32_t sz2 = 0) {
         if (p_role == P1) {
             unsigned char *ptr = &buffer[0];
             size_t s = 1;
@@ -148,13 +212,14 @@ public:
                 addVal2CharArray((uint32_t) sz, &ptr);
                 s += 4;
             }
-            if (L1 != 0) {
-                addVal2CharArray((uint8_t) L1, &ptr);
-                s += 1;
+            if (sz2 != 0) {
+                addVal2CharArray((uint32_t) sz2, &ptr);
+                s += 4;
             }
             Send(socket_helper, buffer, s);
         }
     }
+
     void PrintBytes() {
         PBytes();
     }
@@ -183,6 +248,37 @@ public:
         return buffer2;
     }
 
+    int getNBits() {
+        return n_bits;
+    }
+
+    void setNBits(int nBits) {
+        n_bits = nBits;
+    }
+
+    double getMaxPower() const {
+        return max_power;
+    }
+
+    void setMaxPower(double maxPower) {
+        max_power = maxPower;
+    }
+
+    int getNegNBits() const {
+        return neg_n_bits;
+    }
+
+    void setNegNBits(int negNBits) {
+        neg_n_bits = negNBits;
+    }
+
+    double getMinPower() const {
+        return min_power;
+    }
+
+    void setMinPower(double minPower) {
+        min_power = minPower;
+    }
 private:
     role p_role;
     int socket_p1,socket_p2,socket_helper;
@@ -190,7 +286,10 @@ private:
     uint8_t buffer2[BUFFER_SIZE];
     uint32_t common_seed;
     uint32_t seed;
-
+    int n_bits = FRAC; // number of bits of a value to consider in the exponential computation
+    int neg_n_bits = FRAC; // number of bits of a negative value to consider in the exponential computation
+    double max_power = 0;
+    double min_power = 0;
 };
 
 
