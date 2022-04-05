@@ -314,7 +314,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
         /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
         If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
         while (cmpWindowVectorSize > 1) {
-            auto halfSize = cmpWindowVectorSize / 2;
+            uint32_t halfSize = cmpWindowVectorSize / 2;
             if (cmpWindowVectorSize & 1) {                   //there is an residue remaining
                 if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
                     isResidueInBuffer = false;                    //after processing all windows, buffer is remembered to be empty; dont set isResidueStored directly otherwise residues in one loop iteration are treated differently
@@ -325,7 +325,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
                 }
             }
 
-            auto vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
+            uint32_t vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
             if (vectorLength > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
                 MSB(proxy, nullptr, vectorLength);
@@ -367,7 +367,6 @@ uint64_t RELU(Party* proxy, uint64_t x){
         f = proxy->generateCommonRandom() & 0x1;
         g = proxy->generateCommonRandom() & 0x1;
         h = proxy->generateCommonRandom() & 0x1;
-        //cout << "bools: " << f << " " << g << " " << h << " " << endl;
 
         // make the shares more random by adding i to e_i for S_i:
         e[f] += proxy->getPRole();
@@ -539,6 +538,47 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         thr1.join();
         thr2.join();
 
+        return 0;
+    }
+}
+
+uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
+    //compare with Algorithm 8 Division by SecureNN
+    // l in SecureNN is our L, their L is our N
+    if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
+        uint64_t zeroShare = proxy->createShare(0);
+
+        uint64_t iBit = (1UL << L);
+        uint64_t u = 0; // u_l of SecureNN (p.12)
+        uint64_t y, z;
+        uint64_t result = 0;
+        for (uint8_t i = L-1; i >= 0; i++){
+            iBit >>= 1;
+            //___3. step
+            uint64_t commonShare_w = proxy->createShare(0);
+            y = b << iBit; // << by iBit is multiplying with iBit
+            z = a - u - y + commonShare_w;
+
+            //___4. step                   --> to be combined with step 5
+            uint64_t beta = DRELU(proxy, z);
+            //___5. step
+            uint64_t v = MUL(proxy, beta, y);
+
+            //___6. step
+            uint64_t k = beta << iBit;
+            //___7. step
+            u = u + v;
+            result += k + zeroShare;
+        }
+        return result;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        for (uint8_t i = L-1; i >= 0; i++){
+            //___4. step                   --> to be combined with step 5
+            uint64_t beta = DRELU(proxy, 0);
+            //___5. step
+            uint64_t v = MUL(proxy, beta, 0);
+        }
         return 0;
     }
 }

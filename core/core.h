@@ -942,67 +942,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     return nullptr;
 }
 
-uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
-    uint32_t l = 64;
-    if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
-        uint64_t zero = 0;
-        uint64_t u = proxy->createShare(0);
-        uint64_t z;
-        for (uint8_t i = 0; i < l; i++){
-            zero |= 1UL << i;                 // set the i-th bit
-            bool uBit = (u >> i) & 1U;
-            uint64_t commonShare_w = proxy->createShare(0);
-
-            bool bitToSet = a - uBit - zero * b + commonShare_w;
-            z ^= (-bitToSet ^ z) & (1UL << i);   // set the i-th bit of z
-            zero &= -(1UL << i);                 // clear the i-th bit
-        }
-
-
-        return z;
-
-    }
-    else if (proxy->getPRole() == HELPER) {
-        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), 16);
-        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), 16);
-        thr1.join();
-        thr2.join();
-        // Receive(socket_p1, buffer, 16);
-        // Receive(socket_p2, buffer2, 16);
-        unsigned char *ptr = &proxy->getBuffer1()[0];
-        unsigned char *ptr2 = &proxy->getBuffer2()[0];
-
-
-        uint64_t a1, a2, b1, b2;
-        a1 = convert2Long(&ptr);
-        b1 = convert2Long(&ptr);
-        a2 = convert2Long(&ptr2);
-        b2 = convert2Long(&ptr2);
-        uint64_t a = a1+a2;
-        uint64_t b = b1+b2;
-
-
-        uint64_t c = ((a*1.0)/b)*PRECISION;
-
-        uint64_t c1 = proxy->generateRandom();
-        uint64_t c2 = c - c1;
-
-        ptr = &proxy->getBuffer1()[0];
-        addVal2CharArray(c1, &ptr);
-        thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        //Send(socket_p1, buffer, 8);
-        ptr2 = &proxy->getBuffer2()[0];
-        addVal2CharArray(c2, &ptr2);
-        thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8);
-        thr1.join();
-        thr2.join();
-        //Send(socket_p2, buffer2, 8);
-
-        return 0;
-
-    }
-}
-
 uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
     role p_role = proxy->getPRole();
     if (p_role == HELPER) {

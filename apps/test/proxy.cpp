@@ -281,7 +281,6 @@ void MAX_Test(Party *proxy){
     double pp_result = convert2double(REC(proxy, max));
     if(computed_max == pp_result){
         cout<<"MAX works correctly"<<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_max << endl;
     }
     else{
         cout<<"MAX works incorrectly" <<endl;
@@ -317,8 +316,8 @@ void MMAX_Test(Party *proxy){
 
     // INIT PARAMETER
     uint64_t mmaxParams[4];
-    mmaxParams[0] = WSZ*10; // matrix Rows
-    mmaxParams[1] = WSZ*10; // matrix Columns
+    mmaxParams[0] = WSZ*3; // matrix Rows
+    mmaxParams[1] = WSZ*3; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
 
     mmaxParams[2] = WSZ; // window rows
@@ -336,22 +335,23 @@ void MMAX_Test(Party *proxy){
     uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[3]);
 
     // TESTING
-    uint64_t window_length = mmaxParams[2] * mmaxParams[3];
-    uint64_t number_of_windows = floor(mSize/window_length);
+    uint32_t window_length = mmaxParams[2] * mmaxParams[3];
+    uint32_t number_of_windows = mSize / window_length;
     uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
 
     bool flag = true;
     uint64_t resorted [mSize];
-    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[2], mmaxParams[3], resorted);
-    // TODO check for precision > 0
+    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[3], mmaxParams[3], resorted);
     double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
     double computed_max[number_of_windows];
 
     for(uint32_t win = 0; win < number_of_windows; win++){
         for(uint32_t win_element = 0; win_element < window_length; win_element++){
             double matrixVal = d_matrix[window_length*win + win_element];
+            cout << matrixVal << " > " << computed_max[win] << " ?" << endl;
             if (matrixVal > computed_max[win]){
                 computed_max[win] = matrixVal;
+                cout << "Y" << endl;
             }
         }
         if (computed_max[win] != convert2double(reconstructed_max[win])){
@@ -383,19 +383,16 @@ void RELU_Test(Party *proxy){
 
     // checking the result
     double computed_relu = -1;
-    uint64_t recX = REC(proxy, x);
-    recX = recX << FRAC; //TODO how to include fraction here?
-    double originalX = convert2double( recX);
-    if (originalX > 0){
+    double originalX = convert2double(REC(proxy, x));
+    if (originalX >= 0){
         computed_relu = originalX;
     }
     else{
-        //cout << "X = " << to_string(computed_relu) << " --> RELU = 0." << endl;
         computed_relu = 0;
     }
 
-    double pp_result = convert2double(reconstructed_relu, 0);
-    if((computed_relu) == pp_result){
+    double pp_result = convert2double(reconstructed_relu);
+    if(computed_relu == pp_result){
         cout<<"RELU works correctly"<<endl;
     }
     else{
@@ -439,7 +436,7 @@ void DIV_Test(Party *proxy){
     uint64_t y = proxy->createShare(4);
 
     proxy->SendBytes(CORE_DIV);
-    uint64_t div = DIV(proxy, x, y);
+    uint64_t div = DIV_NN(proxy, x, y);
     uint64_t reconstructed_div = REC(proxy, div);
 
     // checking the result
@@ -491,12 +488,12 @@ int main(int argc, char* argv[]) {
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
 
-    //MMAX_Test(proxy); //TODO adapt to asymmetric window size
+    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-    //RELU_Test(proxy);
-    //DRLU_Test(proxy);
+    RELU_Test(proxy);
+    DRLU_Test(proxy);
 
-    //DIV_Test(proxy);
+    DIV_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
