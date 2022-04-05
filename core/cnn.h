@@ -220,6 +220,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
         }
         return 0;
     }
+    return -1;
 }
 
 
@@ -338,6 +339,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
         }
         return nullptr;
     }
+    return NULL;
 }
 
 
@@ -349,7 +351,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
  * @return
  */
 uint64_t RELU(Party* proxy, uint64_t x){
-    uint64_t K = (N>>1); // N is the ring size - 1 = 2^64 -1
+    uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
 
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t commonValues [3];
@@ -411,7 +413,7 @@ uint64_t RELU(Party* proxy, uint64_t x){
 
         uint8_t * buffer2 = proxy->getBuffer2();
 
-        MOC(proxy, NULL);
+        MOC(proxy, 0);
 
         Receive(proxy->getSocketP1(), proxy->getBuffer1(), 6 * 8);
         Receive(proxy->getSocketP2(), proxy->getBuffer2(), 6 * 8);
@@ -466,6 +468,7 @@ uint64_t RELU(Party* proxy, uint64_t x){
         thr2.join();
         return 0;
     }
+    return -1;
 }
 
 
@@ -476,7 +479,7 @@ uint64_t RELU(Party* proxy, uint64_t x){
  * @return
  */
 uint64_t DRELU(Party* proxy, uint64_t x){
-    uint64_t K = (N>>1); // N is the ring size - 1 = 2^64 -1
+    uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint8_t exchangingBit = 2;
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -511,7 +514,7 @@ uint64_t DRELU(Party* proxy, uint64_t x){
     }
     else if (proxy->getPRole() == HELPER) {
         K += 1;
-        MOC(proxy, NULL);
+        MOC(proxy, 0);
 
         Receive(proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
         Receive(proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
@@ -540,6 +543,7 @@ uint64_t DRELU(Party* proxy, uint64_t x){
 
         return 0;
     }
+    return -1;
 }
 
 uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
@@ -548,11 +552,11 @@ uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
     if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
         uint64_t zeroShare = proxy->createShare(0);
 
-        uint64_t iBit = (1UL << L);
+        uint64_t iBit = (1UL << L_BIT);
         uint64_t u = 0; // u_l of SecureNN (p.12)
         uint64_t y, z;
         uint64_t result = 0;
-        for (uint8_t i = L-1; i >= 0; i++){
+        for (uint8_t i = L_BIT-1; i >= 0; i++){
             iBit >>= 1;
             //___3. step
             uint64_t commonShare_w = proxy->createShare(0);
@@ -573,7 +577,7 @@ uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
         return result;
     }
     else if (proxy->getPRole() == HELPER) {
-        for (uint8_t i = L-1; i >= 0; i++){
+        for (uint8_t i = L_BIT-1; i >= 0; i++){
             //___4. step                   --> to be combined with step 5
             uint64_t beta = DRELU(proxy, 0);
             //___5. step
