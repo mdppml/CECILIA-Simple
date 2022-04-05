@@ -9,7 +9,11 @@
 //const int L = 64;
 #define LP 67
 #define FRAC 20
+<<<<<<< HEAD
 #define RING_N 0xffffffffffffffff  // ring size
+=======
+#define N 0xffffffffffffffff  // ring size
+>>>>>>> fbb65db82543c23a65338b529016e233ec513182
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
 #define EVEN_MASK 0xfffffffffffffff7
@@ -40,7 +44,7 @@ enum role {
 enum op {
     // Core
     CORE_MMSB,CORE_END,CORE_MUL,CORE_MMUL,CORE_MUX,CORE_MMUX,CORE_MMC,CORE_MC,CORE_MCMP,CORE_CMP,CORE_MSB,CORE_EXP,
-    CORE_MEXP,CORE_DP,CORE_MDP,CORE_MATMATMUL,CORE_MMATMATMUL,CORE_MATVECMUL,CORE_MMATVECMUL,
+    CORE_MEXP,CORE_DP,CORE_MDP,CORE_MATMATMUL,CORE_MMATMATMUL,CORE_MATVECMUL,CORE_MMATVECMUL, CORE_DIV,
     // AUC
     AUC_MSB,AUC_TDIV,AUC_MROU,AUC_MDIV,
     // CNN

@@ -149,6 +149,9 @@ int main(int argc, char* argv[]) {
             int sz = helper->ReadInt();
             INVSQRT(helper, 0, n_gms, sz);
         }
+        else if (op == CORE_DIV){
+            DIV(helper, 0, 0);
+        }
         else if (op == CORE_END)
             break;
     }
