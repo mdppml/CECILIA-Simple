@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
             INVSQRT(helper, 0, n_gms, sz);
         }
         else if (op == CORE_DIV){
-            DIV(helper, 0, 0);
+            DIV_NN(helper, 0, 0);
         }
         else if (op == CORE_END)
             break;

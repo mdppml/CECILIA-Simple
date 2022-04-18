@@ -550,34 +550,43 @@ uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
     //compare with Algorithm 8 Division by SecureNN
     // l in SecureNN is our L, their L is our N
     if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
+        cout << "starting DIV" << endl;
         uint64_t zeroShare = proxy->createShare(0);
+        cout << "zero share: " << convert2double(REC(proxy, zeroShare)) << endl;
 
-        uint64_t iBit = (1UL << L_BIT);
+        uint64_t iBit = (1UL << 63);
+        cout << "init round: " << iBit << endl;
         uint64_t u = 0; // u_l of SecureNN (p.12)
         uint64_t y, z;
         uint64_t result = 0;
-        for (uint8_t i = L_BIT-1; i >= 0; i++){
-            iBit >>= 1;
+        for (uint16_t i = L_BIT; i > 0; i--){
             //___3. step
             uint64_t commonShare_w = proxy->createShare(0);
             y = b << iBit; // << by iBit is multiplying with iBit
             z = a - u - y + commonShare_w;
+            cout << "z_share: " << z << endl;
+            cout << "z: " << convert2double(REC(proxy, a)) - u - convert2double(REC(proxy, b) << iBit) << endl;
 
             //___4. step                   --> to be combined with step 5
             uint64_t beta = DRELU(proxy, z);
+            cout << "beta: " << convert2double(REC(proxy, beta)) << endl;
             //___5. step
             uint64_t v = MUL(proxy, beta, y);
+            cout << "v: " << convert2double(REC(proxy, v)) << endl;
 
             //___6. step
             uint64_t k = beta << iBit;
             //___7. step
             u = u + v;
             result += k + zeroShare;
+            cout << "current result: " << result << "; k+share0: " << convert2double(REC(proxy, k + zeroShare)) << endl;
+            iBit >>= 1;
         }
+        cout << "result: " << convert2double(REC(proxy, result)) << endl;
         return result;
     }
     else if (proxy->getPRole() == HELPER) {
-        for (uint8_t i = L_BIT-1; i >= 0; i++){
+        for (uint16_t i = L_BIT; i > 0; i--){
             //___4. step                   --> to be combined with step 5
             uint64_t beta = DRELU(proxy, 0);
             //___5. step
