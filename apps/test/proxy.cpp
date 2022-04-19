@@ -929,7 +929,7 @@ void DIV_Test(Party *proxy){
     uint64_t y = proxy->createShare(4);
 
     proxy->SendBytes(CORE_DIV);
-    uint64_t div = DIV_NN(proxy, x, y);
+    uint64_t div = DIV(proxy, x, y);
     uint64_t reconstructed_div = REC(proxy, div);
 
     // checking the result

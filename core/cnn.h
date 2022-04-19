@@ -596,6 +596,161 @@ uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
     }
 }
 
+uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
+    uint64_t K = (RING_N>>1);
+    //compare with Algorithm 8 Division by SecureNN
+    // l in SecureNN is our L, their L is our N
+    if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
+        uint64_t zeroShare = proxy->createShare(0);
+
+        uint64_t iBit = (1UL << 63);
+        cout << "init round: " << iBit << endl;
+        uint64_t u = 0; // u_l of SecureNN (p.12)
+        uint64_t y, z;
+        uint64_t result = 0;
+        for (uint16_t i = L_BIT; i > 0; i--){
+            //___3. step
+            uint64_t commonShare_w = proxy->createShare(0);
+            y = b << iBit; // << by iBit is multiplying with iBit
+            z = a - u - y + commonShare_w;
+            cout << "z: " << convert2double(REC(proxy, z)) << endl;
+            cout << "mul: " << convert2double(REC(proxy, a)) - u - convert2double(REC(proxy, b) << iBit) << endl;
+
+            //___4. step (DRELU)
+            uint64_t f = proxy->generateCommonRandom() & 0x1;
+            uint64_t t = z & K; // get first L-1 bit of the share
+            K += 1; // increase K by 1 K is 2^63
+            uint64_t d = MOC(proxy, t);
+            uint64_t drelu = z - d;
+
+            // compute parts of a:
+            uint64_t values[2];
+            values[0] = proxy->getPRole() * f * K - drelu;       // a_0
+            values[1] = proxy->getPRole() * (1 - f) * K - drelu; // a_1
+
+            // proxy sends a to HELPER:
+            unsigned char *ptr = proxy->getBuffer1();
+            addVal2CharArray(values, &ptr, 2);
+            Send(proxy->getSocketHelper(), proxy->getBuffer1(), 2 * 8);
+
+            // receive fresh share from helper
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 2 * 8); // order is share of a[0], a[1]
+            ptr = proxy->getBuffer1();
+            z = proxy->getPRole() -  convert2Long(&ptr);
+            if (f)  // if f is 1  we get the next long value in the buffer.
+                drelu = proxy->getPRole() - convert2Long(&ptr);
+            cout << "DRELU: " << convert2double(REC(proxy, drelu)) << endl;
+
+            //___5. step (MUL)
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
+            ptr = proxy->getBuffer1();
+            uint64_t mt[3];
+            for (auto &j : mt) {
+                j = convert2Long(&ptr);
+            }
+
+            uint64_t e_f[2];
+            e_f[0] = a - mt[0];
+            e_f[1] = b - mt[1];
+
+            uint64_t* rec_e_f = REC(proxy,e_f, 2);
+            uint64_t mul = proxy->getPRole() * rec_e_f[0] * rec_e_f[1] + rec_e_f[1] * mt[0] + rec_e_f[0] * mt[1] + mt[2];
+
+            // restore the fractional part - refer to SecureNN for more details
+            if (proxy->getPRole() == P1) {
+                mul = mul >> FRAC;
+            } else {
+                mul = -1 * ((-1 * mul) >> FRAC);
+            }
+
+            delete [] rec_e_f;
+//            uint64_t v = MUL(proxy, drelu, y);
+            cout << "mul: " << convert2double(REC(proxy, mul)) << endl;
+
+            //___6. step
+            uint64_t k = drelu << iBit;
+            //___7. step
+            u = u + mul;
+            result += k + zeroShare;
+            cout << "current result: " << convert2double(REC(proxy, result)) << "; k+share0: " << convert2double(REC(proxy, k + zeroShare)) << endl;
+            iBit >>= 1;
+        }
+        cout << "result: " << convert2double(REC(proxy, result)) << endl;
+        // restore the fractional part - refer to SecureNN for more details
+        if (proxy->getPRole() == P1) {
+            result = result >> FRAC;
+        } else {
+            result = -1 * ((-1 * result) >> FRAC);
+        }
+        return result;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        for (uint16_t i = L_BIT; i > 0; i--){
+            //___4. step (DRELU)
+            K += 1;
+            MOC(proxy, 0);
+
+            Receive(proxy->getSocketP1(), proxy->getBuffer1(), 2 * 8);
+            Receive(proxy->getSocketP2(), proxy->getBuffer2(), 2 * 8);
+            unsigned char *ptr1 = proxy->getBuffer1();
+            unsigned char *ptr2 = proxy->getBuffer2();
+
+            uint64_t reconstructedVals[2];
+            reconstructedVals[0] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
+            reconstructedVals[1] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
+
+            //reassign buffer because ptr1 and ptr2 were incremented by convert2Long calls.
+            ptr1 = proxy->getBuffer1();
+            ptr2 = proxy->getBuffer2();
+
+            uint64_t tmp = proxy->generateRandom();
+            addVal2CharArray(tmp,&ptr1);
+            addVal2CharArray(reconstructedVals[0]-tmp,&ptr2);
+            tmp = proxy->generateRandom();
+            addVal2CharArray(tmp,&ptr1);
+            addVal2CharArray(reconstructedVals[1]-tmp,&ptr2);
+
+            thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 2 * 8);
+            thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 2 * 8);
+            thr1.join();
+            thr2.join();
+
+            //___5. step (MUL)
+            uint64_t *mt1[3];
+            uint64_t *mt2[3];
+            for (int i = 0; i < 3; i++) {
+                mt1[i] = new uint64_t[1];
+                mt2[i] = new uint64_t[1];
+            }
+            GenerateMultiplicationTriple(proxy, mt1, mt2, 1);
+
+            // send the multiplication triples to P1
+            unsigned char *ptr_out = proxy->getBuffer1();
+            for (auto &i : mt1) {
+                addVal2CharArray(i[0], &ptr_out);
+            }
+
+            // addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
+            Send(proxy->getSocketP1(), proxy->getBuffer1(), 3 * 8);
+
+            // send the multiplication triples to P2
+            unsigned char *ptr_out2 = proxy->getBuffer2();
+            for (auto &i : mt2) {
+                addVal2CharArray(i[0], &ptr_out2);
+            }
+            // addVal2CharArray(mt2, &ptr_out2, 3, size);
+            Send(proxy->getSocketP2(), proxy->getBuffer2(), 3 * 8);
+
+            for (int i = 0; i < 3; i++) {
+                delete[] mt1[i];
+                delete[] mt2[i];
+            }
+//            uint64_t v = MUL(proxy, 0, 0);
+        }
+        return 0;
+    }
+}
+
 
 #endif //PPAUC_CNN_H
 
