@@ -925,12 +925,12 @@ void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(2);
-    uint64_t y = proxy->createShare(4);
+    uint64_t x = proxy->createShare(16.0);
+    uint64_t y = proxy->createShare(4.0);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
-    uint64_t reconstructed_div = REC(proxy, div);
+    double reconstructed_div = convert2double(REC(proxy, div));
 
     // checking the result
     double originalX = convert2double(REC(proxy, x));

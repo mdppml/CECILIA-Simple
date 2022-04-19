@@ -600,24 +600,26 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
     uint64_t K = (RING_N>>1);
     //compare with Algorithm 8 Division by SecureNN
     // l in SecureNN is our L, their L is our N
+    cout << "a = " << convert2double(REC(proxy, a)) << "; b = " << convert2double(REC(proxy, b)) << endl;
     if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
         uint64_t zeroShare = proxy->createShare(0);
 
         uint64_t iBit = (1UL << 63);
         cout << "init round: " << iBit << endl;
-        uint64_t u = 0; // u_l of SecureNN (p.12)
+        uint64_t u = proxy->createShare(0); // u_l of SecureNN (p.12)
         uint64_t y, z;
         uint64_t result = 0;
-        for (uint16_t i = L_BIT; i > 0; i--){
+        for (int16_t i = L_BIT-1; i >= 0; i--){
+            cout << "i : " << i << "; iBit = " << iBit << "; u = " << REC(proxy, u) << endl;
             //___3. step
             uint64_t commonShare_w = proxy->createShare(0);
-            y = b << iBit; // << by iBit is multiplying with iBit
-            z = a - u - y + commonShare_w;
+            y = b * iBit;
+            cout << "y (b * 2^i) : " << REC(proxy, y) << endl;
+            z = a - u - y;
             cout << "z: " << convert2double(REC(proxy, z)) << endl;
-            cout << "mul: " << convert2double(REC(proxy, a)) - u - convert2double(REC(proxy, b) << iBit) << endl;
 
             //___4. step (DRELU)
-            uint64_t f = proxy->generateCommonRandom() & 0x1;
+            /*uint64_t f = proxy->generateCommonRandom() & 0x1;
             uint64_t t = z & K; // get first L-1 bit of the share
             K += 1; // increase K by 1 K is 2^63
             uint64_t d = MOC(proxy, t);
@@ -639,10 +641,12 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
             z = proxy->getPRole() -  convert2Long(&ptr);
             if (f)  // if f is 1  we get the next long value in the buffer.
                 drelu = proxy->getPRole() - convert2Long(&ptr);
-            cout << "DRELU: " << convert2double(REC(proxy, drelu)) << endl;
+            cout << "DRELU: " << convert2double(REC(proxy, drelu)) << endl;*/
+            uint64_t drelu = DRELU(proxy, z);
+            //cout << "drelu: " << REC(proxy, drelu) << endl;
 
             //___5. step (MUL)
-            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
+            /*Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
             ptr = proxy->getBuffer1();
             uint64_t mt[3];
             for (auto &j : mt) {
@@ -663,31 +667,28 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
                 mul = -1 * ((-1 * mul) >> FRAC);
             }
 
-            delete [] rec_e_f;
-//            uint64_t v = MUL(proxy, drelu, y);
-            cout << "mul: " << convert2double(REC(proxy, mul)) << endl;
+            delete [] rec_e_f;*/
+            uint64_t mul = MUL(proxy, drelu, y);
+            //cout << "mul: " << REC(proxy, mul) << endl;
 
             //___6. step
-            uint64_t k = drelu << iBit;
+            uint64_t k = iBit * drelu;
+            cout << "drelu: " << REC(proxy, drelu) << "; mul: " << REC(proxy, mul) << "; k: " << REC(proxy, k) << endl;
             //___7. step
             u = u + mul;
-            result += k + zeroShare;
-            cout << "current result: " << convert2double(REC(proxy, result)) << "; k+share0: " << convert2double(REC(proxy, k + zeroShare)) << endl;
+            result += k;
+            //cout << "current result: " << REC(proxy, k) << endl;
             iBit >>= 1;
         }
-        cout << "result: " << convert2double(REC(proxy, result)) << endl;
-        // restore the fractional part - refer to SecureNN for more details
-        if (proxy->getPRole() == P1) {
-            result = result >> FRAC;
-        } else {
-            result = -1 * ((-1 * result) >> FRAC);
-        }
+        //result += zeroShare;
+        cout << "result: " << REC(proxy, result) << endl;
         return result;
     }
     else if (proxy->getPRole() == HELPER) {
         for (uint16_t i = L_BIT; i > 0; i--){
             //___4. step (DRELU)
-            K += 1;
+            uint64_t beta = DRELU(proxy, 0);
+            /*K += 1;
             MOC(proxy, 0);
 
             Receive(proxy->getSocketP1(), proxy->getBuffer1(), 2 * 8);
@@ -744,8 +745,8 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
             for (int i = 0; i < 3; i++) {
                 delete[] mt1[i];
                 delete[] mt2[i];
-            }
-//            uint64_t v = MUL(proxy, 0, 0);
+            }*/
+            uint64_t v = MUL(proxy, beta, 0);
         }
         return 0;
     }
