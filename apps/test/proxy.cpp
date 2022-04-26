@@ -391,8 +391,8 @@ void RELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(convert2double(proxy->generateCommonRandom()));
-
+    uint64_t x = proxy->createShare(-5);//convert2double(proxy->generateCommonRandom()));
+    cout << "x: " << bitset<64>(REC(proxy, x)) << endl;
     proxy->SendBytes(CNN_RELU);
     uint64_t relu = RELU(proxy, x);
     uint64_t reconstructed_relu = REC(proxy, relu);
@@ -410,6 +410,7 @@ void RELU_Test(Party *proxy){
     double pp_result = convert2double(reconstructed_relu);
     if(computed_relu == pp_result){
         cout<<"RELU works correctly"<<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;
     }
     else{
         cout<<"RELU works incorrectly" <<endl;
@@ -925,8 +926,8 @@ void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(16.0);
-    uint64_t y = proxy->createShare(4.0);
+    uint64_t x = proxy->createShare(12);
+    uint64_t y = proxy->createShare(6);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
@@ -963,7 +964,7 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-    MUL_Test(proxy);
+   /* MUL_Test(proxy);
     MMUL_Test(proxy);
 
     MOC_Test(proxy);
@@ -978,15 +979,15 @@ int main(int argc, char* argv[]) {
     MUX_Test(proxy);
     MMUX_Test(proxy);
 
-    MAX_Test(proxy);
+    MAX_Test(proxy);*/
 //    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
-
-//    RELU_Test(proxy);
+    MOC_Test(proxy);
+    RELU_Test(proxy);
 //    DRLU_Test(proxy);
 
-    DIV_Test(proxy);
+ //   DIV_Test(proxy);
 
 //    EXP_Test(proxy);
 //    MEXP_Test(proxy);
@@ -1001,7 +1002,7 @@ int main(int argc, char* argv[]) {
 //    MMATVECMUL_Test(proxy);
 
 //    INVSQRT_Test(proxy);
-    MINVSQRT_Test(proxy);
+    //MINVSQRT_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
