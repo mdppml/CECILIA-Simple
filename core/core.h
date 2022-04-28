@@ -1623,6 +1623,101 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
 }
 
 
+uint64_t MDI(Party* proxy, uint64_t a){
+    /**
+     * Get the Modular Inverse (MDI) of a given number a with modulo being the specified ring size.
+     * For the resulting/returned value b, it must hold
+     *      ab mod(modulo) are congruent to 1.
+     * @param a secret share of the value for which the modular inverse shall be calculated.
+     * The modulo under which a multiplied with the inverse are equal to 1, will always be the ring size.
+     * @return the secret share of the modular inverse of a under the ring size.
+     */
+    cout << "searching for MDI of value " << convert2double(a) << endl;
+    uint64_t exchangingBit = RING_N / 64;
+    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+        for (uint16_t step = 0; step < 64; step++) {
+            cout << "step " << step << endl;
+            uint64_t ringProducts [exchangingBit];
+            // start with 1 because 0 does not have an inverse value.
+            for (uint64_t x = 1; x <= exchangingBit; x++) {
+                uint64_t modInv = x*step + x; //TODO include secret share of 0 ?
+                ringProducts[x - 1] = (a * modInv) & RING_N; // MOC(proxy, t); ?
+            }
+            cout << "stored all ring products..." << endl;
+            unsigned char *ptr = proxy->getBuffer1();
+            addVal2CharArray(ringProducts, &ptr, exchangingBit);
+            Send(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8);
+
+            cout << "sent ring products to helper" << endl;
+            // receive fresh share from helper
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8); // either the share of modInv or -1 to identify, to continue searching
+            ptr = proxy->getBuffer1();
+            uint64_t share = convert2Long(&ptr);
+            cout << "got fresh share from helper: " << share << endl;
+            if (share != -1){
+                // the modInv has been found
+                cout << "MDI was found: " << share << endl;
+                return share;
+            }
+        }
+        return NULL;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        for (uint16_t step = 0; step < 64; step++) {
+            cout << "step " << step << endl;
+            Receive(proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
+            Receive(proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
+            unsigned char *ptr1 = proxy->getBuffer1();
+            unsigned char *ptr2 = proxy->getBuffer2();
+            cout << "got ring products from parties..." << endl;
+
+            uint64_t ringProducts_recon[exchangingBit];
+            ringProducts_recon[0] = (convert2Long(&ptr1) + convert2Long(&ptr2)); //modInv = exchangeBit*step + 1
+            uint64_t m;
+            for(uint64_t i = 1; i < exchangingBit; i++){
+                // reconstructed product of a was: exchangeBit * step + i+1
+                ringProducts_recon[i] = (convert2Long(&ptr1) + convert2Long(&ptr2)); //TODO how to decide if to divide by K for reconstruction or not? I think here not /K
+                for(uint64_t j = 0; j < i; j++){
+                    if(((ringProducts_recon[j] + ringProducts_recon[i]) & RING_N) == 1){
+                        //mod inverse of a is found: i+1 + j+1
+                        m = exchangingBit * 2 * step + i + j + 2; // exchangingBit * step + i+1 + exchangingBit * step + j+1
+                        cout << "MDI was found: " << m << endl;
+                        // SEND fresh share of found modular inverse
+                        //reassign buffer because ptr1 and ptr2 were incremented by convert2Long calls.
+                        ptr1 = proxy->getBuffer1();
+                        ptr2 = proxy->getBuffer2();
+
+                        uint64_t tmp = proxy->generateRandom();
+                        addVal2CharArray(tmp,&ptr1);
+                        addVal2CharArray(m-tmp,&ptr2);
+
+                        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8);
+                        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8);
+                        thr1.join();
+                        thr2.join();
+                        cout << "sent fresh share of MDI to parties; m= " << m << endl;
+                        return 0;
+                    }
+                }
+            }
+            //reassign buffer because ptr1 and ptr2 were incremented by convert2Long calls.
+            ptr1 = proxy->getBuffer1();
+            ptr2 = proxy->getBuffer2();
+
+            uint64_t noValFound = -1;
+            addVal2CharArray(noValFound,&ptr1);
+            addVal2CharArray(noValFound,&ptr2);
+
+            thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8);
+            thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8);
+            thr1.join();
+            thr2.join();
+        }
+        return 0;
+    }
+    return -1;
+}
+
 #endif //CORE_H
 
 

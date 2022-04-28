@@ -6,7 +6,6 @@
 #define PML_CONSTANT_H
 
 #define L_BIT 64
-//const int L = 64;
 #define LP 67
 #define FRAC 1
 #define RING_N 0xffffffffffffffff  // ring size
