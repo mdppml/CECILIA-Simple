@@ -258,16 +258,18 @@ double *straighten2DArray(double** x, uint32_t n_row, uint32_t n_col) {
 
 uint64_t getModularInverse(uint64_t a){
     /**
-     * Get the MoDular Inverse (MDI) of a given number a with specified modulo. For the resulting/returned value b must hold
+     * Get the Modular Inverse (MDI) of a given number a with specified modulo. For the resulting/returned value b must hold
      *      ab mod(modulo) are congruent to 1.
      * @param a the value for which the modular inverse shall be calculated.
      * The modulo under which a and the inverse are multiplied equal to 1 will always be the ring size.
      * @return the modular inverse of a under the ring size of 16.
      */
     // start with 1 because 0 does not have an inverse value.
+    cout << "searching for MDI of value " << convert2double(a) << endl;
     for (uint64_t x = 1; x < RING_N; x++){
         // use bitwise and instead of %: faster, and because N = 0xf...
-        if (((a & RING_N) * (x & RING_N)) & RING_N == 1) {
+        if (((a & RING_N) * (x & RING_N)) & RING_N == 1) { //TODO problem because a is shared value
+            cout << convert2double(a) << " % " << RING_N << " has MDI x = " << convert2double(x) << endl;
             return x;
         }
     }

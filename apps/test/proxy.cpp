@@ -117,15 +117,17 @@ void MMOC_Test(Party *proxy){
 void MSB_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MSB";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-    uint64_t x = proxy->generateRandom();
+    uint64_t x = 3-5; //proxy->generateRandom();
     proxy->SendBytes(CORE_MSB);
     uint64_t r = MSB(proxy,x);
     // checking the result
     uint64_t x_reconstructed = REC(proxy,x);
     uint64_t r_reconstructed = REC(proxy,r);
     uint64_t r_computed = (x_reconstructed>>(L_BIT - 1)) << FRAC;
-    if (r_reconstructed == r_computed)
-        cout<<"MSB works correctly"<<endl;
+    if (r_reconstructed == r_computed) {
+        cout << "MSB works correctly" << endl;
+        cout << "MSB = " << bitset<64>(r_computed) << endl;
+    }
     else
         cout<<"MSB works incorrectly"<<endl;
 }
@@ -926,8 +928,8 @@ void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(12);
-    uint64_t y = proxy->createShare(6);
+    uint64_t x = proxy->createShare(10.0);
+    uint64_t y = proxy->createShare(2.5);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
@@ -983,11 +985,9 @@ int main(int argc, char* argv[]) {
 //    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
-    MOC_Test(proxy);
     RELU_Test(proxy);
 //    DRLU_Test(proxy);
-
- //   DIV_Test(proxy);
+    DIV_Test(proxy);
 
 //    EXP_Test(proxy);
 //    MEXP_Test(proxy);

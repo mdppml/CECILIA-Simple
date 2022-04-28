@@ -8,7 +8,7 @@
 #define L_BIT 64
 //const int L = 64;
 #define LP 67
-#define FRAC 0
+#define FRAC 1
 #define RING_N 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
@@ -44,7 +44,7 @@ enum op {
     // AUC
     AUC_MSB,AUC_TDIV,AUC_MROU,AUC_MDIV,
     // CNN
-    CNN_MAX, CNN_MMAX, CNN_RST, CNN_RELU, CNN_DRLU,
+    CNN_MAX, CNN_MMAX, CNN_RST, CNN_RELU, CNN_DRLU, CNN_MDI,
     // RKN
     RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT
 };
