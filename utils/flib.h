@@ -37,8 +37,7 @@ void convert2Array(unsigned char **ptr, uint8_t arr[],int sz){
 }
 void convert2Array(unsigned char **ptr, uint64_t arr[], int sz){
     for (int i=0;i<sz;i++) {
-        arr[i] = (**ptr);
-        (*ptr)++;
+        arr[i] = convert2Long(ptr);
     }
 }
 void convert2Array(unsigned char **ptr, uint64_t *&arr, uint32_t size){
@@ -265,10 +264,8 @@ uint64_t getModularInverse(uint64_t a){
      * @return the modular inverse of a under the ring size of 16.
      */
     uint64_t r = a;
-    cout << "find MDI of a = " << convert2double(a) << endl;
     for (int i = 0; i < 6; i++) {// (n = 6) for (2^64)
         r = r * (2 - r * a); // ignore overflow.
-        cout << "MDI = " << convert2double(r) << endl;
     }
     return r;
 }

@@ -394,7 +394,7 @@ void RELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
     uint64_t x = proxy->createShare(-5);//convert2double(proxy->generateCommonRandom()));
-    cout << "x: " << bitset<64>(REC(proxy, x)) << endl;
+    //cout << "x: " << bitset<64>(REC(proxy, x)) << endl;
     proxy->SendBytes(CNN_RELU);
     uint64_t relu = RELU(proxy, x);
     uint64_t reconstructed_relu = REC(proxy, relu);
@@ -425,7 +425,7 @@ void DRLU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DRLU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(convert2double(proxy->generateRandom()));
+    uint64_t x = proxy->createShare(-5); //convert2double(proxy->generateRandom())
 
     proxy->SendBytes(CNN_DRLU);
     uint64_t drelu = DRELU(proxy, x);
@@ -986,8 +986,8 @@ int main(int argc, char* argv[]) {
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
     RELU_Test(proxy);
-//    DRLU_Test(proxy);
-    DIV_Test(proxy);
+    DRLU_Test(proxy);
+   // DIV_Test(proxy);
 
 //    EXP_Test(proxy);
 //    MEXP_Test(proxy);
