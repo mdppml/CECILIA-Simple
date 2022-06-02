@@ -147,7 +147,13 @@ int main(int argc, char* argv[]) {
             cout << "RKN_MINVSQRT" << endl;
             int n_gms = helper->ReadInt();
             int sz = helper->ReadInt();
-            INVSQRT(helper, 0, n_gms, sz);
+            INVSQRT(helper, 0, n_gms, (uint32_t) sz);
+        }
+        else if( op == RKN_ITER) {
+            cout << "RKN_ITER" << endl;
+            int size1 = helper->ReadInt();
+            int size2 = helper->ReadInt();
+            RKN_ITERATION(helper, 0, 0, 0, size1, size2, 0, 0, 0);
         }
         else if (op == CORE_DIV){
             DIV(helper, 0, 0);

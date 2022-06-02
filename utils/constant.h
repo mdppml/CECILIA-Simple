@@ -7,7 +7,7 @@
 
 #define L_BIT 64
 #define LP 67
-#define FRAC 0
+#define FRAC 20
 #define RING_N 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
@@ -27,8 +27,8 @@
 
 // constants for INVSQRT
 #define ORTHMASK 0x3e000
-#define MAX_DELTA 10
-#define MIN_DELTA 1
+#define MAX_DELTA 100
+#define MIN_DELTA 10
 #define MAXSCALAR 0xfffff
 #define MAXA 0x3fffff
 
@@ -45,7 +45,7 @@ enum op {
     // CNN                                 CL1: 1 image, several kernel; CL2: several images, 1 kernel
     CNN_MAX, CNN_MMAX, CNN_RELU, CNN_DRLU, CNN_CL1, CNN_CL2, CNN_MDI,
     // RKN
-    RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT
+    RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT, RKN_ITER
 };
 
 

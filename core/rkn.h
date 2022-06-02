@@ -56,7 +56,7 @@ uint64_t** randomOrthogonalMatrix(Party* proxy, uint32_t size) {
     return NULL;*/
 }
 
-void EIG(Party *proxy, uint32_t size) {
+void EIG(Party *proxy, uint32_t size, double epsilon = 0.01) {
     /*
      * Perform eigenvalue decomposition of a single Gram matrix
      */
@@ -129,7 +129,6 @@ void EIG(Party *proxy, uint32_t size) {
         print1DArray("Lambda + s", double_eig_values, size);
 
 //        double* delta = new double[size]; // a vector of random values to mask eigenvalues
-        double epsilon = 0.01;
         uint64_t *masked_eig_values = new uint64_t[size];
         double alpha = MIN_DELTA + ((double) rand() / RAND_MAX) * (MAX_DELTA - MIN_DELTA); // a scalar random value to mask eigenvalues
         double* delta = new double[size];
@@ -167,12 +166,12 @@ void EIG(Party *proxy, uint32_t size) {
 //    }*/
 }
 
-void EIG(Party* proxy, uint32_t n_gms, uint32_t size) {
+void EIG(Party* proxy, uint32_t n_gms, uint32_t size, double epsilon = 0.01) {
     /*
      * Perform eigenvalue decomposition of a single Gram matrix
      */
-/*    cout << "EIG:Size: " << size << endl;
-    cout << "EIG:n_gms: " << n_gms << endl;
+//    cout << "EIG:Size: " << size << endl;
+//    cout << "EIG:n_gms: " << n_gms << endl;
     int p_role = proxy->getPRole();
     int socket_p1 = proxy->getSocketP1();
     int socket_p2 = proxy->getSocketP2();
@@ -255,7 +254,6 @@ void EIG(Party* proxy, uint32_t n_gms, uint32_t size) {
                     1) = vec_eig_values; // Since it is a vector, do we need to specify that it is row-major?
 
 //        double* delta = new double[size]; // a vector of random values to mask eigenvalues
-            double epsilon = 0.01;
             double alpha = MIN_DELTA + ((double) rand() / RAND_MAX) * (MAX_DELTA - MIN_DELTA); // a scalar random value to mask eigenvalues
             for (uint32_t i = 0; i < size; i++) {
                 delta[i] = MIN_DELTA + ((double) rand() / RAND_MAX) * (MAX_DELTA - MIN_DELTA);
@@ -385,7 +383,7 @@ uint64_t*** GM2KM(Party* proxy, uint64_t ***G, uint64_t alpha, uint32_t n_gms, u
     return nullptr;
 }
 
-uint64_t** INVSQRT(Party* proxy, uint64_t **G, uint32_t size) {
+uint64_t** INVSQRT(Party* proxy, uint64_t **G, uint32_t size, double epsilon = 0.01) {
     /*
      * Computes the inverse square root of the given size-by-size gram matrix G by employing eigenvalue decomposition.
      * We based our solution ma
@@ -453,7 +451,7 @@ uint64_t** INVSQRT(Party* proxy, uint64_t **G, uint32_t size) {
         cout << "C4" << endl;
         // send the mask Gram matrix to Helper
 //        proxy->SendBytes(RKN_EIG, size);
-        EIG(proxy, size);
+        EIG(proxy, size, epsilon);
         cout << "C4.5" << endl;
         unsigned char *ptr = proxy->getBuffer1();
         addArray2CharArray(masked_gram_matrix, &ptr, size, size);
@@ -591,7 +589,7 @@ uint64_t** INVSQRT(Party* proxy, uint64_t **G, uint32_t size) {
     return NULL;
 }
 
-uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) {
+uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size, double epsilon = 0.01) {
     /*
      * Computes the inverse square root of the given size-by-size n_gms gram matrices in G by employing eigenvalue
      * decomposition. We based our solution the following:
@@ -721,7 +719,7 @@ uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) 
         // end of debugging
 
         // send the mask Gram matrix to Helper
-        EIG(proxy, n_gms, size);
+        EIG(proxy, n_gms, size, epsilon);
         unsigned char *ptr = proxy->getBuffer1();
         for(uint32_t i = 0; i < n_gms; i++) {
             addArray2CharArray(masked_gram_matrix[i], &ptr, size, size);
@@ -799,7 +797,7 @@ uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) 
             }
         }
 
-        cout << "C3: MUL: Size: " << (n_gms * size) << endl;
+//        cout << "C3: MUL: Size: " << (n_gms * size) << endl;
         uint64_t *tmp_res;
         if (p_role == P1) {
 //            for(uint32_t g = 0; g < n_gms; g++) {
@@ -824,6 +822,8 @@ uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) 
                 sqrt_eig_vals[g][i] = tmp_res[g * size + i];
             }
         }
+
+//        print2DArray("Square root of eigenvalues", convert2double(REC(proxy, sqrt_eig_vals, n_gms, size), n_gms, size), n_gms, size);
 
         // construct the inverse square root of the Gram matrix
         uint64_t ***tr_eig_vecs = new uint64_t**[n_gms];
@@ -851,7 +851,7 @@ uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) 
 //        uint64_t ***invsqrt_G = local_MNF_MATMATMUL(local_MNF_MATMATMUL(eig_vecs, eig_vals_mat, n_gms, size, size, size),
 //                                            tr_eig_vecs, n_gms, size, size, size);
 
-        cout << "C7" << endl;
+//        cout << "C7" << endl;
         for(uint32_t g = 0; g < n_gms; g++) {
             delete [] sqrt_eig_vals[g];
             for(uint32_t i = 0; i < size; i++) {
@@ -868,7 +868,7 @@ uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) 
         delete [] str_zero_vec;
         delete [] tmp_res;
 
-        cout << "Returning from INVSQRT...\n************************************************************" << endl;
+//        cout << "Returning from INVSQRT...\n************************************************************" << endl;
         return invsqrt_G;
     }
     else if( p_role == HELPER) {
@@ -881,7 +881,7 @@ uint64_t*** INVSQRT(Party* proxy, uint64_t ***G, uint32_t n_gms, uint32_t size) 
     return NULL;
 }
 
-uint64_t* rkn_iteration(Party* proxy, uint64_t* x, uint64_t* z, uint64_t* ct1, uint32_t n_dim, uint32_t n_anc, uint32_t k_mer, double lambda, double alpha) {
+uint64_t* RKN_ITERATION(Party* proxy, uint64_t* x, uint64_t* z, uint64_t* ct1, uint32_t n_dim, uint32_t n_anc, uint32_t k_mer, double lambda, double alpha) {
     /* This function performs a single time point iteration of ppRKN inference.
      *
      * Input(s)
@@ -928,11 +928,11 @@ uint64_t* rkn_iteration(Party* proxy, uint64_t* x, uint64_t* z, uint64_t* ct1, u
 
     //    print1DArray("dp in pprkn_iteration", Mconvert2double(MReconstruct(dp, size2), size2), size2);
         uint64_t* res_b = EXP(proxy, dp, size2);
-    //    print1DArray("res_b in pprkn_iteration", Mconvert2double(MReconstruct(res_b, size2), size2), size2);
+//        print1DArray("res_b in pprkn_iteration", convert2double(REC(proxy, res_b, size2), size2), size2);
 
         // computation of c_{k-1}[t-1] * b_{k}[t]
         uint64_t* skt = MUL(proxy, res_b, ct1, size2);
-    //    print1DArray("skt in pprkn_iteration", Mconvert2double(MReconstruct(skt, size2), size2), size2);
+//        print1DArray("skt in pprkn_iteration", convert2double(REC(proxy, skt, size2), size2), size2);
 
         // computation of c_{k-1}[t-1] * b_{k}[t]
     //    cout << "********* lambda: " << convert2uint64(lambda) << endl;
@@ -947,8 +947,7 @@ uint64_t* rkn_iteration(Party* proxy, uint64_t* x, uint64_t* z, uint64_t* ct1, u
         delete[] res_b;
         delete[] skt;
         delete[] rep_x;
-        if(DEBUG_FLAG >= 1)
-            cout << "Returning from pprkn_iteration...\n************************************************************" << endl;
+
         return ckt;
     }
     else if( p_role == HELPER) {
@@ -965,5 +964,6 @@ uint64_t* rkn_iteration(Party* proxy, uint64_t* x, uint64_t* z, uint64_t* ct1, u
     }
     return NULL;
 }
+
 
 #endif //CECILIA_RKN_H

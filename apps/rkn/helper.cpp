@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
         else if( op == RKN_MEIG) {
             int n_gms = helper->ReadInt();
             int sz = helper->ReadInt();
-            EIG(helper, n_gms, sz);
+            EIG(helper, n_gms, (uint32_t) sz);
         }
         else if (op == CORE_END)
             break;
