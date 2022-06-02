@@ -5,9 +5,9 @@
 #ifndef PPAUC_CNN_H
 #define PPAUC_CNN_H
 
-
 #include "core.h"
 #include "../utils/flib.h"
+#include "bitset"
 
 /**
  * Prints the given matrix in a way to show the values in a column and row based format while also different windows of
@@ -315,7 +315,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
         /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
         If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
         while (cmpWindowVectorSize > 1) {
-            auto halfSize = cmpWindowVectorSize / 2;
+            uint32_t halfSize = cmpWindowVectorSize / 2;
             if (cmpWindowVectorSize & 1) {                   //there is an residue remaining
                 if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
                     isResidueInBuffer = false;                    //after processing all windows, buffer is remembered to be empty; dont set isResidueStored directly otherwise residues in one loop iteration are treated differently
@@ -326,7 +326,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
                 }
             }
 
-            auto vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
+            uint32_t vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
             if (vectorLength > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
                 MSB(proxy, nullptr, vectorLength);
@@ -354,22 +354,19 @@ uint64_t RELU(Party* proxy, uint64_t x){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
 
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t commonValues [3];
-        for (uint8_t i=0; i<3; i++){
-            commonValues[i] = proxy->generateCommonRandom();
+        uint64_t commonValues[4];
+        for (uint8_t i = 0; i < 4; i++) {
+            commonValues[i] = proxy->generateCommonRandom() | 0x1; // common values must be odd
         }
 
+
         // create even random shares
-        uint64_t e_0 = proxy->generateRandom() & EVEN_MASK; //ensure e_0 is even
-        uint64_t e_1 = proxy->generateRandom() & EVEN_MASK; //ensure e_1 is even
-        uint64_t e[] = {e_0, e_1};
+        uint64_t e[] = {proxy->generateRandom() & EVEN_MASK, proxy->generateRandom() & EVEN_MASK};
 
         // init
-        bool f, g, h;
-        f = proxy->generateCommonRandom() & 0x1;
-        g = proxy->generateCommonRandom() & 0x1;
-        h = proxy->generateCommonRandom() & 0x1;
-        //cout << "bools: " << f << " " << g << " " << h << " " << endl;
+        int f = proxy->generateCommonRandom() & 0x1;
+        int g = proxy->generateCommonRandom() & 0x1;
+        int h = proxy->generateCommonRandom() & 0x1;
 
         // make the shares more random by adding i to e_i for S_i:
         e[f] += proxy->getPRole();
@@ -380,13 +377,13 @@ uint64_t RELU(Party* proxy, uint64_t x){
         uint64_t z = x - d;
 
         // compute parts of a, b and c:
-        uint64_t values [6];
-        values[0] = proxy->getPRole() * f * K - z;                  // a_0
-        values[1] = proxy->getPRole() * (1 - f) * K - z;            // a_1
+        uint64_t values[6];
+        values[0] = proxy->getPRole() * f * (K+1) - z;                  // a_0
+        values[1] = proxy->getPRole() * (1 - f) * (K+1) - z;            // a_1
         values[2] = (x + e[g]) * commonValues[0];        // b_0
         values[3] = (x + e[1 - g]) * commonValues[1];    // b_1
-        values[4] = (x + e[h]) * commonValues[2];        // c_0
-        values[5] = (x + e[1 - h]) * commonValues[3];    // c_1
+        values[4] = (e[h]) * commonValues[2];        // c_0
+        values[5] = (e[1 - h]) * commonValues[3];    // c_1
 
         // proxy sends a,b and c to HELPER:
         unsigned char *ptr_out = proxy->getBuffer1();
@@ -394,25 +391,31 @@ uint64_t RELU(Party* proxy, uint64_t x){
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), 6 * 8);
 
         // receive fresh share from helper
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8 * 8); // order is ab[0], ab[1], ab[2], ab[3], ac[0], ac[1], ac[2], ac[3]
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(),
+                8 * 8); // order is ab[0], ab[1], ab[2], ab[3], ac[0], ac[1], ac[2], ac[3]
 
         ptr_out = proxy->getBuffer1();
-        uint64_t m = convert2Long(&ptr_out + 2*f);
+        uint64_t ab[4];
+        uint64_t ac[4];
+        convert2Array(&ptr_out, &ab[0], 4);
+        convert2Array(&ptr_out, &ac[0], 4);
 
-        uint64_t r2_inverse = getModularInverse(commonValues[2]);
-        // ac[2f]
-        uint64_t em = convert2Long(&ptr_out + 3 ) * r2_inverse;
+        uint64_t em;
+        if (g == h){
+            uint64_t r2_inverse = getModularInverse(commonValues[2]);
+            em = ac[2*f] * r2_inverse;
+        }else{
+            uint64_t r3_inverse = getModularInverse(commonValues[3]);
+            em = ac[2*f+1] * r3_inverse;
+        }
 
         uint64_t r0_inverse = getModularInverse(commonValues[0]);
-        // ab[2f]
-        uint64_t xm = m * r0_inverse - em;
+        uint64_t xm = ab[2*f] * r0_inverse - em;
         z = x - xm;
         return z;
     }
     else if (proxy->getPRole() == HELPER) {
-        K += 1; // increase K by 1 K is 2^63
 
-        uint8_t * buffer2 = proxy->getBuffer2();
 
         MOC(proxy, 0);
 
@@ -421,13 +424,14 @@ uint64_t RELU(Party* proxy, uint64_t x){
         unsigned char *ptr = proxy->getBuffer1();
         unsigned char *ptr2 = proxy->getBuffer2();
 
-        uint64_t reconstructedVals [6];
+        uint64_t reconstructedVals[6];
         for (uint i = 0; i < 6; i++) {
             reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
             // 6 values expected per party --> first two (a values) are reconstructed and divided by K
             if (i < 2){
-                reconstructedVals[i] /= K;
+                reconstructedVals[i] /= (K+1);
             }
+
         }
         // reconstruct values a, b and c obtained from proxy 1 and 2
         uint64_t ab [4];
@@ -463,7 +467,7 @@ uint64_t RELU(Party* proxy, uint64_t x){
         addVal2CharArray(share2, &ptr_back2, 8);
 
         thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8 * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), buffer2, 8 * 8);
+        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8 * 8);
 
         thr1.join();
         thr2.join();
@@ -471,7 +475,6 @@ uint64_t RELU(Party* proxy, uint64_t x){
     }
     return -1;
 }
-
 
 /**
  * Method for private computation of the derivative of the RELU function.
@@ -546,6 +549,50 @@ uint64_t DRELU(Party* proxy, uint64_t x){
     }
     return -1;
 }
+
+
+uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
+    uint64_t K = (RING_N>>1);
+    cout << "a = " << bitset<L_BIT>(REC(proxy, a)) << "; b = " << bitset<L_BIT>(REC(proxy, b)) << endl;
+    if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
+        uint64_t dividend = MSB(proxy, a);
+        uint64_t result = 0;
+        for (int16_t i = L_BIT-1; i >= 0; i--){
+            //cout << "______________ i : " << i << "; dividend = " << bitset<L_BIT>(REC(proxy, dividend)) << endl;
+            //cout << "result: " << bitset<L_BIT>(convert2double(REC(proxy, result))) << endl;
+
+            uint64_t z = ADD(proxy, b, -dividend);
+            uint64_t quotient = MSB(proxy, z); // MSB of z is intermediate result/quotient //TODO what if b == dividend? quotient should be 1 then.
+//            cout << "z: " << bitset<L_BIT>(convert2double(REC(proxy, z))) << "; quotient: " << bitset<L_BIT>(REC(proxy, quotient)) << endl;
+
+            // set the i-th bit of result to the value of v
+            result |= quotient & 1;
+           /* if(quotient > 0 ){
+                result |= (1UL << i);
+            }
+            else{
+                result &= ~(1UL << i);
+            }*/
+
+          //  cout << "dividend before: " << bitset<L_BIT>(convert2double(REC(proxy, dividend))) << endl;
+            dividend -= MUL(proxy, quotient, b); // next dividend is remainder (= dividend - (quotient * b))
+            dividend |= a & (1 << i);
+        }
+        //result += zeroShare;
+       // cout << "result: " << REC(proxy, result) << endl;
+        return result;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        MSB(proxy, 0);
+        for (int16_t i = L_BIT-1; i >= 0; i--) {
+            ADD(proxy, 0, 0);
+            MSB(proxy, 0);
+            MUL(proxy, 0, 0);
+        }
+        return 0;
+    }
+}
+
 
 
 #endif //PPAUC_CNN_H

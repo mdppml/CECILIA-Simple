@@ -10,10 +10,10 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
-#include <Eigen/Eigen>
+//#include <Eigen/Eigen>
 
 using namespace std;
-using namespace Eigen;
+//using namespace Eigen;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
@@ -118,15 +118,17 @@ void MMOC_Test(Party *proxy){
 void MSB_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MSB";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-    uint64_t x = proxy->generateRandom();
+    uint64_t x = 3-5; //proxy->generateRandom();
     proxy->SendBytes(CORE_MSB);
     uint64_t r = MSB(proxy,x);
     // checking the result
     uint64_t x_reconstructed = REC(proxy,x);
     uint64_t r_reconstructed = REC(proxy,r);
     uint64_t r_computed = (x_reconstructed>>(L_BIT - 1)) << FRAC;
-    if (r_reconstructed == r_computed)
-        cout<<"MSB works correctly"<<endl;
+    if (r_reconstructed == r_computed) {
+        cout << "MSB works correctly" << endl;
+        cout << "MSB = " << bitset<64>(r_computed) << endl;
+    }
     else
         cout<<"MSB works incorrectly"<<endl;
 }
@@ -298,7 +300,6 @@ void MAX_Test(Party *proxy){
     double pp_result = convert2double(REC(proxy, max));
     if(computed_max == pp_result){
         cout<<"MAX works correctly"<<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_max << endl;
     }
     else{
         cout<<"MAX works incorrectly" <<endl;
@@ -334,8 +335,8 @@ void MMAX_Test(Party *proxy){
 
     // INIT PARAMETER
     uint64_t mmaxParams[4];
-    mmaxParams[0] = WSZ*10; // matrix Rows
-    mmaxParams[1] = WSZ*10; // matrix Columns
+    mmaxParams[0] = WSZ*3; // matrix Rows
+    mmaxParams[1] = WSZ*3; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
 
     mmaxParams[2] = WSZ; // window rows
@@ -353,22 +354,23 @@ void MMAX_Test(Party *proxy){
     uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[3]);
 
     // TESTING
-    uint64_t window_length = mmaxParams[2] * mmaxParams[3];
-    uint64_t number_of_windows = floor(mSize/window_length);
+    uint32_t window_length = mmaxParams[2] * mmaxParams[3];
+    uint32_t number_of_windows = mSize / window_length;
     uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
 
     bool flag = true;
     uint64_t resorted [mSize];
-    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[2], mmaxParams[3], resorted);
-    // TODO check for precision > 0
+    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[3], mmaxParams[3], resorted);
     double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
     double computed_max[number_of_windows];
 
     for(uint32_t win = 0; win < number_of_windows; win++){
         for(uint32_t win_element = 0; win_element < window_length; win_element++){
             double matrixVal = d_matrix[window_length*win + win_element];
+            cout << matrixVal << " > " << computed_max[win] << " ?" << endl;
             if (matrixVal > computed_max[win]){
                 computed_max[win] = matrixVal;
+                cout << "Y" << endl;
             }
         }
         if (computed_max[win] != convert2double(reconstructed_max[win])){
@@ -392,28 +394,26 @@ void RELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(convert2double(proxy->generateCommonRandom()));
-
+    uint64_t x = proxy->createShare(-5);//convert2double(proxy->generateCommonRandom()));
+    //cout << "x: " << bitset<64>(REC(proxy, x)) << endl;
     proxy->SendBytes(CNN_RELU);
     uint64_t relu = RELU(proxy, x);
     uint64_t reconstructed_relu = REC(proxy, relu);
 
     // checking the result
     double computed_relu = -1;
-    uint64_t recX = REC(proxy, x);
-    recX = recX << FRAC; //TODO how to include fraction here?
-    double originalX = convert2double( recX);
-    if (originalX > 0){
+    double originalX = convert2double(REC(proxy, x));
+    if (originalX >= 0){
         computed_relu = originalX;
     }
     else{
-        //cout << "X = " << to_string(computed_relu) << " --> RELU = 0." << endl;
         computed_relu = 0;
     }
 
-    double pp_result = convert2double(reconstructed_relu, 0);
-    if((computed_relu) == pp_result){
+    double pp_result = convert2double(reconstructed_relu);
+    if(computed_relu == pp_result){
         cout<<"RELU works correctly"<<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;
     }
     else{
         cout<<"RELU works incorrectly" <<endl;
@@ -426,7 +426,7 @@ void DRLU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DRLU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(convert2double(proxy->generateRandom()));
+    uint64_t x = proxy->createShare(-5); //convert2double(proxy->generateRandom())
 
     proxy->SendBytes(CNN_DRLU);
     uint64_t drelu = DRELU(proxy, x);
@@ -825,7 +825,8 @@ void INVSQRT_Test(Party* proxy) {
      * We first generate a random Gram matrix by first generating a random data matrix D and
      * then computing D^T * D.
      */
-    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
+
+/**    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // setting
     int n_row = 4;
@@ -876,7 +877,7 @@ void INVSQRT_Test(Party* proxy) {
     cout << "============= GT Inverse of the Gram matrix ======================" << endl;
     cout << matrix_G.inverse() << endl;
     cout << "============================================================================" << endl;
-
+*/
 }
 
 void MINVSQRT_Test(Party* proxy) {
@@ -884,7 +885,7 @@ void MINVSQRT_Test(Party* proxy) {
      * We first generate a random Gram matrix by first generating a random data matrix D and
      * then computing D^T * D.
      */
-    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
+/*    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // setting
     int n_row = 4;
@@ -932,19 +933,19 @@ void MINVSQRT_Test(Party* proxy) {
         cout << matrix_G.inverse() << endl;
         cout << "============================================================================" << endl;
     }
-
+*/
 }
 
 void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(2);
-    uint64_t y = proxy->createShare(4);
+    uint64_t x = proxy->createShare(10.0);
+    uint64_t y = proxy->createShare(2.5);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
-    uint64_t reconstructed_div = REC(proxy, div);
+    double reconstructed_div = convert2double(REC(proxy, div));
 
     // checking the result
     double originalX = convert2double(REC(proxy, x));
@@ -1593,31 +1594,28 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-//    MUL_Test(proxy);
-//    MMUL_Test(proxy);
-//
-//    MOC_Test(proxy);
-//    MMOC_Test(proxy);
-//
-//    MSB_Test(proxy);
-//    MMSB_Test(proxy);
-//
-//    CMP_Test(proxy);
-//    MCMP_Test(proxy);
-//
-//    MUX_Test(proxy);
-//    MMUX_Test(proxy);
-//
-//    MAX_Test(proxy);
+   /* MUL_Test(proxy);
+    MMUL_Test(proxy);
+
+    MOC_Test(proxy);
+    MMOC_Test(proxy);
+
+    MSB_Test(proxy);
+    MMSB_Test(proxy);
+
+    CMP_Test(proxy);
+    MCMP_Test(proxy);
+
+    MUX_Test(proxy);
+    MMUX_Test(proxy);
+
+    MAX_Test(proxy);*/
+//    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
-
-    //MMAX_Test(proxy); //TODO adapt to asymmetric window size
-
-    //RELU_Test(proxy);
-    //DRLU_Test(proxy);
-
-    //DIV_Test(proxy);
+    RELU_Test(proxy);
+    DRLU_Test(proxy);
+   // DIV_Test(proxy);
 
 //    EXP_Test(proxy);
 //    MEXP_Test(proxy);

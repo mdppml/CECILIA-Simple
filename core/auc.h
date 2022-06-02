@@ -13,19 +13,19 @@ uint64_t* AUCMSB(Party* proxy, uint64_t *x, uint32_t sz) {
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *z_1 = new uint64_t[sz];
         uint64_t *ya = new uint64_t[sz];
-        uint8_t *yb = new uint8_t[sz * (L - 1)];
+        uint8_t *yb = new uint8_t[sz * (L_BIT - 1)];
         uint8_t *w = new uint8_t[sz];
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (8 + L));
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (8 + L_BIT));
         unsigned char *ptr = proxy->getBuffer1();
         for (int i = 0; i < sz; i++) {
             ya[i] = convert2Long(&ptr);
-            convert2Array(&ptr, &yb[i * (L - 1)], L - 1);
+            convert2Array(&ptr, &yb[i * (L_BIT - 1)], L_BIT - 1);
             w[i] = (*ptr);
             ptr++;
             z_1[i] = ((x[i] & N1_MASK) + ya[i]) & N1_MASK;
         }
         uint64_t *z = REC(proxy,z_1, sz,N1_MASK);
-        uint8_t *wc = PCB(proxy,z, yb, sz, L - 1);
+        uint8_t *wc = PCB(proxy,z, yb, sz, L_BIT - 1);
 
         for (int i = 0; i < sz; i++) {
             w[i] = w[i] ^ wc[i];
@@ -49,7 +49,7 @@ uint64_t* AUCMSB(Party* proxy, uint64_t *x, uint32_t sz) {
             uint64_t ya_2 = (y - ya_1) & N1_MASK;
             addVal2CharArray(ya_1, &ptr_out);
             addVal2CharArray(ya_2, &ptr_out2);
-            for (int j = 0; j < L - 1; j++) {
+            for (int j = 0; j < L_BIT - 1; j++) {
                 uint8_t k = (y >> j) & 0x1;
                 uint8_t yb_1 = proxy->generateRandom() % LP;
                 uint8_t yb_2 = mod(k - yb_1, LP);
@@ -65,14 +65,14 @@ uint64_t* AUCMSB(Party* proxy, uint64_t *x, uint32_t sz) {
             addVal2CharArray(w_2, &ptr_out2);
         }
 
-        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L));
-        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L));
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L_BIT));
+        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L_BIT));
         thr1.join();
         thr2.join();
-        //Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L));
-        //Send(proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L));
-        // P1 and P2 will call PrivateCompareBool
-        uint8_t *tmp = PCB(proxy,0, 0, sz, L - 1);
+        //Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L_BIT));
+        //Send(proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L_BIT));
+        // P1 and P2 wilL_BIT calL_BIT PrivateCompareBool
+        uint8_t *tmp = PCB(proxy,0, 0, sz, L_BIT - 1);
         return NULL;
 
     }

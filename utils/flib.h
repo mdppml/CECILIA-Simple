@@ -37,8 +37,7 @@ void convert2Array(unsigned char **ptr, uint8_t arr[],int sz){
 }
 void convert2Array(unsigned char **ptr, uint64_t arr[], int sz){
     for (int i=0;i<sz;i++) {
-        arr[i] = (**ptr);
-        (*ptr)++;
+        arr[i] = convert2Long(ptr);
     }
 }
 void convert2Array(unsigned char **ptr, uint64_t *&arr, uint32_t size){
@@ -264,15 +263,15 @@ uint64_t getModularInverse(uint64_t a){
      * The modulo under which a and the inverse are multiplied equal to 1 will always be the ring size.
      * @return the modular inverse of a under the ring size of 16.
      */
-    // start with 1 because 0 does not have an inverse value.
-    for (uint64_t x = 1; x < RING_N; x++){
-        // use bitwise and instead of %: faster, and because N = 0xf...
-        if (((a & RING_N) * (x & RING_N)) & RING_N == 1) {
-            return x;
-        }
+    uint64_t r = a;
+    for (int i = 0; i < 6; i++) {// (n = 6) for (2^64)
+        r = r * (2 - r * a); // ignore overflow.
     }
-    return 0;
+    return r;
 }
+
+
+
 
 
 // Local functions which does not require security and works with secret shared values
