@@ -1633,7 +1633,7 @@ int main(int argc, char* argv[]) {
 //    MINVSQRT_Test(proxy);
 
 //    ppRKN_ITER_Test(proxy);
-    ppRKN_PREDICTION_Test(proxy);
+//    ppRKN_PREDICTION_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
