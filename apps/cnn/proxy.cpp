@@ -7,7 +7,8 @@
 #include "../../core/cnn.h"
 #include <sstream>
 using namespace std;
-
+uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_size, uint64_t** kernel, uint32_t k_size, uint32_t k_number, uint8_t stride);
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride);
 
 void print1DArray(string const &str1, double* x, uint32_t size) {
     cout << "======================= " << str1 << " =======================" << endl;
@@ -28,11 +29,11 @@ int main(int argc, char* argv[]) {
     uint16_t window_size = atoi(argv[6]);
     string matrix_string = argv[7];
 
-    uint32_t matrix_col_size = atoi(argv[8]);
-    uint32_t matrix_row_size = atoi(argv[9]);
+    uint32_t matrix_size = atoi(argv[8]);
+    uint32_t stride = atoi(argv[9]);
 
     //ensure ports are not 0 for helper or client
-    cout << "Setting ports for helper/client...";
+    cout << "Setting ports for helper/client..." << endl;
     if (cport != 0) {
         assert(cport < 1 << (sizeof(uint16_t) * 8));
     }
@@ -41,80 +42,199 @@ int main(int argc, char* argv[]) {
     }
 
     Party *proxy;
-    cout << "Creating Proxy...";
+    cout << "Creating Proxy..." << endl;
     if (role==0)
         proxy = new Party(P1,hport, haddress, cport, caddress);
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-    //init
-    uint16_t matrix_size = matrix_row_size * matrix_col_size;
-    double *doubleMatrix = new double [matrix_size];
+    //init TODO reading data at this point...
+    double** doubleMatrix = new double *[matrix_size];
 
     //fill matrix (as vector) with params from input
     stringstream mss(matrix_string);
-    uint32_t i = 0;
-    while(mss.good() && i<matrix_size){
-        string elements;
-        getline(mss, elements, ',');
-        double element = std::atof(elements.c_str());
-        doubleMatrix[i] = element;
+    for (uint32_t j = 0; j < matrix_size; j++){
+        doubleMatrix[j] = new double [matrix_size];
+        uint32_t i = 0;
+        while(mss.good() && i<matrix_size){
+            string elements;
+            getline(mss, elements, ',');
+            doubleMatrix[j][i] = std::atof(elements.c_str());
+        }
         i++;
     }
     //convert matrix elements
-    uint64_t *matrix = convert2uint64(doubleMatrix, matrix_size, 15);
-    uint64_t *resortedMatrix = new uint64_t [matrix_size];
-    //                                                     here same param twice but could be different sizes
-    RST(matrix, matrix_col_size, matrix_row_size, window_size, window_size, resortedMatrix);
-
+    uint64_t** matrix = convert2uint64(doubleMatrix, matrix_size, matrix_size, 15);
+    cout << "created matrix" << endl;
+    // init input parameter
+    uint64_t *data = new uint64_t [128];
+    uint64_t *weights = new uint64_t [128];
+    for (uint8_t i = 0; i < 128; i++){
+        weights[i] = 1; //TODO where do we get the weights of the layers from? adjustable via input file or fixed?
+    }
+    cout << "init weights done" << endl;
+    uint64_t **kernel = new uint64_t*[5];
+    for (uint8_t i = 0; i < 5; i++) {
+        kernel[i] = new uint64_t[25];
+        for (uint8_t j = 0; j < 25; j++) {
+            kernel[i][j] = proxy->generateRandom();
+        }
+    }
+    cout << "init kernel done" << endl;
     //helper variable to create shares of v1 and v2
-    uint64_t *mTmp = new uint64_t [matrix_size]; //pick random value in ring --> shareOfMatrix is calculated from that
-    uint64_t *shareOfMatrix;
-    
+    uint64_t **mTmp = new uint64_t *[matrix_size]; //pick random value in ring --> shareOfMatrix is calculated from that
+    uint64_t **shareOfMatrix = new uint64_t *[matrix_size];
+
     for(uint32_t i = 0; i < matrix_size; i++){
-        mTmp[i] = proxy->generateCommonRandom();
+        mTmp[i] = new uint64_t[matrix_size];
+        for(uint32_t j = 0; j < matrix_size; j++) {
+            mTmp[i][j] = proxy->generateCommonRandom();
+        }
     }
     cout << "Start creating share for proxy " << to_string(role) << endl;
     //create shares
     if(role == P1) {
-        for(uint32_t i = 0; i < matrix_size; i++){
-            shareOfMatrix[i] = resortedMatrix[i] - mTmp[i];
+        for(uint32_t k = 0; k < matrix_size; k++){
+            shareOfMatrix[k] = new uint64_t[matrix_size];
+            for(uint32_t j = 0; j < matrix_size; j++) {
+                shareOfMatrix[k][j] = matrix[k][j] - mTmp[k][j];
+            }
         }
     }
     else {
         shareOfMatrix = mTmp;
     }
-
-    cout << "___MMAXPOOL___: " << endl;
-    cout << "Ground Truth: " << endl;
-    print1DMatrixByWindows("matrix for MAX", doubleMatrix, matrix_row_size, matrix_col_size, 1, 1);
-    print1DMatrixByWindows("matrix for MMAX", doubleMatrix, matrix_row_size, matrix_col_size, window_size, window_size);
-    delete []matrix;
-
-    proxy->SendBytes(CNN_MAX, matrix_size);
-    uint64_t maxElement = MAX(proxy, shareOfMatrix, matrix_size);
-    //print1DMatrixByWindows("resorted matrix", resortedMatrix, matrix_row_size, matrix_col_size, window_size, window_size);
-
-    uint16_t window_length = window_size*window_size;
-    uint16_t numberOfWins = static_cast<uint16_t >(floor(matrix_size / window_length));
-    cout << "Final result MAX_VAL: " << REC(proxy, maxElement) << " which is " << convert2double(maxElement) << endl;
-
-
-    uint64_t *maxElements;
-    uint32_t mmaxParams;
-    //contains matrix_size bitwise at 16 MSBs and window size at the 16 LSBs
-    mmaxParams = ((uint64_t)matrix_row_size << 48) + ((uint64_t)matrix_col_size << 32) + (uint64_t) window_size;
-    proxy->SendBytes(CNN_MMAX, mmaxParams);
-    maxElements = MAX(proxy, shareOfMatrix, matrix_row_size, matrix_col_size, window_size);
-
-    print1DMatrixByWindows("Final result MMAX", convert2double(REC(proxy, maxElements, numberOfWins), numberOfWins, 0), 1, numberOfWins, 1, 1);
-
+    cout << "finished creating shares... Call Convolutional layer" << endl;
 
     // CNN inference pipeline, call functions sequantially for inference (Matrix MUL, MAXPOOL, RELU, vs...)
 
+    // convolutional layer
+    uint64_t mmaxParams[4];
+    mmaxParams[0] = matrix_size;
+    mmaxParams[1] = 5; // kernel size
+    mmaxParams[2] = 5; // kernel number
+    mmaxParams[3] = stride; // stride
+
+    // PERFORMING CONVOLUTION
+    proxy->SendBytes(CNN_CL1);
+
+    unsigned char *ptr_out = proxy->getBuffer1();
+    addVal2CharArray(mmaxParams, &ptr_out, 4);
+    Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
+
+    uint64_t*** conv1 = CL(proxy, matrix, matrix_size, kernel, 5, 5, stride);
+    //          size after conv                   after maxpool divide by 2
+    matrix_size = ((matrix_size - 25)/stride + 1) / 2;
+
+    // convolutional layer 2
+    uint64_t *kernel2 = new uint64_t[25];
+    for (uint8_t j = 0; j < 25; j++) {
+        kernel2[j] = proxy->generateRandom();
+        cout << kernel[j] << endl;
+    }
+
+    mmaxParams[0] = matrix_size;
+    mmaxParams[1] = 5; // matrix number
+    mmaxParams[2] = 5; // kernel size
+    mmaxParams[3] = stride; // stride
+
+    // PERFORMING CONVOLUTION
+    proxy->SendBytes(CNN_CL2);
+
+    ptr_out = proxy->getBuffer1();
+    addVal2CharArray(mmaxParams, &ptr_out, 4);
+    Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
+
+    uint64_t*** conv2 = CL(proxy, conv1, matrix_size, 5, kernel2, 25, stride);
+    matrix_size = ((matrix_size - 25)/stride + 1) / 2;
+
+    // fully connected layer:
+    uint64_t ** output;
+    /**uint64_t *convData = new uint64_t [128];
+    for (uint8_t j = 0; j <matrix_size; j++){
+        //TODO must data[j] be stretched so that it has same length of weights.
+        convData[i] = MUL(proxy, data[j], weights);
+    }*/
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
     return 0;
 }
 
+
+
+/**
+ * Implements the function of a convolutional layer (CL) using ReLU and then Maxpool with a 2x2 filter as activation function.
+ * @param proxy
+ * @param input data on which convolution is performed using a single kernel.
+ * @param i_dim size of input in symmetric shape. So input has size of i_size x i_size
+ * @param i_number number of input images to be processed, which will define the third dimension of the outcome.
+ * @param kernel single kernel to be used for convolution as a vector of length k_size x k_size.
+ * @param k_dim dimension of the kernel
+ * @param stride step size of each kernel to shift per iteration
+ * @return Output of the input convoluted by the given kernels.
+ *         Output size will be: ZxZxk_number with Z = floor((i_size - k_dim)/stride) + 1
+ */
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride){
+    uint32_t k_size = k_dim * k_dim;
+    uint32_t conv_size = floor((i_dim - k_dim)/stride) + 1;
+    uint32_t out_size = conv_size/2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
+    uint32_t last_start = i_dim - k_dim + 1;
+
+    uint64_t *** conv_layer = new uint64_t **[i_number];
+
+    cout << "CL: started init: conv_size= " << conv_size << " , outSize= " << out_size << ", lastStart = " << last_start << endl;
+
+    for(uint32_t image = 0; image < i_number; image++){ //TODO or better use metes method and multiplicate kernel --> then other vectorized form of MATVECMUL
+        uint64_t ** curr_image = input[image];
+        // stretch the input for vectorized MATVECMUL
+        uint64_t ** stretched_input = new uint64_t *[conv_size*conv_size];
+        for(uint32_t row = 0; row < last_start; row+=stride){
+            for(uint32_t col = 0; col < last_start; col+=stride){
+                stretched_input[(row+col)/stride] = new uint64_t [k_size];
+                // shift kernel over all cols in according row
+                for(uint32_t l = 0; l < k_dim; l++){
+                    for(uint32_t m = 0; m < k_dim; m++){
+                        //                    row           columns have same length as kernel size
+                        stretched_input[(row + col)/stride][k_dim*l + m] = curr_image[row+l][col+m];
+                    }
+                }
+            }
+        }
+
+        // convolution:
+        uint64_t * conv_result = MATVECMUL(proxy, stretched_input, kernel, conv_size*conv_size, k_size);
+
+        // ACTIVATION:
+        // ReLU
+        for (uint32_t i = 0; i < conv_size*conv_size; i++){
+            conv_result[i] = RELU(proxy, conv_result[i]);
+        }
+        // Maxpool:
+        uint64_t mmaxParams[4];
+        mmaxParams[0] = conv_size; // matrix Rows
+        mmaxParams[1] = conv_size; // matrix Columns
+        mmaxParams[2] = 2; // window rows
+        mmaxParams[3] = 2;  // window columns
+
+        // PERFORMING MMAX
+        proxy->SendBytes(CNN_MMAX);
+        // send dimension params
+        unsigned char *ptr_out = proxy->getBuffer1();
+        addVal2CharArray(mmaxParams, &ptr_out, 4);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
+
+        uint64_t* r = MAX(proxy, conv_result, conv_size, conv_size, 2);
+        // bring result in matrix shape
+        uint64_t **conv = new uint64_t *[out_size];
+        for(uint32_t row = 0; row < out_size; row++){
+            conv[row] = new uint64_t [out_size];
+            for(uint32_t col = 0; col < out_size; col++){
+                conv[row][col] = r[row * out_size + col];
+            }
+        }
+        conv_layer[image] = conv;
+    }
+    return conv_layer;
+
+}

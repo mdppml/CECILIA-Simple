@@ -380,10 +380,10 @@ uint64_t RELU(Party* proxy, uint64_t x){
         uint64_t values[6];
         values[0] = proxy->getPRole() * f * (K+1) - z;                  // a_0
         values[1] = proxy->getPRole() * (1 - f) * (K+1) - z;            // a_1
-        values[2] = (x + e[g]) * commonValues[0];        // b_0
-        values[3] = (x + e[1 - g]) * commonValues[1];    // b_1
-        values[4] = (e[h]) * commonValues[2];        // c_0
-        values[5] = (e[1 - h]) * commonValues[3];    // c_1
+        values[2] = (x + e[g]) * commonValues[0];                       // b_0
+        values[3] = (x + e[1 - g]) * commonValues[1];                   // b_1
+        values[4] = (e[h]) * commonValues[2];                           // c_0
+        values[5] = (e[1 - h]) * commonValues[3];                       // c_1
 
         // proxy sends a,b and c to HELPER:
         unsigned char *ptr_out = proxy->getBuffer1();
@@ -551,48 +551,252 @@ uint64_t DRELU(Party* proxy, uint64_t x){
 }
 
 
-uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
-    uint64_t K = (RING_N>>1);
-    cout << "a = " << bitset<L_BIT>(REC(proxy, a)) << "; b = " << bitset<L_BIT>(REC(proxy, b)) << endl;
-    if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
-        uint64_t dividend = MSB(proxy, a);
+uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
+    //compare with Algorithm 8 Division by SecureNN
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+
+        uint64_t u = proxy->createShare(0); // u_l of SecureNN (p.12)
         uint64_t result = 0;
-        for (int16_t i = L_BIT-1; i >= 0; i--){
-            //cout << "______________ i : " << i << "; dividend = " << bitset<L_BIT>(REC(proxy, dividend)) << endl;
-            //cout << "result: " << bitset<L_BIT>(convert2double(REC(proxy, result))) << endl;
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            cout << "______________ i : " << i << "; u = " << REC(proxy, u) << endl;
+            //___3. step
+            uint64_t y = b << i; // equals b * 2^i
+            uint64_t z = a - u - y;
 
-            uint64_t z = ADD(proxy, b, -dividend);
-            uint64_t quotient = MSB(proxy, z); // MSB of z is intermediate result/quotient //TODO what if b == dividend? quotient should be 1 then.
-//            cout << "z: " << bitset<L_BIT>(convert2double(REC(proxy, z))) << "; quotient: " << bitset<L_BIT>(REC(proxy, quotient)) << endl;
+            //___4. step (DRELU)
+            uint64_t drelu = DRELU(proxy, z);
 
-            // set the i-th bit of result to the value of v
-            result |= quotient & 1;
-           /* if(quotient > 0 ){
-                result |= (1UL << i);
-            }
-            else{
-                result &= ~(1UL << i);
-            }*/
+            //___5. step (MUL)
+            uint64_t mul = MUL(proxy, drelu, y);
 
-          //  cout << "dividend before: " << bitset<L_BIT>(convert2double(REC(proxy, dividend))) << endl;
-            dividend -= MUL(proxy, quotient, b); // next dividend is remainder (= dividend - (quotient * b))
-            dividend |= a & (1 << i);
+            //___6. step
+            uint64_t k = (drelu << i);
+            cout << "drelu_rec: " << REC(proxy, drelu) << " / " << drelu << "; mul_rec: "
+                 << bitset<L_BIT>(REC(proxy, mul)) << "; k: " << bitset<L_BIT>(REC(proxy, k)) << endl;
+            //___7. step
+            u += mul;
+            result += k;
+            cout << "current result: " << bitset<L_BIT>(REC(proxy, result)) << endl;
         }
-        //result += zeroShare;
-       // cout << "result: " << REC(proxy, result) << endl;
         return result;
-    }
-    else if (proxy->getPRole() == HELPER) {
-        MSB(proxy, 0);
+    } else if (proxy->getPRole() == HELPER) {
         for (int16_t i = L_BIT-1; i >= 0; i--) {
-            ADD(proxy, 0, 0);
-            MSB(proxy, 0);
+            //___4. step (DRELU)
+            DRELU(proxy, 1);
+
+            //___5. step (MUL)
             MUL(proxy, 0, 0);
         }
         return 0;
     }
 }
 
+uint64_t DIV(Party* proxy, uint64_t a, uint64_t b){
+    const role p_role = proxy->getPRole();
+    if (p_role == HELPER) {
+        thread thr1 = thread(Receive, proxy->getSocketP1(), proxy->getBuffer1(), 16);
+        thread thr2 = thread(Receive, proxy->getSocketP2(), proxy->getBuffer1(), 16);
+        thr1.join();
+        thr2.join();
+        // Receive(socket_p1, buffer, 16);
+        // Receive(socket_p2, buffer2, 16);
+        unsigned char *ptr = &proxy->getBuffer1()[0];
+        unsigned char *ptr2 = &proxy->getBuffer2()[0];
+
+
+        uint64_t a1, a2, b1, b2;
+        a1 = convert2Long(&ptr);
+        b1 = convert2Long(&ptr);
+        a2 = convert2Long(&ptr2);
+        b2 = convert2Long(&ptr2);
+        uint64_t a = a1 + a2;
+        uint64_t b = b1 + b2;
+
+
+        uint64_t c = ((a * 1.0) / b) * PRECISION;
+
+        uint64_t c1 = proxy->generateRandom();
+        uint64_t c2 = c - c1;
+
+        ptr = &proxy->getBuffer1()[0];
+        addVal2CharArray(c1, &ptr);
+        thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8);
+        //Send(socket_p1, buffer, 8);
+        ptr2 = &proxy->getBuffer2()[0];
+        addVal2CharArray(c2, &ptr2);
+        thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8);
+        thr1.join();
+        thr2.join();
+        //Send(socket_p2, buffer2, 8);
+
+        return 0;
+
+    } else if (p_role == P1) {
+        uint64_t d = proxy->generateCommonRandom() & MAX_SAMPLE_MASK;
+        uint64_t c = proxy->generateCommonRandom() % d;
+
+        //da+cb/db = a/b + c/d
+
+        uint64_t x = d * a + c * b;
+        uint64_t y = d * b;
+
+        unsigned char *ptr = &proxy->getBuffer1()[0];
+        addVal2CharArray((uint8_t) CORE_DIV, &ptr);
+        addVal2CharArray(x, &ptr);
+        addVal2CharArray(y, &ptr);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 17);
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
+        ptr = &proxy->getBuffer1()[0];
+        uint64_t z = convert2Long(&ptr);
+        if (p_role == P1) {
+            uint64_t res = (((c * 1.0) / d) * PRECISION);
+            z = z - res;
+        }
+        return z;
+
+    } else if (p_role == P2) {
+        uint64_t d = proxy->generateCommonRandom() & MAX_SAMPLE_MASK;
+        uint64_t c = proxy->generateCommonRandom() % d;
+
+        //da+cb/db = a/b + c/d
+
+        uint64_t x = d * a + c * b;
+        uint64_t y = d * b;
+
+        unsigned char *ptr = &proxy->getBuffer1()[0];
+        addVal2CharArray(x, &ptr);
+        addVal2CharArray(y, &ptr);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
+        ptr = &proxy->getBuffer1()[0];
+        uint64_t z = convert2Long(&ptr);
+        if (p_role == P1) {
+            uint64_t res = (((c * 1.0) / d) * PRECISION);
+            z = z - res;
+        }
+        return z;
+    } else {
+        return -1;
+    }
+}
+
+uint64_t DIV2(Party* proxy, uint64_t a, uint64_t b) {
+    cout << "a = " << bitset<L_BIT>(REC(proxy, a)) << "; b = " << bitset<L_BIT>(REC(proxy, b)) << endl;
+    if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
+        uint64_t remainder = 0;
+        cout << "remainder = " << bitset<L_BIT>(REC(proxy, remainder)) << endl;
+        uint64_t result = 0;
+        for (int16_t i = L_BIT-1; i >= 0; i--){
+            remainder = (remainder << i);
+            remainder |= (a & (1 << i));
+            cout << "remainder = " << bitset<L_BIT>(remainder) << endl;
+            uint64_t z = remainder - b;
+            cout << "z = " << bitset<L_BIT>(z) << endl;
+            uint64_t quotient = MSB(proxy, z); // MSB of z is intermediate result/quotient
+            cout << "MSB(z) = " << bitset<L_BIT>(REC(proxy, quotient)) << endl;
+
+            // subtract to calc remainder
+            if(quotient){
+                remainder -= b;
+                result |= (1 << i);
+            }
+        }
+        return result;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        for (int16_t i = L_BIT-1; i >= 0; i--) {
+            MSB(proxy, 0);
+        }
+        return 0;
+    }
+}
+
+// LAYER FUNCTION:
+
+
+/**
+ * Implements the function of a convolutional layer (CL) using ReLU and then Maxpool with a 2x2 filter as activation function.
+ * @param proxy
+ * @param input data on which convolution is performed using provided kernels. TODO make method to be called for batch of inputs
+ * @param i_dim size of input in symmetric shape. So input has size of i_size x i_size TODO what about third dimension (channel param)?
+ * @param kernel all kernel to be used for convolution. Those are all expected to be vectors of length k_size x k_size.
+ * @param k_size dimension of the kernel TODO first only kernel_size * kernel_size * 1 but later also for 3 channel
+ * @param k_number number of kernels to be used, which will define the third dimension of the outcome.
+ * @param stride step size of each kernel to shift per iteration
+ * @return Output of the input convoluted by the given kernels.
+ *         Output size will be: ZxZxk_number with Z = floor((28 - 5)/stride) + 1
+ */
+uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel, uint32_t k_dim, uint32_t k_number, uint8_t stride){
+    uint32_t k_size = k_dim * k_dim;
+    uint32_t conv_size = floor((i_dim - k_dim)/stride) + 1;
+    uint32_t out_size = conv_size/2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
+    uint32_t last_start = i_dim - k_dim + 1;
+    cout << "CL: started init: conv_size= " << conv_size << " , outSize= " << out_size << ", lastStart = " << last_start << endl;
+
+    // stretch the input for vectorized MATVECMUL
+    uint64_t ** stretched_input = new uint64_t *[conv_size*conv_size];
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        for (uint32_t row = 0; row < last_start; row += stride) {
+            for (uint32_t col = 0; col < last_start; col += stride) {
+                uint32_t index = (row * conv_size + col) / stride;
+                stretched_input[index] = new uint64_t[k_size];
+                // shift kernel over all cols in according row
+                for (uint32_t l = 0; l < k_size; l++) {
+                    //                    row           columns have same length as kernel size
+                    stretched_input[index][l] = input[row + l / k_dim][col + l % k_dim];
+                }
+            }
+        }
+        cout << "CL: finished reshaping/stretching input image with dim " << conv_size * conv_size << " x " << k_size
+             << endl;
+
+        // convolution:
+        uint64_t ***conv_layer = new uint64_t **[k_number];
+        for (uint32_t k = 0; k < k_number; k++) {                          // for each kernel
+            cout << "loop through kernel " << k << endl;
+            // mul stretched_input with kernel
+            uint64_t *conv_result = MATVECMUL(proxy, stretched_input, kernel[k], conv_size * conv_size, k_size);
+
+            // ACTIVATION:
+            // ReLU
+            cout << "do RELU..." << endl;
+            for (uint32_t i = 0; i < conv_size * conv_size; i++) {
+                conv_result[i] = RELU(proxy, conv_result[i]);
+            }
+            // Maxpool:
+            uint64_t *r = MAX(proxy, conv_result, conv_size, conv_size, 2);
+            // bring result in matrix shape
+            uint64_t **conv = new uint64_t *[out_size];
+            for (uint32_t row = 0; row < out_size; row++) {
+                conv[row] = new uint64_t[out_size];
+                for (uint32_t col = 0; col < out_size; col++) {
+                    conv[row][col] = r[row * out_size + col];
+                }
+            }
+            conv_layer[k] = conv;
+        }
+        return conv_layer;
+    }
+    else if (proxy->getPRole() == HELPER){
+        // convolution:
+        uint64_t ***conv_layer = new uint64_t **[k_number];
+        for (uint32_t k = 0; k < k_number; k++) {
+            cout << "calling MATVECMUL for " << k << "th time." << endl;
+            MATVECMUL(proxy, nullptr, nullptr, conv_size * conv_size, k_size);
+
+            // ACTIVATION:
+            // ReLU
+            cout << "do RELU: " << endl;
+            for (uint32_t i = 0; i < conv_size * conv_size; i++) {
+                RELU(proxy, 0);
+            }
+            // Maxpool:
+            MAX(proxy, nullptr, conv_size, conv_size, 2);
+        }
+        return nullptr;
+    }
+
+}
 
 
 #endif //PPAUC_CNN_H

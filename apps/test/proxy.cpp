@@ -10,10 +10,11 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
-//#include <Eigen/Eigen>
+#include <Eigen/Eigen>
+
 
 using namespace std;
-//using namespace Eigen;
+using namespace Eigen;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
@@ -393,8 +394,7 @@ void RELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(-5);//convert2double(proxy->generateCommonRandom()));
-    //cout << "x: " << bitset<64>(REC(proxy, x)) << endl;
+    uint64_t x = proxy->createShare(convert2double(proxy->generateCommonRandom()));
     proxy->SendBytes(CNN_RELU);
     uint64_t relu = RELU(proxy, x);
     uint64_t reconstructed_relu = REC(proxy, relu);
@@ -412,7 +412,6 @@ void RELU_Test(Party *proxy){
     double pp_result = convert2double(reconstructed_relu);
     if(computed_relu == pp_result){
         cout<<"RELU works correctly"<<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;
     }
     else{
         cout<<"RELU works incorrectly" <<endl;
@@ -425,7 +424,7 @@ void DRLU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DRLU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(-5); //convert2double(proxy->generateRandom())
+    uint64_t x = proxy->createShare(convert2double(proxy->generateRandom()));
 
     proxy->SendBytes(CNN_DRLU);
     uint64_t drelu = DRELU(proxy, x);
@@ -873,7 +872,7 @@ void MINVSQRT_Test(Party* proxy) {
      * We first generate a random Gram matrix by first generating a random data matrix D and
      * then computing D^T * D.
      */
-/*    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
+    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // setting
     int n_row = 4;
@@ -921,15 +920,15 @@ void MINVSQRT_Test(Party* proxy) {
         cout << matrix_G.inverse() << endl;
         cout << "============================================================================" << endl;
     }
-*/
+
 }
 
 void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(10.0);
-    uint64_t y = proxy->createShare(2.5);
+    uint64_t x = proxy->createShare(6);
+    uint64_t y = proxy->createShare(3);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
@@ -947,7 +946,7 @@ void DIV_Test(Party *proxy){
     }
     else{
         cout<<"DIV works incorrectly" <<endl;
-        cout<< "computed: " << reconstructed_div << " should be: " << computed_div << endl;
+        cout<< "computed: " << reconstructed_div << " (" << bitset<L_BIT>(reconstructed_div) << ") but should be: " << computed_div << " (" << bitset<L_BIT>(computed_div) << ")" << endl;
     }
 
 }
@@ -981,28 +980,27 @@ int main(int argc, char* argv[]) {
     MUX_Test(proxy);
     MMUX_Test(proxy);
 
-    MAX_Test(proxy);*/
+    MAX_Test(proxy);
 //    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-    //RST_Test(proxy); // works (needs much space in console as it prints matrices)
-    RELU_Test(proxy);
+//    RST_Test(proxy); // works (needs much space in console as it prints matrices)
+    RELU_Test(proxy);*/
     DRLU_Test(proxy);
-   // DIV_Test(proxy);
+    DIV_Test(proxy);
 
-//    EXP_Test(proxy);
-//    MEXP_Test(proxy);
+/*    EXP_Test(proxy);
+    MEXP_Test(proxy);
 
-//    DP_Test(proxy);
-//    MDP_Test(proxy);
+    DP_Test(proxy);
+    MDP_Test(proxy);
+    MATMATMUL_Test(proxy);
+    MMATMATMUL_Test(proxy);
+*/
+    MATVECMUL_Test(proxy);
+/*    MMATVECMUL_Test(proxy);
 
-//    MATMATMUL_Test(proxy);
-//    MMATMATMUL_Test(proxy);
-
-//    MATVECMUL_Test(proxy);
-//    MMATVECMUL_Test(proxy);
-
-//    INVSQRT_Test(proxy);
-    //MINVSQRT_Test(proxy);
+    INVSQRT_Test(proxy);
+    MINVSQRT_Test(proxy);*/
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

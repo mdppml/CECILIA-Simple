@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/proxy_test.dir/apps/test/proxy.cpp.o CMakeFiles/proxy_test.dir/utils/parse_options.cpp.o  -o proxy_test  -lpthread 

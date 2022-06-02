@@ -20,16 +20,33 @@ int main(int argc, char* argv[]) {
             uint16_t window_size = (mmaxParams & 0b0000000011111111);
             MAX(helper, nullptr, mRows, mCols, window_size);
         }
-        else if (op == CNN_RST){
-            int sz = helper->ReadInt();
-            MSB(helper,0,sz);
+        else if (op == CNN_RELU){
+            RELU(helper,0);
+        }
+        else if (op == CNN_DRLU){
+            DRELU(helper,0);
+        }
+        else if (op == CNN_CL1){
+            unsigned char *ptr = helper->getBuffer1();
+            Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
+            uint64_t params [4];
+            convert2Array(&ptr, &params[0], 4);
+            cout << "HELPER CL: i_dim = " << params[0] << ", k_dim= " << params[1] << ", k_number = " << params[2] << ", stride= " << params[3] << endl;
+            CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
+        }
+        else if (op == CNN_CL2){
+            unsigned char *ptr = helper->getBuffer1();
+            Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
+            uint64_t params [4];
+            convert2Array(&ptr, &params[0], 4);
+            //CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
+        }
+        else if (op == CORE_MSB){
+            MSB(helper,0);
         }
         else if (op == CORE_MMSB){
             int sz = helper->ReadInt();
             MSB(helper,0,sz);
-        }
-        else if (op == CORE_MSB){
-            MSB(helper,0);
         }
         else if (op == CORE_MC){
             MOC(helper,0);
@@ -56,6 +73,9 @@ int main(int argc, char* argv[]) {
         else if (op == CORE_MMUL){
             int sz = helper->ReadInt();
             MUL(helper,0, 0, sz);
+        }
+        else if (op == CORE_DIV){
+            DIV(helper,0, 0);
         }
         else if (op == CORE_END)
             break;
