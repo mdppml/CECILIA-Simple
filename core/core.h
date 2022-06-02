@@ -953,7 +953,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
      * Output(s)
      * Returns an uint64_t vector containing the share of the result of the multiplication
      */
-    cout << "MUL:Size: " << size << endl;
     if(DEBUG_FLAG >= 1)
         cout << "************************************************************\nMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
@@ -1048,7 +1047,6 @@ uint64_t EXP(Party* proxy, uint64_t a) {
         }
 
         uint64_t *bit_shares = MSB(proxy, partial_a, n_bits);
-        uint64_t *at = REC(proxy, bit_shares, n_bits);
 
         // selection of the contribution of the bits of the value
         uint64_t *contributions = MUX(proxy, one_contributions, e_contributions, bit_shares, n_bits);
@@ -1681,6 +1679,7 @@ uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
         return 0;
 
     }
+    return 0;
 }
 
 uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {

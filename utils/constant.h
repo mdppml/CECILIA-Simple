@@ -9,11 +9,7 @@
 //const int L = 64;
 #define LP 67
 #define FRAC 20
-<<<<<<< HEAD
 #define RING_N 0xffffffffffffffff  // ring size
-=======
-#define N 0xffffffffffffffff  // ring size
->>>>>>> fbb65db82543c23a65338b529016e233ec513182
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
 #define EVEN_MASK 0xfffffffffffffff7
@@ -32,8 +28,8 @@
 
 // constants for INVSQRT
 #define ORTHMASK 0x3e000
-#define MAX_DELTA 10
-#define MIN_DELTA 1
+#define MAX_DELTA 100
+#define MIN_DELTA 10
 #define MAXSCALAR 0xfffff
 #define MAXA 0x3fffff
 
@@ -50,7 +46,7 @@ enum op {
     // CNN
     CNN_MAX, CNN_MMAX, CNN_RST, CNN_RELU, CNN_DRLU,
     // RKN
-    RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT
+    RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT, RKN_ITER
 };
 
 

@@ -103,26 +103,28 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
     }
     cout << endl;
 
+    // share generation
+    uint64_t** invsqrt_data = proxy->createShare(gram_matrix, n_row, n_row);
 
     // share generation
-    uint64_t** invsqrt_data = new uint64_t*[n_row];
-    for (int i = 0; i < n_row; i++) {
-        invsqrt_data[i] = new uint64_t[n_row];
-        for(int j = 0; j < n_row; j++) {
-            // generate shares
-            uint64_t val = 0;
-            for (int k = 3; k >= 0; k -= 1) {
-                a = rand() & 0xffff;
-                val = val ^ (a << (k * 16));
-            }
-
-            if (role == 0) {
-                invsqrt_data[i][j] = val;
-            } else {
-                invsqrt_data[i][j] = convert2uint64(gram_matrix[i][j]) - val;
-            }
-        }
-    }
+//    uint64_t** invsqrt_data = new uint64_t*[n_row];
+//    for (int i = 0; i < n_row; i++) {
+//        invsqrt_data[i] = new uint64_t[n_row];
+//        for(int j = 0; j < n_row; j++) {
+//            // generate shares
+//            uint64_t val = 0;
+//            for (int k = 3; k >= 0; k -= 1) {
+//                a = rand() & 0xffff;
+//                val = val ^ (a << (k * 16));
+//            }
+//
+//            if (role == 0) {
+//                invsqrt_data[i][j] = val;
+//            } else {
+//                invsqrt_data[i][j] = convert2uint64(gram_matrix[i][j]) - val;
+//            }
+//        }
+//    }
 
     return invsqrt_data;
 }
@@ -190,6 +192,7 @@ void print2DArray(string const &str1, uint64_t** x, uint32_t n_row, uint32_t n_c
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for(uint32_t i = 0; i < n_row; i++) {
+            cout << i << ".\t";
             for(uint32_t j = 0; j < n_col; j++) {
                 cout << x[i][j] << "\t";
             }
@@ -212,7 +215,7 @@ void print1DArray(string const &str1, uint64_t* x, uint32_t size, bool horizonta
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for (uint32_t i = 0; i < size; i++) {
-            cout << x[i] << "\t";
+            cout << i << ". " << x[i] << "\t";
         }
         cout << endl;
     }
@@ -289,6 +292,7 @@ void print2DArray(string const &str1, double** x, uint32_t n_row, uint32_t n_col
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for(uint32_t i = 0; i < n_row; i++) {
+            cout << i << ".\t";
             for(uint32_t j = 0; j < n_col; j++) {
                 cout << x[i][j] << "\t";
             }
@@ -311,7 +315,7 @@ void print1DArray(string const &str1, double* x, uint32_t size, bool horizontal=
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for(uint32_t i = 0; i < size; i++) {
-            cout << x[i] << "\t";
+            cout << i << ". " << x[i] << "\t";
         }
         cout << endl;
     }
@@ -404,4 +408,352 @@ static void bubbleSort(double x[], int n) {
             }
         }
     } while (exchanges);
+}
+
+/* Functions to read data with various sizes
+ * They read arrays with different dimensionalities.
+ */
+double** read_2D_array_GT(const string& fn, int n_anc, int n_dim, int k_mer) {
+    /*  This function reads the anchor points.
+     *  Input(s):
+     *  fn: file name
+     *  n_anc: number of the anchor points
+     *  n_dim: number of dimension to represent each character in the anchor points
+     *  k_mer: number of layers or utilized lenght of k-mers
+     *
+     *  Return(s):
+     *  the anchor points in two dimensional double dynamic array of size n_anc-by-n_dim
+     */
+    // File pointer
+    fstream fin;
+
+    // Open an existing file
+    fin.open(fn, ios::in);
+
+    double** anchor_points = new double*[n_anc];
+    string word, temp;
+    int anc_ind = 0, dim_ind = 0;
+    while (fin >> temp) {
+        // used for breaking words
+        stringstream s(temp);
+
+        // read every column data of a row and store it in a string variable, 'word'
+        anchor_points[anc_ind] = new double[n_dim];
+        while (getline(s, word, ',')) {
+            anchor_points[anc_ind][dim_ind] = stof(word);
+            dim_ind++;
+        }
+
+        anc_ind++;
+        dim_ind = 0;
+    }
+
+    return anchor_points;
+}
+
+double* read_1D_array_GT(const string& fn, int n_anc, bool bias_flag = true) {
+    /*  This function reads the weights in the linear classifier layer as well as the bias in this layer.
+     *  Input(s):
+     *  fn: file name
+     *  n_anc: number of the anchor points
+     *  bias_flag: whether there is bias term at the end of the given file
+     *
+     *  Return(s):
+     *  the weights in one dimensional double dynamic array of size n_anc or (n_anc + 1) depending on bias_flag
+     */
+    cout << "File name: " << fn << endl;
+    // File pointer
+    fstream fin;
+
+    // Open an existing file
+    fin.open(fn, ios::in);
+
+    double* weights;
+    if(bias_flag) {
+        weights = new double[n_anc + 1];
+    }
+    else {
+        weights = new double[n_anc];
+    }
+
+    string word, temp;
+    int ind = 0;
+
+    // read the single line
+    getline(fin, temp);
+
+    // used for breaking words
+    stringstream s(temp);
+
+    // read every column data of a row and
+    // store it in a string variable, 'word'
+    while (getline(s, word, ',')) {
+//        cout << "Index: " << ind << "\tWord: " << word << endl;
+        weights[ind] = stof(word);
+        ind++;
+    }
+
+    return weights;
+}
+
+uint64_t** read_2D_array(Party* proxy, const string& fn, int n_anc, int n_dim, int k_mer) {
+    /*  This function reads the anchor points.
+     *  Input(s):
+     *  proxy: Party instance
+     *  fn: file name
+     *  n_anc: number of the anchor points
+     *  n_dim: number of dimension to represent each character in the anchor points
+     *  k_mer: number of layers or utilized lenght of k-mers
+     *
+     *  Return(s):
+     *  shares of the anchor points in two dimensional uint64_t dynamic array of size n_anc-by-n_dim
+     */
+    // File pointer
+    fstream fin;
+
+    // Open an existing file
+    cout << "File name: " << fn << endl;
+    fin.open(fn, ios::in);
+
+    uint64_t** anchor_points = new uint64_t*[n_anc];
+    string word, temp;
+    int anc_ind = 0, dim_ind = 0;
+    while (fin >> temp) {
+        // used for breaking words
+        stringstream s(temp);
+
+        // read every column data of a row and store it in a string variable, 'word'
+        anchor_points[anc_ind] = new uint64_t[n_dim];
+        while (getline(s, word, ',')) {
+            uint64_t tmp;
+            if(proxy->getPRole() == P1) {
+                tmp  = convert2uint64(stof(word)) - proxy->generateCommonRandom();
+            }
+            else {
+                tmp = proxy->generateCommonRandom();
+            }
+            anchor_points[anc_ind][dim_ind] = tmp;
+            dim_ind++;
+        }
+
+        anc_ind++;
+        dim_ind = 0;
+    }
+
+    return anchor_points;
+}
+
+uint64_t* read_1D_array(Party* proxy, const string& fn, int n_anc, bool bias_flag = true) {
+    /*  This function reads the weights in the linear classifier layer as well as the bias in this layer.
+     *  Input(s):
+     *  proxy: Party instance
+     *  fn: file name
+     *  n_anc: number of the anchor points
+     *  bias_flag: whether there is bias term at the end of the given file
+     *
+     *  Return(s):
+     *  shares of the weights in one dimensional uint64_t dynamic array of size n_anc or (n_anc + 1) depending on bias_flag
+     */
+    cout << "File name: " << fn << endl;
+    // File pointer
+    fstream fin;
+
+    // Open an existing file
+    fin.open(fn, ios::in);
+
+    uint64_t* weights;
+    if(bias_flag) {
+        weights = new uint64_t[n_anc + 1];
+    }
+    else {
+        weights = new uint64_t[n_anc];
+    }
+
+    string word, temp;
+    int ind = 0;
+
+    // read the single line
+    getline(fin, temp);
+
+    // used for breaking words
+    stringstream s(temp);
+
+    // read every column data of a row and
+    // store it in a string variable, 'word'
+    while (getline(s, word, ',')) {
+//        cout << "Index: " << ind << "\tWord: " << word << endl;
+        if(proxy->getPRole() == P1) {
+            weights[ind] = convert2uint64(stof(word)) - proxy->generateCommonRandom();
+        }
+        else {
+            weights[ind] = proxy->generateCommonRandom();
+        }
+        ind++;
+    }
+
+    return weights;
+}
+
+/*
+ * Specific matrix/vector generation functions
+ */
+static uint64_t* zero_1D_data(Party *proxy, int size) {
+    uint64_t* mat_data = new uint64_t[size];
+    for (int i = 0; i < size; i++) {
+        // generate shares
+        uint64_t val = 0;
+        for (int k = 3; k >= 0; k -= 1) {
+            uint64_t a = rand() & 0xffff;
+            val = val ^ (a << (k * 16));
+        }
+
+        if (proxy->getPRole() == 0) {
+            mat_data[i] = val;
+        } else {
+            mat_data[i] = 0 - val;
+        }
+    }
+    return mat_data;
+}
+
+//******************************************************************************
+// Rest
+
+string valid_alphabet = "ARNDCQEGHILKMFPSTWYV";
+string invalid_alphabet = "XBZJUO";
+
+static void MbubbleSort(double **x, int r, int c) {
+    for(int i = 0; i < r; i++) {
+        bubbleSort(x[i], c);
+    }
+}
+
+static double** inplace_dp(double** m1, double** m2, int n_row, int n_col) {
+    double tmp;
+    double** res = new double*[n_row];
+    for( int i = 0; i < n_row; i++) {
+        res[i] = new double[n_row];
+        for(int j = 0; j < n_row; j++) {
+            tmp = 0;
+            for(int k = 0; k < n_col; k++) {
+                tmp += m1[i][k] * m2[j][k];
+            }
+            res[i][j] = tmp;
+        }
+    }
+    return res;
+}
+
+static double multiply_vector_vector(double* m1, double* m2, int length) {
+    double tmp = 0;
+    for( int i = 0; i < length; i++) {
+        tmp += m1[i] * m2[i];
+    }
+    return tmp;
+}
+
+string recover_seq(const string& fn, int index) {
+    /*
+     * Recover a sequence based on the indices read from the specified file
+     */
+    // File pointer
+    fstream fin_pre;
+    fin_pre.open(fn, ios::in);
+    string word, temp;
+    for(int i = 0; i < index; i++) {
+        getline(fin_pre, temp);
+    }
+    stringstream s(temp);
+
+    // to identify the last nonzero entry and meanwhile store the values
+    int ind = 0;
+    int last_nonzeros = 0;
+    char seq_pre[10000];
+    while (getline(s, word, ',')) { // && ind < size
+        int tmp = stoi(word) - 1;
+        if(tmp < 0) {
+            last_nonzeros = ind;
+            break;
+        }
+        seq_pre[ind] = valid_alphabet[tmp];
+        ind++;
+    }
+
+//    cout << "seq_processing::recover_seq::last_nonzeros: " << last_nonzeros << endl;
+
+    // just extract the characters until the last nonzero character
+    char* seq = new char[last_nonzeros]();
+    for(int i = 0; i < last_nonzeros; i++) {
+        seq[i] = seq_pre[i];
+    }
+
+    string str(seq, last_nonzeros);
+
+    return str;
+}
+
+unordered_map<char, double*> generate_one_hot_mapping() {
+    /*  This function generates a mapping for the characters that one can encounter in a protein sequence.
+     *
+     *  Input(s):
+     *
+     *  Returns(s):
+     *  An unordered_map whose keys are characters and the values are double dynamic array of size 20
+     */
+    unordered_map<char, double*> one_hot_mapping;
+
+    // valid characters
+    for(int i = 0; i < valid_alphabet.length(); i++) {
+        double* at = new double[valid_alphabet.length()];
+        for(int j = 0; j < valid_alphabet.length(); j++) {
+            if(i == j) {
+                at[j] = 1;
+            }
+            else {
+                at[j] = 0;
+            }
+        }
+        one_hot_mapping[valid_alphabet[i]] = at;
+    }
+
+    // invalid characters
+    for(char & i : invalid_alphabet) {
+        double* at = new double[valid_alphabet.length()];
+        for(int j = 0; j < valid_alphabet.length(); j++) {
+            at[j] = 1.0 / valid_alphabet.length(); // the mapping of the invalid characters is 1 / size_of_valid_alphabet
+        }
+        one_hot_mapping[i] = at;
+    }
+
+    return one_hot_mapping;
+}
+
+uint64_t** encode_sequence(Party* proxy, string seq) {
+    /*  This function encodes the sequence via one-hot encoding and returns the secret shared form of the two dimensional
+     *  uint64_t array.
+     *
+     *  Input(s):
+     *  proxy: Party instance to generate common random values
+     *  seq: sequence as a string
+     *
+     *  Return(s):
+     *  Secret shared form of one-hot encoding of the given sequence as the two dimensional uint64_t array
+     */
+
+    unordered_map<char, double*> one_hot_mapping = generate_one_hot_mapping();
+
+    uint64_t** x_share = new uint64_t*[seq.length()];
+//    cout << "seq_processing::encode_sequence::sequence length: " << seq.length() << endl;
+    for(int i = 0; i < seq.length(); i++) {
+        // check if the character in the sequence exists in the mapping
+        if(one_hot_mapping.find(seq[i]) == one_hot_mapping.end()) {
+            cout << "Sequence has an invalid character \"" << seq[i] << "\" at index " << i << endl;
+            throw;
+        }
+
+        double* tmp = one_hot_mapping[seq[i]];
+        x_share[i] = proxy->createShare(tmp, 20);
+    }
+
+    return x_share;
 }
