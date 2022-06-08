@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
             Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
             uint64_t params [4];
             convert2Array(&ptr, &params[0], 4);
-            cout << "HELPER CL: i_dim = " << params[0] << ", k_dim= " << params[1] << ", k_number = " << params[2] << ", stride= " << params[3] << endl;
+            //cout << "HELPER CL: i_dim = " << params[0] << ", k_dim= " << params[1] << ", k_number = " << params[2] << ", stride= " << params[3] << endl;
             CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
         }
         else if (op == CNN_CL2){
@@ -39,7 +39,16 @@ int main(int argc, char* argv[]) {
             Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
             uint64_t params [4];
             convert2Array(&ptr, &params[0], 4);
-            //CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
+            cout << "HELPER CL2: i_dim = " << params[0] << ", i_number= " << params[1] << ", k_dim = " << params[2] << ", stride= " << params[3] << endl;
+            CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
+        }
+        else if (op == CNN_FCL){
+            unsigned char *ptr = helper->getBuffer1();
+            Receive(helper->getSocketP2(), helper->getBuffer1(), 3 * 8);
+            uint64_t params [3];
+            convert2Array(&ptr, &params[0], 3);
+            cout << "HELPER FCL: i_dim = " << params[0] << ", i_number= " << params[1] << ", node_number = " << params[2] << endl;
+            FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
         }
         else if (op == CORE_MSB){
             MSB(helper,0);
@@ -77,8 +86,10 @@ int main(int argc, char* argv[]) {
         else if (op == CORE_DIV){
             DIV(helper,0, 0);
         }
-        else if (op == CORE_END)
+        else if (op == CORE_END) {
+            cout << "programm was ended. " << endl;
             break;
+        }
     }
     helper->PrintBytes();
     return 0;

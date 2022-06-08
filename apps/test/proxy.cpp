@@ -939,8 +939,8 @@ void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(6);
-    uint64_t y = proxy->createShare(3);
+    uint64_t x = proxy->createShare(3);
+    uint64_t y = proxy->createShare(10);
 
     proxy->SendBytes(CORE_DIV);
     uint64_t div = DIV(proxy, x, y);
@@ -1609,11 +1609,11 @@ int main(int argc, char* argv[]) {
     MMUX_Test(proxy);
 
     MAX_Test(proxy);
-//    MMAX_Test(proxy); //TODO adapt to asymmetric window size
+    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
-//    RST_Test(proxy); // works (needs much space in console as it prints matrices)
-    RELU_Test(proxy);*/
-    DRLU_Test(proxy);
+    RST_Test(proxy); // works (needs much space in console as it prints matrices)
+    RELU_Test(proxy);
+    DRLU_Test(proxy);*/
     DIV_Test(proxy);
 
 /*    EXP_Test(proxy);
@@ -1623,14 +1623,14 @@ int main(int argc, char* argv[]) {
     MDP_Test(proxy);
     MATMATMUL_Test(proxy);
     MMATMATMUL_Test(proxy);
-*/
+
     MATVECMUL_Test(proxy);
 
-//    INVSQRT_Test(proxy);
-//    MINVSQRT_Test(proxy);
+    INVSQRT_Test(proxy);
+    MINVSQRT_Test(proxy);
 
-//    ppRKN_ITER_Test(proxy);
-//    ppRKN_PREDICTION_Test(proxy);
+    ppRKN_ITER_Test(proxy);
+    ppRKN_PREDICTION_Test(proxy);*/
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

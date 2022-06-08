@@ -5,9 +5,13 @@
 #ifndef PPAUC_CNN_H
 #define PPAUC_CNN_H
 
+uint64_t **INC(uint64_t **image, uint32_t i_size, uint32_t i_start, uint32_t k_dim, uint8_t stride);
+uint64_t * FLT(uint64_t*** images, uint32_t i_dim, uint32_t i_number);
+
 #include "core.h"
 #include "../utils/flib.h"
 #include "bitset"
+
 
 /**
  * Prints the given matrix in a way to show the values in a column and row based format while also different windows of
@@ -26,7 +30,7 @@ void print1DMatrixByWindows(string const &str1, uint64_t* matrix, uint32_t m_row
     for(uint32_t i = 0; i < m_row; i++) {
         //delimiter between windows in horizontal direction
         if(i % w_row == 0){
-            for(uint8_t d = 0; d < m_col; d++){
+            for(uint32_t d = 0; d < m_col; d++){
                 cout << " _ _ _ _ _ _ _ _";
             }
             cout << endl;
@@ -40,7 +44,7 @@ void print1DMatrixByWindows(string const &str1, uint64_t* matrix, uint32_t m_row
         }
         cout << "|" << endl;
     }
-    for(uint8_t d = 0; d < m_col; d++){
+    for(uint32_t d = 0; d < m_col; d++){
         cout << " _ _ _ _ _ _ _ _";
     }
     cout << endl << "==============================================================" << endl;
@@ -52,7 +56,7 @@ void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, 
     for(uint32_t i = 0; i < m_row; i++) {
         //delimiter between windows in horizontal direction
         if(i % w_row == 0){
-            for(uint8_t d = 0; d < m_col; d++){
+            for(uint32_t d = 0; d < m_col; d++){
                 cout << " _ _ _ _ _ _ _ _";
             }
             cout << endl;
@@ -66,7 +70,7 @@ void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, 
         }
         cout << "|" << endl;
     }
-    for(uint8_t d = 0; d < m_col; d++){
+    for(uint32_t d = 0; d < m_col; d++){
         cout << " _ _ _ _ _ _ _ _";
     }
     cout << endl << "==============================================================" << endl;
@@ -80,7 +84,7 @@ void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, 
  * @param length of a and b (must have same length)
  * @return vector d where each element is the result of the according elements a-b.
  */
-uint64_t* SUB(uint64_t *a, uint64_t *b, uint32_t length){
+uint64_t* SUB(const uint64_t *a, const uint64_t *b, uint32_t length){
     uint64_t *subtractedValues = new uint64_t [length];
     for(uint32_t i = 0; i<length; i++){
         subtractedValues[i] = *(a+i) - *(b+i);
@@ -127,7 +131,7 @@ void RST(const uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_co
     uint32_t w_count = 0;
 
     while(w_count < numberOfWins){
-        auto windowStart = static_cast<uint32_t>(w_rows * m_cols * floor(w_count / winsPerRow) + (w_cols * (w_count & (winsPerRow-1))));
+        uint32_t windowStart = static_cast<uint32_t>(w_rows * m_cols * floor(w_count / winsPerRow) + (w_cols * (w_count & (winsPerRow-1))));
         // cout << w_count << " out of " << numberOfWins << " windows: "<< windowStart << endl;
         for(uint32_t i = 0; i<w_rows; i++){
             uint32_t m_index = windowStart + i*m_cols;
@@ -246,11 +250,11 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
 
     uint32_t numberOfWins;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        auto *resorted = new uint64_t [matrix_size];                // RESORT matrix to have all values of a window subsequently
+        uint64_t *resorted = new uint64_t [matrix_size];                // RESORT matrix to have all values of a window subsequently
         // only rows calculated because always complete rows of windows are processed
         RST(mShare, m_cols, m_rows, window_size, window_size, resorted);
         numberOfWins = matrix_size / window_length;
-        auto *maxElements = new uint64_t [numberOfWins];
+        uint64_t *maxElements = new uint64_t [numberOfWins];
         uint32_t comparisons;
 
         while (cmpWindowVectorSize > 1) {
@@ -339,7 +343,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
         }
         return nullptr;
     }
-    return NULL;
+    return nullptr;
 }
 
 
@@ -355,11 +359,9 @@ uint64_t RELU(Party* proxy, uint64_t x){
 
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t commonValues[4];
-        for (uint8_t i = 0; i < 4; i++) {
-            commonValues[i] = proxy->generateCommonRandom() | 0x1; // common values must be odd
+        for (unsigned long & commonValue : commonValues) {
+            commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
         }
-
-
         // create even random shares
         uint64_t e[] = {proxy->generateRandom() & EVEN_MASK, proxy->generateRandom() & EVEN_MASK};
 
@@ -551,136 +553,44 @@ uint64_t DRELU(Party* proxy, uint64_t x){
 }
 
 
-uint64_t DIV_NN(Party* proxy, uint64_t a, uint64_t b) {
+uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
     //compare with Algorithm 8 Division by SecureNN
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
 
-        uint64_t u = proxy->createShare(0); // u_l of SecureNN (p.12)
         uint64_t result = 0;
-        for (int16_t i = L_BIT - 1; i >= 0; i--) {
-            cout << "______________ i : " << i << "; u = " << REC(proxy, u) << endl;
+        uint64_t u = proxy->createShare(0);
+        for (int16_t i = FRAC - 1; i >= 0; i--) {
             //___3. step
-            uint64_t y = b << i; // equals b * 2^i
-            uint64_t z = a - u - y;
+            uint64_t y = a << i; // equals a * 2^i not as pseudocode in paper
+            uint64_t z = y - u - b;
 
             //___4. step (DRELU)
             uint64_t drelu = DRELU(proxy, z);
 
             //___5. step (MUL)
-            uint64_t mul = MUL(proxy, drelu, y);
+            uint64_t mul = MUL(proxy, drelu, b);
 
-            //___6. step
-            uint64_t k = (drelu << i);
-            cout << "drelu_rec: " << REC(proxy, drelu) << " / " << drelu << "; mul_rec: "
-                 << bitset<L_BIT>(REC(proxy, mul)) << "; k: " << bitset<L_BIT>(REC(proxy, k)) << endl;
+            //___6. step and 8. step (combined)
+            result += (drelu << i);
             //___7. step
             u += mul;
-            result += k;
             cout << "current result: " << bitset<L_BIT>(REC(proxy, result)) << endl;
         }
         return result;
     } else if (proxy->getPRole() == HELPER) {
         for (int16_t i = L_BIT-1; i >= 0; i--) {
             //___4. step (DRELU)
-            DRELU(proxy, 1);
+            DRELU(proxy, 0);
 
             //___5. step (MUL)
             MUL(proxy, 0, 0);
         }
         return 0;
     }
+    return -1;
 }
 
-uint64_t DIV(Party* proxy, uint64_t a, uint64_t b){
-    const role p_role = proxy->getPRole();
-    if (p_role == HELPER) {
-        thread thr1 = thread(Receive, proxy->getSocketP1(), proxy->getBuffer1(), 16);
-        thread thr2 = thread(Receive, proxy->getSocketP2(), proxy->getBuffer1(), 16);
-        thr1.join();
-        thr2.join();
-        // Receive(socket_p1, buffer, 16);
-        // Receive(socket_p2, buffer2, 16);
-        unsigned char *ptr = &proxy->getBuffer1()[0];
-        unsigned char *ptr2 = &proxy->getBuffer2()[0];
-
-
-        uint64_t a1, a2, b1, b2;
-        a1 = convert2Long(&ptr);
-        b1 = convert2Long(&ptr);
-        a2 = convert2Long(&ptr2);
-        b2 = convert2Long(&ptr2);
-        uint64_t a = a1 + a2;
-        uint64_t b = b1 + b2;
-
-
-        uint64_t c = ((a * 1.0) / b) * PRECISION;
-
-        uint64_t c1 = proxy->generateRandom();
-        uint64_t c2 = c - c1;
-
-        ptr = &proxy->getBuffer1()[0];
-        addVal2CharArray(c1, &ptr);
-        thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        //Send(socket_p1, buffer, 8);
-        ptr2 = &proxy->getBuffer2()[0];
-        addVal2CharArray(c2, &ptr2);
-        thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8);
-        thr1.join();
-        thr2.join();
-        //Send(socket_p2, buffer2, 8);
-
-        return 0;
-
-    } else if (p_role == P1) {
-        uint64_t d = proxy->generateCommonRandom() & MAX_SAMPLE_MASK;
-        uint64_t c = proxy->generateCommonRandom() % d;
-
-        //da+cb/db = a/b + c/d
-
-        uint64_t x = d * a + c * b;
-        uint64_t y = d * b;
-
-        unsigned char *ptr = &proxy->getBuffer1()[0];
-        addVal2CharArray((uint8_t) CORE_DIV, &ptr);
-        addVal2CharArray(x, &ptr);
-        addVal2CharArray(y, &ptr);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 17);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
-        ptr = &proxy->getBuffer1()[0];
-        uint64_t z = convert2Long(&ptr);
-        if (p_role == P1) {
-            uint64_t res = (((c * 1.0) / d) * PRECISION);
-            z = z - res;
-        }
-        return z;
-
-    } else if (p_role == P2) {
-        uint64_t d = proxy->generateCommonRandom() & MAX_SAMPLE_MASK;
-        uint64_t c = proxy->generateCommonRandom() % d;
-
-        //da+cb/db = a/b + c/d
-
-        uint64_t x = d * a + c * b;
-        uint64_t y = d * b;
-
-        unsigned char *ptr = &proxy->getBuffer1()[0];
-        addVal2CharArray(x, &ptr);
-        addVal2CharArray(y, &ptr);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
-        ptr = &proxy->getBuffer1()[0];
-        uint64_t z = convert2Long(&ptr);
-        if (p_role == P1) {
-            uint64_t res = (((c * 1.0) / d) * PRECISION);
-            z = z - res;
-        }
-        return z;
-    } else {
-        return -1;
-    }
-}
-
-uint64_t DIV2(Party* proxy, uint64_t a, uint64_t b) {
+uint64_t DIV_BIT(Party* proxy, uint64_t a, uint64_t b) {
     cout << "a = " << bitset<L_BIT>(REC(proxy, a)) << "; b = " << bitset<L_BIT>(REC(proxy, b)) << endl;
     if (proxy->getPRole()  == P1 || proxy->getPRole()  == P2){
         uint64_t remainder = 0;
@@ -709,10 +619,10 @@ uint64_t DIV2(Party* proxy, uint64_t a, uint64_t b) {
         }
         return 0;
     }
+    return 0;
 }
 
-// LAYER FUNCTION:
-
+// LAYER FUNCTIONS:
 
 /**
  * Implements the function of a convolutional layer (CL) using ReLU and then Maxpool with a 2x2 filter as activation function.
@@ -720,7 +630,7 @@ uint64_t DIV2(Party* proxy, uint64_t a, uint64_t b) {
  * @param input data on which convolution is performed using provided kernels. TODO make method to be called for batch of inputs
  * @param i_dim size of input in symmetric shape. So input has size of i_size x i_size TODO what about third dimension (channel param)?
  * @param kernel all kernel to be used for convolution. Those are all expected to be vectors of length k_size x k_size.
- * @param k_size dimension of the kernel TODO first only kernel_size * kernel_size * 1 but later also for 3 channel
+ * @param k_dim dimension of the kernel TODO first only kernel_size * kernel_size * 1 but later also for 3 channel
  * @param k_number number of kernels to be used, which will define the third dimension of the outcome.
  * @param stride step size of each kernel to shift per iteration
  * @return Output of the input convoluted by the given kernels.
@@ -728,43 +638,28 @@ uint64_t DIV2(Party* proxy, uint64_t a, uint64_t b) {
  */
 uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel, uint32_t k_dim, uint32_t k_number, uint8_t stride){
     uint32_t k_size = k_dim * k_dim;
-    uint32_t conv_size = floor((i_dim - k_dim)/stride) + 1;
-    uint32_t out_size = conv_size/2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
+    uint32_t conv_dim = static_cast<uint32_t>(floor((i_dim - k_dim) / stride) + 1);
+    uint32_t out_size = conv_dim / 2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
     uint32_t last_start = i_dim - k_dim + 1;
-    cout << "CL: started init: conv_size= " << conv_size << " , outSize= " << out_size << ", lastStart = " << last_start << endl;
+    cout << "CL: started init: conv_dim= " << conv_dim << " , outSize= " << out_size << ", lastStart = " << last_start << endl;
 
     // stretch the input for vectorized MATVECMUL
-    uint64_t ** stretched_input = new uint64_t *[conv_size*conv_size];
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        for (uint32_t row = 0; row < last_start; row += stride) {
-            for (uint32_t col = 0; col < last_start; col += stride) {
-                uint32_t index = (row * conv_size + col) / stride;
-                stretched_input[index] = new uint64_t[k_size];
-                // shift kernel over all cols in according row
-                for (uint32_t l = 0; l < k_size; l++) {
-                    //                    row           columns have same length as kernel size
-                    stretched_input[index][l] = input[row + l / k_dim][col + l % k_dim];
-                }
-            }
-        }
-        cout << "CL: finished reshaping/stretching input image with dim " << conv_size * conv_size << " x " << k_size
-             << endl;
+        uint64_t ** stretched_input = INC(input, conv_dim, last_start, k_dim, stride);
 
         // convolution:
         uint64_t ***conv_layer = new uint64_t **[k_number];
         for (uint32_t k = 0; k < k_number; k++) {                          // for each kernel
-            cout << "loop through kernel " << k << endl;
             // mul stretched_input with kernel
-            uint64_t *conv_result = MATVECMUL(proxy, stretched_input, kernel[k], conv_size * conv_size, k_size);
+            uint64_t *conv_result = MATVECMUL(proxy, stretched_input, kernel[k], conv_dim * conv_dim, k_size);
 
             // ACTIVATION:
             // ReLU
-            cout << "do RELU..." << endl;
-            for (uint32_t i = 0; i < conv_size * conv_size; i++) {
+            for (uint32_t i = 0; i < conv_dim * conv_dim; i++) {
                 conv_result[i] = RELU(proxy, conv_result[i]);
             }
             // Maxpool:
-            uint64_t *r = MAX(proxy, conv_result, conv_size, conv_size, 2);
+            uint64_t *r = MAX(proxy, conv_result, conv_dim, conv_dim, 2);
             // bring result in matrix shape
             uint64_t **conv = new uint64_t *[out_size];
             for (uint32_t row = 0; row < out_size; row++) {
@@ -778,26 +673,181 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
         return conv_layer;
     }
     else if (proxy->getPRole() == HELPER){
+        INC(nullptr, 0, 0, 0, 0); //should not be needed
         // convolution:
-        uint64_t ***conv_layer = new uint64_t **[k_number];
         for (uint32_t k = 0; k < k_number; k++) {
-            cout << "calling MATVECMUL for " << k << "th time." << endl;
-            MATVECMUL(proxy, nullptr, nullptr, conv_size * conv_size, k_size);
+            MATVECMUL(proxy, nullptr, nullptr, conv_dim * conv_dim * k_size, 0);
 
             // ACTIVATION:
             // ReLU
-            cout << "do RELU: " << endl;
-            for (uint32_t i = 0; i < conv_size * conv_size; i++) {
+            for (uint32_t i = 0; i < conv_dim * conv_dim; i++) {
                 RELU(proxy, 0);
             }
             // Maxpool:
-            MAX(proxy, nullptr, conv_size, conv_size, 2);
+            MAX(proxy, nullptr, conv_dim, conv_dim, 2);
         }
         return nullptr;
     }
+    return nullptr;
 
 }
 
+/**
+ * Implements the function of a convolutional layer (CL) using ReLU and then Maxpool with a 2x2 filter as activation function.
+ * @param proxy
+ * @param input data on which convolution is performed using a single kernel.
+ * @param i_dim size of input in symmetric shape. So input has size of i_size x i_size
+ * @param i_number number of input images to be processed, which will define the third dimension of the outcome.
+ * @param kernel single kernel to be used for convolution as a vector of length k_size x k_size.
+ * @param k_dim dimension of the kernel
+ * @param stride step size of each kernel to shift per iteration
+ * @return Output of the input convoluted by the given kernels.
+ *         Output size will be: ZxZxk_number with Z = floor((i_size - k_dim)/stride) + 1
+ */
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride){
+    uint32_t k_size = k_dim * k_dim;
+    uint32_t conv_dim = static_cast<uint32_t>(floor((i_dim - k_dim) / stride) + 1);
+    uint32_t out_size = conv_dim / 2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
+    uint32_t last_start = i_dim - k_dim + 1;
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t ***conv_layer = new uint64_t **[i_number];
+        cout << "CL2: started init: conv_dim= " << conv_dim << " , outSize= " << out_size << endl;
+
+        for (uint32_t image = 0; image <
+                                 i_number; image++) { //TODO or better use metes method and multiplicate kernel --> then other vectorized form of MATVECMUL
+            uint64_t **curr_image = input[image];
+            uint64_t ** stretched_input = INC(curr_image, conv_dim, last_start, k_dim, stride);
+            /*uint64_t ** stretched_input = new uint64_t *[conv_dim*conv_dim];
+            for (uint32_t row = 0; row < last_start; row += stride) { //TODO combine those two first for loops as optimization
+                for (uint32_t col = 0; col < last_start; col += stride) {
+                    uint32_t index = (row * conv_dim + col) / stride;
+                    stretched_input[index] = new uint64_t[k_size];
+                    // shift kernel over all cols in according row
+                    for (uint32_t l = 0; l < k_size; l++) {
+                        //                    row           columns have same length as kernel size
+                        stretched_input[index][l] = curr_image[row + l / k_dim][col + l % k_dim];
+                    }
+                }
+            }*/
+            // convolution:
+            uint64_t *conv_result = MATVECMUL(proxy, stretched_input, kernel, conv_dim * conv_dim, k_size);
+            cout << image << " called MATVECMUL" << endl;
+
+            // ACTIVATION:
+            // ReLU
+            for (uint32_t i = 0; i < conv_dim * conv_dim; i++) {
+                conv_result[i] = RELU(proxy, conv_result[i]); //TODO use vectorized form if existing
+            }
+            uint64_t *r = MAX(proxy, conv_result, conv_dim, conv_dim, 2);
+            // bring result in matrix shape
+            uint64_t **conv = new uint64_t *[out_size];
+            for (uint32_t row = 0; row < out_size; row++) {
+                conv[row] = new uint64_t[out_size];
+                for (uint32_t col = 0; col < out_size; col++) {
+                    conv[row][col] = r[row * out_size + col];
+                }
+            }
+            conv_layer[image] = conv;
+        }
+        return conv_layer;
+    }
+    else if (proxy->getPRole() == HELPER){
+        cout << "CL2: started init: conv_dim= " << conv_dim << " , outSize= " << out_size << endl;
+        for (uint32_t image = 0; image < i_number; image++) {
+            INC(nullptr, 0, 0, 0, 0); //should not be needed
+            // convolution:
+            MATVECMUL(proxy, nullptr, nullptr, conv_dim * conv_dim * k_size, 0);
+
+            // ACTIVATION: ReLU
+            for (uint32_t i = 0; i < conv_dim * conv_dim; i++) {
+                RELU(proxy, 0); //TODO use vectorized form if existing
+            }
+            MAX(proxy, nullptr, conv_dim, conv_dim, 2);
+        }
+        return nullptr;
+    }
+    return nullptr;
+}
+
+/**
+ * Implements functionality of a fully connected layer (FCL) TODO which activation?
+ * @param proxy
+ * @param input the input matrices to be fully connected to the output nodes of shape i_dim * i_dim * i_number
+ * @param i_dim dimension of the input matrices
+ * @param i_number number of the input matrices
+ * @param weights to be used must be of shape node_number * (i_dim * i_dim * i_number)
+ * @param node_number number of output nodes of this layer
+ * @return the output layer that have been computed by using the dot product between input values and weights. It will be of length node_number.
+ */
+uint64_t* FCL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t** weights, uint32_t node_number){
+    uint64_t out_size = i_dim * i_dim * i_number; //first dimension of output
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
+        uint64_t * flattened = FLT(input, i_dim, i_number);
+        uint64_t * output = new uint64_t [node_number];
+        for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
+             output[node] = DP(proxy, flattened, weights[node], out_size);
+        }
+        return output;
+    }
+    else if (proxy->getPRole() == HELPER){
+        for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
+            DP(proxy, nullptr, nullptr, out_size);
+        }
+        return nullptr;
+    }
+    else{
+        cout << "Error: unknown proxy role for fully connected layer." << endl;
+        return nullptr;
+    }
+}
+
+
+/**
+ * Increase the size of image by stretching its values so that
+ * in each row all values of a kernel with dimension k_dim * k_dim are stored.
+ * @param image input matrix to be stretched accordingly
+ * @param conv_size size of the matrix after convolution
+ * @param last_start last indexing position in image for a kernel with the given dimensions.
+ * @param k_dim kernel dimension. The kernel holds k_dim * k_dim values in total.
+ * @param stride step size of the kernels
+ * @return the stretched input image
+ */
+uint64_t ** INC(uint64_t** image, uint32_t conv_size, uint32_t last_start, uint32_t k_dim, uint8_t stride){
+    uint32_t k_size = k_dim * k_dim;
+    // stretch the input for vectorized MATVECMUL
+    uint64_t **stretched_input = new uint64_t *[conv_size * conv_size];
+    for (uint32_t row = 0; row < last_start; row += stride) { //TODO combine those two first for loops as optimization
+        for (uint32_t col = 0; col < last_start; col += stride) {
+            uint32_t index = (row * conv_size + col) / stride;
+            stretched_input[index] = new uint64_t[k_size];
+            // shift kernel over all cols in according row
+            for (uint32_t l = 0; l < k_size; l++) {
+                //                    row           columns have same length as kernel size
+                stretched_input[index][l] = image[row + l / k_dim][col + l % k_dim];
+            }
+        }
+    }
+    return stretched_input;
+}
+
+/**
+ * Flatten the values of a matrix concatenating its values so that a single vector is the result
+ * @param images matrices to be flattened to one single vactor
+ * @param i_dim dimension of a single matrix in either direction (symmetric shape)
+ * @param i_number number of matrices in images
+ * @return the flattened vector of length i_dim * i_dim * i_number
+ */
+uint64_t * FLT(uint64_t*** images, uint32_t i_dim, uint32_t i_number){
+    uint64_t i_size = i_dim * i_dim;
+    // stretch the input for vectorized MATVECMUL
+    uint64_t * flattened = new uint64_t [i_size * i_number];
+    for (uint32_t i = 0; i < i_number; i++){
+        for (uint32_t el = 0; el < i_size; el ++) {
+            flattened[el + i * i_size] = images[i][el / i_dim][el % i_dim];
+        }
+    }
+    return flattened;
+}
 
 #endif //PPAUC_CNN_H
 

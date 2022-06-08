@@ -1528,7 +1528,6 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
             concat_a[i] = a[i / a_col][i % a_col];
             concat_b[i] = b[i % a_col];
         }
-
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
 
         // recover the resulting vector

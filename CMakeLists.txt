@@ -9,7 +9,6 @@ set(CMAKE_CXX_FLAGS_RELEASE  "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-
 #add_executable(helper_auroc apps/auroc/helper.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h ${ENC_FILES})
 #add_executable(proxy_auroc apps/auroc/proxy.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h apps/auroc/llib.h ${ENC_FILES})
 

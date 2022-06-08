@@ -110,9 +110,10 @@ int main(int argc, char* argv[]) {
 
     // convolutional layer
     uint64_t mmaxParams[4];
+    uint64_t kernelNum = 5;
     mmaxParams[0] = matrix_size;
     mmaxParams[1] = 5; // kernel size
-    mmaxParams[2] = 5; // kernel number
+    mmaxParams[2] = kernelNum; // kernel number
     mmaxParams[3] = stride; // stride
 
     // PERFORMING CONVOLUTION
@@ -122,119 +123,62 @@ int main(int argc, char* argv[]) {
     addVal2CharArray(mmaxParams, &ptr_out, 4);
     Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
 
-    uint64_t*** conv1 = CL(proxy, matrix, matrix_size, kernel, 5, 5, stride);
+    uint64_t*** conv1 = CL(proxy, matrix, matrix_size, kernel, 5, kernelNum, stride);
     //          size after conv                   after maxpool divide by 2
-    matrix_size = ((matrix_size - 25)/stride + 1) / 2;
+    matrix_size = ((matrix_size - 5)/stride + 1) / 2;
 
     // convolutional layer 2
     uint64_t *kernel2 = new uint64_t[25];
     for (uint8_t j = 0; j < 25; j++) {
         kernel2[j] = proxy->generateRandom();
-        cout << kernel[j] << endl;
     }
 
     mmaxParams[0] = matrix_size;
-    mmaxParams[1] = 5; // matrix number
+    mmaxParams[1] = kernelNum; // matrix number is same as previous kernel number
     mmaxParams[2] = 5; // kernel size
     mmaxParams[3] = stride; // stride
 
     // PERFORMING CONVOLUTION
     proxy->SendBytes(CNN_CL2);
 
-    ptr_out = proxy->getBuffer1();
-    addVal2CharArray(mmaxParams, &ptr_out, 4);
+    unsigned char *ptr_out2 = proxy->getBuffer1();
+    addVal2CharArray(mmaxParams, &ptr_out2, 4);
     Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
 
-    uint64_t*** conv2 = CL(proxy, conv1, matrix_size, 5, kernel2, 25, stride);
-    matrix_size = ((matrix_size - 25)/stride + 1) / 2;
+    uint64_t*** conv2 = CL(proxy, conv1, matrix_size, kernelNum, kernel2, 5, stride);
+    matrix_size = ((matrix_size - 5)/stride + 1) / 2;
+    delete conv1;
 
     // fully connected layer:
-    uint64_t ** output;
-    /**uint64_t *convData = new uint64_t [128];
-    for (uint8_t j = 0; j <matrix_size; j++){
-        //TODO must data[j] be stretched so that it has same length of weights.
-        convData[i] = MUL(proxy, data[j], weights);
-    }*/
+    uint32_t nodes_out = 100;
+    uint64_t **weights2 = new uint64_t*[nodes_out];
+
+    for (uint32_t n = 0; n<nodes_out; n++){
+        weights2[n] = new uint64_t [matrix_size*matrix_size];
+        for (uint32_t j = 0; j < matrix_size*matrix_size; j++) {
+            weights2[n][j] = proxy->generateRandom();
+        }
+    }
+
+    mmaxParams[0] = matrix_size;
+    mmaxParams[1] = kernelNum; // input number is same as previous kernel number
+    mmaxParams[2] = nodes_out;
+
+    // PERFORMING CONVOLUTION
+    proxy->SendBytes(CNN_FCL);
+
+    unsigned char *ptr_out3 = proxy->getBuffer1();
+    addVal2CharArray(mmaxParams, &ptr_out3, 3);
+    Send(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
+    uint64_t * output = FCL(proxy, conv2, matrix_size, kernelNum, weights2, nodes_out);
+
+    for(uint64_t n = 0; n<nodes_out; n++){
+        cout << "Node " << n << ": " << output[n] << endl;
+    }
+
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
     return 0;
 }
 
-
-
-/**
- * Implements the function of a convolutional layer (CL) using ReLU and then Maxpool with a 2x2 filter as activation function.
- * @param proxy
- * @param input data on which convolution is performed using a single kernel.
- * @param i_dim size of input in symmetric shape. So input has size of i_size x i_size
- * @param i_number number of input images to be processed, which will define the third dimension of the outcome.
- * @param kernel single kernel to be used for convolution as a vector of length k_size x k_size.
- * @param k_dim dimension of the kernel
- * @param stride step size of each kernel to shift per iteration
- * @return Output of the input convoluted by the given kernels.
- *         Output size will be: ZxZxk_number with Z = floor((i_size - k_dim)/stride) + 1
- */
-uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride){
-    uint32_t k_size = k_dim * k_dim;
-    uint32_t conv_size = floor((i_dim - k_dim)/stride) + 1;
-    uint32_t out_size = conv_size/2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
-    uint32_t last_start = i_dim - k_dim + 1;
-
-    uint64_t *** conv_layer = new uint64_t **[i_number];
-
-    cout << "CL: started init: conv_size= " << conv_size << " , outSize= " << out_size << ", lastStart = " << last_start << endl;
-
-    for(uint32_t image = 0; image < i_number; image++){ //TODO or better use metes method and multiplicate kernel --> then other vectorized form of MATVECMUL
-        uint64_t ** curr_image = input[image];
-        // stretch the input for vectorized MATVECMUL
-        uint64_t ** stretched_input = new uint64_t *[conv_size*conv_size];
-        for(uint32_t row = 0; row < last_start; row+=stride){
-            for(uint32_t col = 0; col < last_start; col+=stride){
-                stretched_input[(row+col)/stride] = new uint64_t [k_size];
-                // shift kernel over all cols in according row
-                for(uint32_t l = 0; l < k_dim; l++){
-                    for(uint32_t m = 0; m < k_dim; m++){
-                        //                    row           columns have same length as kernel size
-                        stretched_input[(row + col)/stride][k_dim*l + m] = curr_image[row+l][col+m];
-                    }
-                }
-            }
-        }
-
-        // convolution:
-        uint64_t * conv_result = MATVECMUL(proxy, stretched_input, kernel, conv_size*conv_size, k_size);
-
-        // ACTIVATION:
-        // ReLU
-        for (uint32_t i = 0; i < conv_size*conv_size; i++){
-            conv_result[i] = RELU(proxy, conv_result[i]);
-        }
-        // Maxpool:
-        uint64_t mmaxParams[4];
-        mmaxParams[0] = conv_size; // matrix Rows
-        mmaxParams[1] = conv_size; // matrix Columns
-        mmaxParams[2] = 2; // window rows
-        mmaxParams[3] = 2;  // window columns
-
-        // PERFORMING MMAX
-        proxy->SendBytes(CNN_MMAX);
-        // send dimension params
-        unsigned char *ptr_out = proxy->getBuffer1();
-        addVal2CharArray(mmaxParams, &ptr_out, 4);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
-
-        uint64_t* r = MAX(proxy, conv_result, conv_size, conv_size, 2);
-        // bring result in matrix shape
-        uint64_t **conv = new uint64_t *[out_size];
-        for(uint32_t row = 0; row < out_size; row++){
-            conv[row] = new uint64_t [out_size];
-            for(uint32_t col = 0; col < out_size; col++){
-                conv[row][col] = r[row * out_size + col];
-            }
-        }
-        conv_layer[image] = conv;
-    }
-    return conv_layer;
-
-}

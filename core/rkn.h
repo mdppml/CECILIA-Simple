@@ -5,11 +5,13 @@
 #ifndef CECILIA_RKN_H
 #define CECILIA_RKN_H
 
+#include <Eigen/Core>
+#include "Eigen/Eigenvalues"
 #include "core.h"
 #include "../utils/flib.h"
 //#include <Eigen/Eigen>
 
-//using namespace Eigen;
+using namespace Eigen;
 
 uint64_t** randomOrthogonalMatrix(Party* proxy, uint32_t size) {
     /*
@@ -286,7 +288,7 @@ void EIG(Party* proxy, uint32_t n_gms, uint32_t size, double epsilon = 0.01) {
         delete[] matrix2double;
         delete[] masked_G;
         delete[] delta;
-    }*/
+    }
 }
 
 uint64_t*** GM2KM(Party* proxy, uint64_t ***G, uint64_t alpha, uint32_t n_gms, uint32_t size) {
