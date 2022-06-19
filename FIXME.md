@@ -20,3 +20,10 @@ Document the problems to think about at a later state here. If particular file(s
 ### Current Limitations
 ##### cnn.cpp in core/test
 -> MMAX can handle only symmetric matrices for resorting by now (calculation of how many columns to process is not for all cases)
+
+
+### Installation for ONNX file reading: 
+###### see https://github.com/protocolbuffers/protobuf/blob/main/src/README.md
+sudo apt-get install autoconf automake libtool curl make g++ unzip
+###### see https://github.com/onnx/onnx
+export CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON"

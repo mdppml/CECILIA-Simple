@@ -9,6 +9,7 @@ int main(int argc, char* argv[]) {
     Party *helper = new Party(HELPER,port,address);
     while (1){
         int op = helper->ReadByte();
+        cout << "Operation: " << op << endl;
         if (op == CNN_MAX){
             int matrix_size = helper->ReadInt();
             MAX(helper, 0, matrix_size);
@@ -26,23 +27,27 @@ int main(int argc, char* argv[]) {
         else if (op == CNN_DRLU){
             DRELU(helper,0);
         }
-        else if (op == CNN_CL1){
+        else if (op == CNN_CL){
             unsigned char *ptr = helper->getBuffer1();
             Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
             uint64_t params [4];
             convert2Array(&ptr, &params[0], 4);
-            //cout << "HELPER CL: i_dim = " << params[0] << ", k_dim= " << params[1] << ", k_number = " << params[2] << ", stride= " << params[3] << endl;
+            cout << "HELPER CL: i_dim = " << params[0] << ", k_dim= " << params[1] << ", k_number = " << params[2] << ", stride= " << params[3] << endl;
             CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
+            cout << "finished CL1" << endl;
         }
         else if (op == CNN_CL2){
+            cout << "operation CL2 received." << endl;
             unsigned char *ptr = helper->getBuffer1();
             Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
             uint64_t params [4];
             convert2Array(&ptr, &params[0], 4);
             cout << "HELPER CL2: i_dim = " << params[0] << ", i_number= " << params[1] << ", k_dim = " << params[2] << ", stride= " << params[3] << endl;
             CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
+            cout << "finished CL2" << endl;
         }
         else if (op == CNN_FCL){
+            cout << "operation FCL received." << endl;
             unsigned char *ptr = helper->getBuffer1();
             Receive(helper->getSocketP2(), helper->getBuffer1(), 3 * 8);
             uint64_t params [3];

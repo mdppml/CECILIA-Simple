@@ -6,9 +6,12 @@
 #include <assert.h>
 #include "../../core/cnn.h"
 #include <sstream>
+//#include "onnx_pb.h"
+//#include <fstream>
+
 using namespace std;
-uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_size, uint64_t** kernel, uint32_t k_size, uint32_t k_number, uint8_t stride);
-uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride);
+//uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_size, uint64_t** kernel, uint32_t k_size, uint32_t k_number, uint8_t stride);
+//uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride);
 
 void print1DArray(string const &str1, double* x, uint32_t size) {
     cout << "======================= " << str1 << " =======================" << endl;
@@ -25,6 +28,11 @@ int main(int argc, char* argv[]) {
     string caddress(argv[3]);
     uint16_t hport = atoi(argv[4]);
     string haddress(argv[5]);
+
+    /*onnx::ModelProto model;
+    std::ifstream in(filename, std::ios_base::binary);
+    model.ParseFromIstream(&in);
+    in.close();*/
 
     uint16_t window_size = atoi(argv[6]);
     string matrix_string = argv[7];
@@ -117,7 +125,7 @@ int main(int argc, char* argv[]) {
     mmaxParams[3] = stride; // stride
 
     // PERFORMING CONVOLUTION
-    proxy->SendBytes(CNN_CL1);
+    proxy->SendBytes(CNN_CL);
 
     unsigned char *ptr_out = proxy->getBuffer1();
     addVal2CharArray(mmaxParams, &ptr_out, 4);
@@ -140,6 +148,7 @@ int main(int argc, char* argv[]) {
 
     // PERFORMING CONVOLUTION
     proxy->SendBytes(CNN_CL2);
+    cout << "CL2 is " << CNN_CL2 << endl;
 
     unsigned char *ptr_out2 = proxy->getBuffer1();
     addVal2CharArray(mmaxParams, &ptr_out2, 4);
@@ -147,6 +156,7 @@ int main(int argc, char* argv[]) {
 
     uint64_t*** conv2 = CL(proxy, conv1, matrix_size, kernelNum, kernel2, 5, stride);
     matrix_size = ((matrix_size - 5)/stride + 1) / 2;
+    cout << "finished CL2" << endl;
     delete conv1;
 
     // fully connected layer:
@@ -170,7 +180,9 @@ int main(int argc, char* argv[]) {
     unsigned char *ptr_out3 = proxy->getBuffer1();
     addVal2CharArray(mmaxParams, &ptr_out3, 3);
     Send(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
+    cout << "params for FCL sent" << endl;
     uint64_t * output = FCL(proxy, conv2, matrix_size, kernelNum, weights2, nodes_out);
+    cout << "FCL done" << endl;
 
     for(uint64_t n = 0; n<nodes_out; n++){
         cout << "Node " << n << ": " << output[n] << endl;
