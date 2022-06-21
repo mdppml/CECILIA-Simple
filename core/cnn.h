@@ -834,6 +834,7 @@ uint64_t DIV_BIT(Party* proxy, uint64_t a, uint64_t b) {
  *         Output size will be: ZxZxk_number with Z = floor((28 - 5)/stride) + 1
  */
 uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel, uint32_t k_dim, uint32_t k_number, uint8_t stride){
+    cout << "entered real function" << endl;
     uint32_t k_size = k_dim * k_dim;
     uint32_t conv_dim = static_cast<uint32_t>(floor((i_dim - k_dim) / stride) + 1);
     uint32_t conv_len = conv_dim * conv_dim;
@@ -857,6 +858,8 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
             for (uint32_t i = 0; i < conv_len; i++) {
                 conv_activated[i] = RELU(proxy, conv_result[i]);
                 cout << "RELU of " << convert2double(REC(proxy, conv_result[i])) << " is " << convert2double(REC(proxy, conv_activated[i])) << endl; //TODO why is it never 0? endl;
+                uint64_t test = RELU(proxy, i);
+                cout << i << ": " << convert2double(REC(proxy, test)) << endl;
             }
             delete [] conv_result;
             // Maxpool:
@@ -892,6 +895,7 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
             // ReLU
             for (uint32_t i = 0; i < conv_dim * conv_dim; i++) {
                 RELU(proxy, 0);
+                RELU(proxy, 0);
             }
             // Maxpool:
             //MAX(proxy, nullptr, conv_dim, conv_dim, 2);
@@ -914,6 +918,7 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
  * @return Output of the input convoluted by the given kernels.
  *         Output size will be: ZxZxk_number with Z = floor((i_size - k_dim)/stride) + 1
  */
+
 uint64_t*** CL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t* kernel, uint32_t k_dim, uint8_t stride){
     uint32_t k_size = k_dim * k_dim;
     uint32_t conv_dim = static_cast<uint32_t>(floor((i_dim - k_dim) / stride) + 1);

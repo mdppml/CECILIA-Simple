@@ -3,6 +3,10 @@
 #include "../../core/cnn.h"
 
 int main(int argc, char* argv[]) {
+    if (argc < 3){
+        cout << "Calling Helper without specifying address (1) and port (2) is not possible." << endl;
+        return -1;
+    }
     uint16_t port = atoi(argv[2]);
     string address(argv[1]);
 
@@ -43,7 +47,7 @@ int main(int argc, char* argv[]) {
             uint64_t params [4];
             convert2Array(&ptr, &params[0], 4);
             cout << "HELPER CL2: i_dim = " << params[0] << ", i_number= " << params[1] << ", k_dim = " << params[2] << ", stride= " << params[3] << endl;
-            CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
+            //CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
             cout << "finished CL2" << endl;
         }
         else if (op == CNN_FCL){

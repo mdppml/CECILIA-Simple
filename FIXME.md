@@ -25,5 +25,17 @@ Document the problems to think about at a later state here. If particular file(s
 ### Installation for ONNX file reading: 
 ###### see https://github.com/protocolbuffers/protobuf/blob/main/src/README.md
 sudo apt-get install autoconf automake libtool curl make g++ unzip
+sudo apt-get install python3-pip python3-dev libprotobuf-dev protobuf-compiler
 ###### see https://github.com/onnx/onnx
 export CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON"
+git clone --recursive https://github.com/onnx/onnx.git
+cd onnx
+# prefer lite proto
+set CMAKE_ARGS=-DONNX_USE_LITE_PROTO=ON
+pip install -e .
+
+# if it does not work: 
+pip install onnx
+
+
+### see https://github.com/leimao/ONNX-Runtime-Inference (did not work for me)
