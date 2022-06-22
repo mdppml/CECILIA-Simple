@@ -1,1 +1,0 @@
-/usr/bin/c++     CMakeFiles/helper_test.dir/apps/test/helper.cpp.o CMakeFiles/helper_test.dir/utils/parse_options.cpp.o  -o helper_test  -lpthread 
