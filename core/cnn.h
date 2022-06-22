@@ -591,6 +591,7 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
         }
         return 0;
     }
+    return 0;
 }
 
 

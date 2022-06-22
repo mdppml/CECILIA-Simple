@@ -826,7 +826,7 @@ void INVSQRT_Test(Party* proxy) {
      * then computing D^T * D.
      */
 
-/**    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
+    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // setting
     int n_row = 4;
@@ -877,7 +877,7 @@ void INVSQRT_Test(Party* proxy) {
     cout << "============= GT Inverse of the Gram matrix ======================" << endl;
     cout << matrix_G.inverse() << endl;
     cout << "============================================================================" << endl;
-*/
+
 }
 
 void MINVSQRT_Test(Party* proxy) {
@@ -885,7 +885,7 @@ void MINVSQRT_Test(Party* proxy) {
      * We first generate a random Gram matrix by first generating a random data matrix D and
      * then computing D^T * D.
      */
-/*    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
+    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // setting
     int n_row = 4;
@@ -933,7 +933,7 @@ void MINVSQRT_Test(Party* proxy) {
         cout << matrix_G.inverse() << endl;
         cout << "============================================================================" << endl;
     }
-*/
+
 }
 
 void DIV_Test(Party *proxy){
@@ -1613,8 +1613,8 @@ int main(int argc, char* argv[]) {
 //    MMAX_Test(proxy); //TODO adapt to asymmetric window size
 
     //RST_Test(proxy); // works (needs much space in console as it prints matrices)
-    RELU_Test(proxy);
-    DRLU_Test(proxy);
+//    RELU_Test(proxy);
+//    DRLU_Test(proxy);
    // DIV_Test(proxy);
 
 //    EXP_Test(proxy);
@@ -1629,11 +1629,11 @@ int main(int argc, char* argv[]) {
 //    MATVECMUL_Test(proxy);
 //    MMATVECMUL_Test(proxy);
 
-//    INVSQRT_Test(proxy);
+    INVSQRT_Test(proxy);
 //    MINVSQRT_Test(proxy);
 
 //    ppRKN_ITER_Test(proxy);
-    ppRKN_PREDICTION_Test(proxy);
+//    ppRKN_PREDICTION_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
