@@ -1,16 +1,17 @@
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <deque>
 #include <chrono>
 #include <tuple>
 #include <iomanip>
 #include "../../core/core.h"
-#include <bitset>
-
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
 #include "../../Eigen/Eigen"
+#include <bitset>
+#include <algorithm>
 
 
 using namespace std;
@@ -391,11 +392,11 @@ void MMAX_Test(Party *proxy){
     }
 }
 
-void RELU_Test(Party *proxy){
+bool RELU_Test(Party *proxy,int j){
     cout<<setfill ('*')<<setw(50)<<"Calling RELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(-3.2); //convert2double(proxy->generateCommonRandom()));
+    uint64_t x = proxy->createShare(j);
     proxy->SendBytes(CNN_RELU);
     uint64_t relu = RELU(proxy, x);
     uint64_t reconstructed_relu = REC(proxy, relu);
@@ -412,11 +413,29 @@ void RELU_Test(Party *proxy){
 
     double pp_result = convert2double(reconstructed_relu);
     if(computed_relu == pp_result){
-        cout<<"RELU works correctly"<<endl;
+        /*cout<<"RELU works correctly"<<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_relu << " value was: " << originalX << endl;
+
+        uint64_t y = proxy->createShare(convert2double(proxy->generateCommonRandom() & MAXA));
+        uint64_t z = proxy->createShare(convert2double(proxy->generateCommonRandom() & MAXA) * -1);
+        proxy->SendBytes(CORE_MUL);
+        uint64_t r = MUL(proxy, y, z);
+        proxy->SendBytes(CNN_RELU);
+        uint64_t mul_relu = RELU(proxy, r);
+
+        double correctMul = convert2double(REC(proxy, y)) * convert2double(REC(proxy, z));
+        double correctRes = 0;
+        if (correctMul > 0){
+            correctRes = correctMul;
+        }
+        cout << convert2double(REC(proxy, mul_relu)) << "(r = " << convert2double(REC(proxy, r)) << " should be: " << correctRes << " values were " << convert2double(REC(proxy, y)) << " * " << convert2double(REC(proxy, z)) << " = " << correctMul << endl;
+*/
+        return true;
     }
     else{
-        cout<<"RELU works incorrectly" <<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;
+       /* cout<<"RELU works incorrectly" <<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;*/
+       return false;
     }
 
 }
@@ -528,10 +547,12 @@ void CL_Test(Party *proxy){
     mmaxParams[2] = k_number; // kernel number
     mmaxParams[3] = stride; // stride
 
-    unsigned char *ptr_out = proxy->getBuffer1();
-    addVal2CharArray(mmaxParams, &ptr_out, 4);
-    Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
-
+    if(proxy->getPRole() == P1) {
+        unsigned char *ptr_out = proxy->getBuffer1();
+        addVal2CharArray(mmaxParams, &ptr_out, 4);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
+    }
+    cout << "calling CL" << endl;
     uint64_t*** conv = CL(proxy, x, row, kernel, k_row, k_number, stride);
     uint64_t conv_size = floor((row - k_row) / stride) + 1;
     uint64_t lastpos = row - k_row + 1; // this is equal to conv_size if stride == 1
@@ -1830,7 +1851,7 @@ int main(int argc, char* argv[]) {
     MMAX_Test(proxy);
 
     RST_Test(proxy);*/
-    RELU_Test(proxy);
+
     //MRELU_Test(proxy);
 
     //DRLU_Test(proxy);
