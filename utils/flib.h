@@ -264,7 +264,7 @@ uint64_t getModularInverse(uint64_t a){
      * @return the modular inverse of a under the ring size of 16.
      */
     uint64_t r = a;
-    for (int i = 0; i < 6; i++) {// (n = 6) for (2^64)
+    for (int i = 0; i < 6; i++) {// (n = 6) because 2^6 is 64
         r = r * (2 - r * a); // ignore overflow.
     }
     return r;
