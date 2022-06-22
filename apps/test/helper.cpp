@@ -97,11 +97,12 @@ int main(int argc, char* argv[]) {
             MATVECMUL(helper, 0, 0, 0, sz, 0);
         }
         else if (op == CNN_MAX){
+            cout << "CNN_MAX" << endl;
             int matrix_size = helper->ReadInt();
             MAX(helper,nullptr, matrix_size);
         }
         else if (op == CNN_MMAX){
-            cout << "MMAX was called..." << endl;
+            cout << "CNN_MMAX" << endl;
 
             Receive(helper->getSocketP1(), helper->getBuffer1(), 8 * 4);
             Receive(helper->getSocketP2(), helper->getBuffer2(), 8 * 4);
@@ -127,10 +128,30 @@ int main(int argc, char* argv[]) {
             }
         }
         else if (op == CNN_RELU){
+            cout << "CNN_RELU" << endl;
             RELU(helper, 0);
         }
+        else if (op == CNN_MRELU){
+            cout << "CNN_MRELU" << endl;
+            uint64_t size = helper->ReadInt();
+            RELU(helper, 0, size);
+        }
         else if (op == CNN_DRLU){
+            cout << "CNN_DRLU" << endl;
             DRELU(helper, 0);
+        }
+        else if (op == CNN_MDRLU){
+            cout << "CNN_MDRLU" << endl;
+            int size = helper->ReadInt();
+            DRELU(helper, nullptr, size);
+        }
+        else if (op == CNN_CL){
+            cout << "CNN_CL" << endl;
+            unsigned char *ptr = helper->getBuffer1();
+            Receive(helper->getSocketP1(), helper->getBuffer1(), 4*8);
+            uint64_t params[4];
+            convert2Array(&ptr, &params[0], 4);
+            CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
         }
         else if( op == RKN_GM2KM) {
             cout << "RKN_GM2KM" << endl;
