@@ -9,8 +9,8 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
+#include "../../Eigen/Eigen"
 #include <bitset>
-#include <Eigen/Eigen>
 #include <algorithm>
 
 
@@ -1046,7 +1046,7 @@ void INVSQRT_Test(Party* proxy) {
      * then computing D^T * D.
      */
 
-/**    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
+    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     // setting
     int n_row = 4;
@@ -1097,7 +1097,7 @@ void INVSQRT_Test(Party* proxy) {
     cout << "============= GT Inverse of the Gram matrix ======================" << endl;
     cout << matrix_G.inverse() << endl;
     cout << "============================================================================" << endl;
-*/
+
 }
 
 void MINVSQRT_Test(Party* proxy) {
@@ -1835,26 +1835,27 @@ int main(int argc, char* argv[]) {
     RST_Test(proxy);*/
     RELU_Test(proxy);
     //MRELU_Test(proxy);
+
     //DRLU_Test(proxy);
     //MDRLU_Test(proxy); //TODO still wrong
     //DIV_Test(proxy);
     CL_Test(proxy);
     //INC_Test(proxy);
-/*    EXP_Test(proxy);
-    MEXP_Test(proxy);
+//    EXP_Test(proxy);
+//    MEXP_Test(proxy);
 
-    DP_Test(proxy);
-    MDP_Test(proxy);
-    MATMATMUL_Test(proxy);
-    MMATMATMUL_Test(proxy);
+//    DP_Test(proxy);
+//    MDP_Test(proxy);
+//    MATMATMUL_Test(proxy);
+//    MMATMATMUL_Test(proxy);
 
-    MATVECMUL_Test(proxy);
+//    MATVECMUL_Test(proxy);
 
-    INVSQRT_Test(proxy);
-    MINVSQRT_Test(proxy);
+//    INVSQRT_Test(proxy);
+//    MINVSQRT_Test(proxy);
 
-    ppRKN_ITER_Test(proxy);
-    ppRKN_PREDICTION_Test(proxy);*/
+//    ppRKN_ITER_Test(proxy);
+//    ppRKN_PREDICTION_Test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

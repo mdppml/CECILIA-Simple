@@ -1657,7 +1657,7 @@ uint64_t MDI(Party* proxy, uint64_t a){
                 return share;
             }
         }
-        return NULL;
+        return 0;
     }
     else if (proxy->getPRole() == HELPER) {
         for (uint16_t step = 0; step < 64; step++) {

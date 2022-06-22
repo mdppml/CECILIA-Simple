@@ -5,11 +5,9 @@
 #ifndef CECILIA_RKN_H
 #define CECILIA_RKN_H
 
-#include <Eigen/Core>
-#include "Eigen/Eigenvalues"
 #include "core.h"
 #include "../utils/flib.h"
-//#include <Eigen/Eigen>
+#include "../Eigen/Eigen"
 
 using namespace Eigen;
 
@@ -24,7 +22,7 @@ uint64_t** randomOrthogonalMatrix(Party* proxy, uint32_t size) {
      * Output(s)
      * Returns a size-by-size matrix
      */
-/*    if( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+    if( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         // generate a vector of random values
         double *rand_vals = new double[size * size];
         for (uint32_t i = 0; i < size * size; i++) {
@@ -55,14 +53,14 @@ uint64_t** randomOrthogonalMatrix(Party* proxy, uint32_t size) {
         }
         return M;
     }
-    return NULL;*/
+    return NULL;
 }
 
 void EIG(Party *proxy, uint32_t size, double epsilon = 0.01) {
     /*
      * Perform eigenvalue decomposition of a single Gram matrix
      */
-/*    int p_role = proxy->getPRole();
+    int p_role = proxy->getPRole();
     int socket_p1 = proxy->getSocketP1();
     int socket_p2 = proxy->getSocketP2();
 
@@ -165,7 +163,7 @@ void EIG(Party *proxy, uint32_t size, double epsilon = 0.01) {
     }
 //    else if(p_role == P1 || p_role == P2) {
 //        proxy->SendBytes(RKN_EIG, size);
-//    }*/
+//    }
 }
 
 void EIG(Party* proxy, uint32_t n_gms, uint32_t size, double epsilon = 0.01) {
