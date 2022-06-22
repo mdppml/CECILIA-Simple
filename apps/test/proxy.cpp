@@ -392,11 +392,11 @@ void MMAX_Test(Party *proxy){
     }
 }
 
-bool RELU_Test(Party *proxy,int j){
+void RELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(j);
+    uint64_t x = proxy->createShare(convert2double(proxy->generateCommonRandom()));
     proxy->SendBytes(CNN_RELU);
     uint64_t relu = RELU(proxy, x);
     uint64_t reconstructed_relu = REC(proxy, relu);
@@ -413,29 +413,11 @@ bool RELU_Test(Party *proxy,int j){
 
     double pp_result = convert2double(reconstructed_relu);
     if(computed_relu == pp_result){
-        /*cout<<"RELU works correctly"<<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_relu << " value was: " << originalX << endl;
-
-        uint64_t y = proxy->createShare(convert2double(proxy->generateCommonRandom() & MAXA));
-        uint64_t z = proxy->createShare(convert2double(proxy->generateCommonRandom() & MAXA) * -1);
-        proxy->SendBytes(CORE_MUL);
-        uint64_t r = MUL(proxy, y, z);
-        proxy->SendBytes(CNN_RELU);
-        uint64_t mul_relu = RELU(proxy, r);
-
-        double correctMul = convert2double(REC(proxy, y)) * convert2double(REC(proxy, z));
-        double correctRes = 0;
-        if (correctMul > 0){
-            correctRes = correctMul;
-        }
-        cout << convert2double(REC(proxy, mul_relu)) << "(r = " << convert2double(REC(proxy, r)) << " should be: " << correctRes << " values were " << convert2double(REC(proxy, y)) << " * " << convert2double(REC(proxy, z)) << " = " << correctMul << endl;
-*/
-        return true;
+        cout<<"RELU works correctly"<<endl;
     }
     else{
-       /* cout<<"RELU works incorrectly" <<endl;
-        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;*/
-       return false;
+        cout<<"RELU works incorrectly" <<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_relu << endl;
     }
 
 }
@@ -1851,7 +1833,7 @@ int main(int argc, char* argv[]) {
     MMAX_Test(proxy);
 
     RST_Test(proxy);*/
-
+    RELU_Test(proxy);
     //MRELU_Test(proxy);
     //DRLU_Test(proxy);
     //MDRLU_Test(proxy); //TODO still wrong

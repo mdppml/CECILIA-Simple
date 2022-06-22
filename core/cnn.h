@@ -365,14 +365,10 @@ uint64_t RELU(Party* proxy, uint64_t x){
 
         uint64_t em;
         if (g == h){
-            cout << " modular inverse of: " << commonValues[2] << endl;
             uint64_t r2_inverse = getModularInverse(commonValues[2]);
-            cout << " is: " << r2_inverse << " should be 1: " << commonValues[2] * r2_inverse << endl;
             em = ac[2*f] * r2_inverse;
         }else{
-            cout << " modular inverse of: " << commonValues[3] << endl;
             uint64_t r3_inverse = getModularInverse(commonValues[3]);
-            cout << " is: " << r3_inverse << " should be 1: " << commonValues[3] * r3_inverse << endl;
             em = ac[2*f+1] * r3_inverse;
         }
 
@@ -848,11 +844,6 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
 
     // stretch the input for vectorized MATVECMUL
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        for (uint32_t i = 0; i < conv_len; i++) {
-            uint64_t share = proxy->createShare(i);
-            uint64_t relu_share = RELU(proxy, share);
-            cout << "---RELU of " << convert2double(REC(proxy, share)) << " is " << convert2double(REC(proxy, relu_share)) << endl; //TODO why is it never 0? endl;
-        }
         uint64_t ** stretched_input = INC(input, conv_dim, last_start, k_dim, stride);
         print2DArray("Stretched matrix for MATVECMUL", convert2double(REC(proxy, stretched_input, conv_len, k_size), conv_len, k_size), conv_len, k_size);
         // convolution:
@@ -860,20 +851,14 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
         for (uint32_t k = 0; k < k_number; k++) {                          // for each kernel
             // mul stretched_input with kernel
             uint64_t *conv_result = MATVECMUL(proxy, stretched_input, kernel[k], conv_len, k_size);
-            uint64_t * rec_conv_res = REC(proxy, conv_result, conv_len);
-            print1DArray("Result of MATVECMUL", rec_conv_res,conv_len);
+            print1DArray("Result of MATVECMUL", convert2double(REC(proxy, conv_result, conv_len), conv_len),conv_len);
             uint64_t* conv_activated = new uint64_t [conv_len];
             // ACTIVATION:
             // ReLU
             for (uint32_t i = 0; i < conv_len; i++) {
                 cout << "input of RELU " << convert2double(REC(proxy, conv_result[i])) << endl;
                 conv_activated[i] = RELU(proxy, conv_result[i]);
-                cout << "RELU of " << convert2double(REC(proxy, conv_result[i])) << " is " << convert2double(REC(proxy, conv_activated[i])) << endl; //TODO why is it never 0? endl;
-                uint64_t share = proxy->createShare(i);
-                uint64_t relu_share = RELU(proxy, share);
-                cout << "RELU of " << i << " is " << convert2double(REC(proxy, relu_share)) << endl; //TODO why is it never 0? endl;
-
-
+                cout << "RELU of " << convert2double(REC(proxy, conv_result[i])) << " is " << convert2double(REC(proxy, conv_activated[i])) << endl;
             }
             // Maxpool:
             /*uint64_t *r = MAX(proxy, conv_result, conv_dim, conv_dim, 2);
@@ -899,10 +884,6 @@ uint64_t*** CL(Party* proxy, uint64_t** input, uint64_t i_dim, uint64_t** kernel
         return conv_layer;
     }
     else if (proxy->getPRole() == HELPER){
-
-        for (uint32_t i = 0; i < conv_dim * conv_dim; i++) {
-            RELU(proxy, 0);
-        }
         INC(nullptr, 0, 0, 0, 0); //should not be needed
         // convolution:
         for (uint32_t k = 0; k < k_number; k++) {
