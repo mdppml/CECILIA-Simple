@@ -13,7 +13,8 @@ int main(int argc, char* argv[]) {
         if (op == CORE_MMSB){
             cout << "CORE_MMSB" << endl;
             int sz = helper->ReadInt();
-            MSB(helper,0,sz);
+//            MSB(helper,0,sz);
+            MSBv2(helper,0,sz);
         }
         else if (op == CORE_MSB){
             cout << "CORE_MSB" << endl;

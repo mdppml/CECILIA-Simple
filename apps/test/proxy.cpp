@@ -9,13 +9,13 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
-#include "../../Eigen/Eigen"
+//#include "../../Eigen/Eigen"
 #include <bitset>
 #include <algorithm>
 
 
 using namespace std;
-using namespace Eigen;
+//using namespace Eigen;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
@@ -142,7 +142,8 @@ void MMSB_Test(Party *proxy){
     for (int i=0;i<sz;i++)
         x[i] = proxy->generateRandom();
     proxy->SendBytes(CORE_MMSB,sz);
-    uint64_t *r = MSB(proxy,x,sz);
+//    uint64_t *r = MSB(proxy,x,sz);
+    uint64_t *r = MSBv2(proxy,x,sz);
     // checking the result
     uint64_t *x_reconstructed = REC(proxy,x,sz);
     uint64_t *r_reconstructed = REC(proxy,r,sz);
@@ -1058,121 +1059,121 @@ void MMATVECMUL_Test(Party *proxy) {
     }
 }
 
-void INVSQRT_Test(Party* proxy) {
-    /* In this function, we test the computation of the inverse square root of a Gram matrix.
-     * We first generate a random Gram matrix by first generating a random data matrix D and
-     * then computing D^T * D.
-     */
-
-    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
-    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-    // setting
-    int n_row = 4;
-    int n_col = 5;
-
-    // generate a Gram matrix
-    uint64_t **invsqrt_data = random_gram_matrix(proxy, n_row, n_col);
-
-    double** tmp = convert2double(REC(proxy, invsqrt_data, n_row, n_row), n_row, n_row);
-
-    proxy->SendBytes(RKN_INVSQRT, n_row);
-    uint64_t** invsqrt_G = INVSQRT(proxy, invsqrt_data, n_row);
-
-    double** rec_invsqrt_G = convert2double(REC(proxy, invsqrt_G, n_row, n_row), n_row, n_row);
-
-    print2DArray("The inverse square root of the Gram matrix", rec_invsqrt_G, n_row, n_row);
-
-    double* straighten_invsqrt_G = new double[n_row * n_row];
-    for(uint32_t i = 0; i < n_row * n_row; i++) {
-        straighten_invsqrt_G[i] = tmp[i % n_row][i / n_row];
-    }
-
-    print2DArray("Gram matrix", tmp, n_row, n_row);
-    print1DArray("Straighten Gram matrix", straighten_invsqrt_G, n_row * n_row);
-
-    EigenSolver<Matrix<double, Dynamic, Dynamic>> ges;
-    Map<Matrix<double, Dynamic, Dynamic>> matrix_G(straighten_invsqrt_G, n_row, n_row);
-    ges.compute(matrix_G);
-    Matrix<double, Dynamic, Dynamic> eig_vecs = ges.eigenvectors().real();
-    Matrix<double, Dynamic, 1> eig_vals = ges.eigenvalues().real();
-
-    cout << "============= GT the eigenvalues ======================" << endl;
-    cout << eig_vals << endl;
-    cout << "============================================================================" << endl;
-
-    cout << "============= GT Inverse square root of the eigenvalues ======================" << endl;
-    Matrix<double, Dynamic, Dynamic> vals = eig_vals;
-    cout << vals.cwiseSqrt().cwiseInverse() << endl;
-    cout << "============================================================================" << endl;
-
-    cout << "============= GT Inverse square root of the Gram matrix ======================" << endl;
-    cout << eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Transpose(eig_vecs) << endl;
-    cout << "============================================================================" << endl;
-
-    print2DArray("The inverse of the Gram matrix",
-                        multiply_matrices(rec_invsqrt_G, rec_invsqrt_G, n_row, n_row, n_row), n_row, n_row);
-
-    cout << "============= GT Inverse of the Gram matrix ======================" << endl;
-    cout << matrix_G.inverse() << endl;
-    cout << "============================================================================" << endl;
-
-}
-
-void MINVSQRT_Test(Party* proxy) {
-    /* In this function, we test the computation of the inverse square root of a Gram matrix.
-     * We first generate a random Gram matrix by first generating a random data matrix D and
-     * then computing D^T * D.
-     */
-    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
-    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-    // setting
-    int n_row = 4;
-    int n_col = 5;
-    int n_gms = 3;
-
-    // generate a Gram matrix
-    uint64_t ***invsqrt_data = new uint64_t**[n_gms];
-    double ***Gs = new double**[n_gms];
-    for(int i = 0; i < n_gms; i++) {
-        invsqrt_data[i] = random_gram_matrix(proxy, n_row, n_col);
-        Gs[i] = convert2double(REC(proxy, invsqrt_data[i], n_row, n_row), n_row, n_row);
-    }
-
+//void INVSQRT_Test(Party* proxy) {
+//    /* In this function, we test the computation of the inverse square root of a Gram matrix.
+//     * We first generate a random Gram matrix by first generating a random data matrix D and
+//     * then computing D^T * D.
+//     */
+//
+//    cout<<setfill ('*')<<setw(50)<<"Calling INVSQRT";
+//    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+//    // setting
+//    int n_row = 4;
+//    int n_col = 5;
+//
+//    // generate a Gram matrix
+//    uint64_t **invsqrt_data = random_gram_matrix(proxy, n_row, n_col);
+//
 //    double** tmp = convert2double(REC(proxy, invsqrt_data, n_row, n_row), n_row, n_row);
+//
+//    proxy->SendBytes(RKN_INVSQRT, n_row);
+//    uint64_t** invsqrt_G = INVSQRT(proxy, invsqrt_data, n_row);
+//
+//    double** rec_invsqrt_G = convert2double(REC(proxy, invsqrt_G, n_row, n_row), n_row, n_row);
+//
+//    print2DArray("The inverse square root of the Gram matrix", rec_invsqrt_G, n_row, n_row);
+//
+//    double* straighten_invsqrt_G = new double[n_row * n_row];
+//    for(uint32_t i = 0; i < n_row * n_row; i++) {
+//        straighten_invsqrt_G[i] = tmp[i % n_row][i / n_row];
+//    }
+//
+//    print2DArray("Gram matrix", tmp, n_row, n_row);
+//    print1DArray("Straighten Gram matrix", straighten_invsqrt_G, n_row * n_row);
+//
+//    EigenSolver<Matrix<double, Dynamic, Dynamic>> ges;
+//    Map<Matrix<double, Dynamic, Dynamic>> matrix_G(straighten_invsqrt_G, n_row, n_row);
+//    ges.compute(matrix_G);
+//    Matrix<double, Dynamic, Dynamic> eig_vecs = ges.eigenvectors().real();
+//    Matrix<double, Dynamic, 1> eig_vals = ges.eigenvalues().real();
+//
+//    cout << "============= GT the eigenvalues ======================" << endl;
+//    cout << eig_vals << endl;
+//    cout << "============================================================================" << endl;
+//
+//    cout << "============= GT Inverse square root of the eigenvalues ======================" << endl;
+//    Matrix<double, Dynamic, Dynamic> vals = eig_vals;
+//    cout << vals.cwiseSqrt().cwiseInverse() << endl;
+//    cout << "============================================================================" << endl;
+//
+//    cout << "============= GT Inverse square root of the Gram matrix ======================" << endl;
+//    cout << eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Transpose(eig_vecs) << endl;
+//    cout << "============================================================================" << endl;
+//
+//    print2DArray("The inverse of the Gram matrix",
+//                        multiply_matrices(rec_invsqrt_G, rec_invsqrt_G, n_row, n_row, n_row), n_row, n_row);
+//
+//    cout << "============= GT Inverse of the Gram matrix ======================" << endl;
+//    cout << matrix_G.inverse() << endl;
+//    cout << "============================================================================" << endl;
+//
+//}
 
-    proxy->SendBytes(RKN_MINVSQRT, n_gms,n_row);
-    uint64_t*** invsqrt_G = INVSQRT(proxy, invsqrt_data, n_gms, n_row);
-
-    double*** rec_invsqrt_G = new double**[n_gms];
-    for(int g = 0; g < n_gms; g++) {
-        rec_invsqrt_G[g] = convert2double(REC(proxy, invsqrt_G[g], n_row, n_row), n_row, n_row);
-        print2DArray("The inverse square root of the Gram matrix", rec_invsqrt_G[g], n_row, n_row);
-
-        double* straighten_invsqrt_G = new double[n_row * n_row];
-        for(uint32_t i = 0; i < n_row * n_row; i++) {
-            straighten_invsqrt_G[i] = Gs[g][i % n_row][i / n_row];
-        }
-        EigenSolver<Matrix<double, Dynamic, Dynamic>> ges;
-        Map<Matrix<double, Dynamic, Dynamic>> matrix_G(straighten_invsqrt_G, n_row, n_row);
-        ges.compute(matrix_G);
-        Matrix<double, Dynamic, Dynamic> eig_vecs = ges.eigenvectors().real();
-        Matrix<double, Dynamic, 1> eig_vals = ges.eigenvalues().real();
-//        cout << eig_vals << endl;
-
-        cout << "============= GT Inverse square root of the Gram matrix ======================" << endl;
-        Matrix<double, Dynamic, Dynamic> vals = eig_vals;
-        cout << eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Transpose(eig_vecs) << endl;
-        cout << "============================================================================" << endl;
-
-        print2DArray("The inverse of the Gram matrix",
-                     multiply_matrices(rec_invsqrt_G[g], rec_invsqrt_G[g], n_row, n_row, n_row), n_row, n_row);
-
-        cout << "============= GT Inverse of the Gram matrix ======================" << endl;
-        cout << matrix_G.inverse() << endl;
-        cout << "============================================================================" << endl;
-    }
-
-}
+//void MINVSQRT_Test(Party* proxy) {
+//    /* In this function, we test the computation of the inverse square root of a Gram matrix.
+//     * We first generate a random Gram matrix by first generating a random data matrix D and
+//     * then computing D^T * D.
+//     */
+//    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
+//    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+//    // setting
+//    int n_row = 4;
+//    int n_col = 5;
+//    int n_gms = 3;
+//
+//    // generate a Gram matrix
+//    uint64_t ***invsqrt_data = new uint64_t**[n_gms];
+//    double ***Gs = new double**[n_gms];
+//    for(int i = 0; i < n_gms; i++) {
+//        invsqrt_data[i] = random_gram_matrix(proxy, n_row, n_col);
+//        Gs[i] = convert2double(REC(proxy, invsqrt_data[i], n_row, n_row), n_row, n_row);
+//    }
+//
+////    double** tmp = convert2double(REC(proxy, invsqrt_data, n_row, n_row), n_row, n_row);
+//
+//    proxy->SendBytes(RKN_MINVSQRT, n_gms,n_row);
+//    uint64_t*** invsqrt_G = INVSQRT(proxy, invsqrt_data, n_gms, n_row);
+//
+//    double*** rec_invsqrt_G = new double**[n_gms];
+//    for(int g = 0; g < n_gms; g++) {
+//        rec_invsqrt_G[g] = convert2double(REC(proxy, invsqrt_G[g], n_row, n_row), n_row, n_row);
+//        print2DArray("The inverse square root of the Gram matrix", rec_invsqrt_G[g], n_row, n_row);
+//
+//        double* straighten_invsqrt_G = new double[n_row * n_row];
+//        for(uint32_t i = 0; i < n_row * n_row; i++) {
+//            straighten_invsqrt_G[i] = Gs[g][i % n_row][i / n_row];
+//        }
+//        EigenSolver<Matrix<double, Dynamic, Dynamic>> ges;
+//        Map<Matrix<double, Dynamic, Dynamic>> matrix_G(straighten_invsqrt_G, n_row, n_row);
+//        ges.compute(matrix_G);
+//        Matrix<double, Dynamic, Dynamic> eig_vecs = ges.eigenvectors().real();
+//        Matrix<double, Dynamic, 1> eig_vals = ges.eigenvalues().real();
+////        cout << eig_vals << endl;
+//
+//        cout << "============= GT Inverse square root of the Gram matrix ======================" << endl;
+//        Matrix<double, Dynamic, Dynamic> vals = eig_vals;
+//        cout << eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Transpose(eig_vecs) << endl;
+//        cout << "============================================================================" << endl;
+//
+//        print2DArray("The inverse of the Gram matrix",
+//                     multiply_matrices(rec_invsqrt_G[g], rec_invsqrt_G[g], n_row, n_row, n_row), n_row, n_row);
+//
+//        cout << "============= GT Inverse of the Gram matrix ======================" << endl;
+//        cout << matrix_G.inverse() << endl;
+//        cout << "============================================================================" << endl;
+//    }
+//
+//}
 
 void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
@@ -1832,13 +1833,14 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-   /* MUL_Test(proxy);
+    MUL_Test(proxy);
     MMUL_Test(proxy);
+
 
     MOC_Test(proxy);
     MMOC_Test(proxy);
 
-    MSB_Test(proxy);
+//    MSB_Test(proxy);
     MMSB_Test(proxy);
 
     CMP_Test(proxy);
@@ -1847,17 +1849,17 @@ int main(int argc, char* argv[]) {
     MUX_Test(proxy);
     MMUX_Test(proxy);
 
-    MAX_Test(proxy);
-    MMAX_Test(proxy);
+//    MAX_Test(proxy);
+//    MMAX_Test(proxy);
 
-    RST_Test(proxy);*/
+//    RST_Test(proxy);
 
     //MRELU_Test(proxy);
 
     //DRLU_Test(proxy);
     //MDRLU_Test(proxy); //TODO still wrong
     //DIV_Test(proxy);
-    CL_Test(proxy);
+//    CL_Test(proxy);
     //INC_Test(proxy);
 //    EXP_Test(proxy);
 //    MEXP_Test(proxy);

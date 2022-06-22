@@ -10,23 +10,82 @@
 #include <thread>
 #include <mutex>
 
+//uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
+//
+//    uint64_t b;
+//    if ( proxy->getPRole() == P1) {
+//        unsigned char *ptr = proxy->getBuffer1();
+//        addVal2CharArray(a, &ptr);
+//        Send(proxy->getSocketP2(), proxy->getBuffer1(), 8);
+//        Receive(proxy->getSocketP2(), proxy->getBuffer1(), 8);
+//        ptr = proxy->getBuffer1();
+//        b = convert2Long(&ptr);
+//
+//    } else if ( proxy->getPRole() == P2) {
+//        unsigned char *ptr = proxy->getBuffer1();
+//        addVal2CharArray(a, &ptr);
+//        Send(proxy->getSocketP1(), proxy->getBuffer1(), 8);
+//        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 8);
+//        ptr = proxy->getBuffer1();
+//        b = convert2Long(&ptr);
+//    }
+//    return (a + b) & mask;
+//}
+//
+//uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
+//
+//    uint64_t *b = new uint64_t[sz];
+//    if ( proxy->getPRole() == P1 ) {
+//        unsigned char *ptr = proxy->getBuffer1();
+//        for (int i = 0; i < sz; i++) {
+//            addVal2CharArray(a[i], &ptr);
+//        }
+//        Send(proxy->getSocketP2(), proxy->getBuffer1(), sz * 8);
+//        Receive(proxy->getSocketP2(), proxy->getBuffer1(), sz * 8);
+//        ptr = proxy->getBuffer1();
+//        for (int i = 0; i < sz; i++) {
+//            b[i] = convert2Long(&ptr);
+//        }
+//
+//    } else if ( proxy->getPRole() == P2) {
+//        unsigned char *ptr = proxy->getBuffer1();
+//        for (int i = 0; i < sz; i++) {
+//            addVal2CharArray(a[i], &ptr);
+//        }
+//        Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+//        Receive(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+//        ptr = proxy->getBuffer1();
+//        for (int i = 0; i < sz; i++) {
+//            b[i] = convert2Long(&ptr);
+//        }
+//    }
+//    for (int i = 0; i < sz; i++) {
+//        b[i] = (a[i] + b[i]) & mask;
+//    }
+//    return b;
+//}
+
 uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
 
     uint64_t b;
     if ( proxy->getPRole() == P1) {
         unsigned char *ptr = proxy->getBuffer1();
         addVal2CharArray(a, &ptr);
-        Send(proxy->getSocketP2(), proxy->getBuffer1(), 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer1(), 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), 8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         b = convert2Long(&ptr);
 
     } else if ( proxy->getPRole() == P2) {
         unsigned char *ptr = proxy->getBuffer1();
         addVal2CharArray(a, &ptr);
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), 8);
+        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         b = convert2Long(&ptr);
     }
     return (a + b) & mask;
@@ -40,9 +99,11 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
         for (int i = 0; i < sz; i++) {
             addVal2CharArray(a[i], &ptr);
         }
-        Send(proxy->getSocketP2(), proxy->getBuffer1(), sz * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer1(), sz * 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), sz*8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz*8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         for (int i = 0; i < sz; i++) {
             b[i] = convert2Long(&ptr);
         }
@@ -52,9 +113,11 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
         for (int i = 0; i < sz; i++) {
             addVal2CharArray(a[i], &ptr);
         }
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz*8);
+        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), sz*8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         for (int i = 0; i < sz; i++) {
             b[i] = convert2Long(&ptr);
         }
@@ -731,6 +794,157 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
         return NULL;
     }
     return NULL;
+}
+
+uint64_t *MSBv2(Party* proxy, uint64_t *x, uint32_t sz) {
+    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+        uint8_t f = proxy->generateCommonRandomByte() & 0x1;
+        uint64_t *z_1 = new uint64_t[sz];
+        uint64_t *ya = new uint64_t[sz];
+        uint8_t *yb = new uint8_t[sz * (L_BIT - 1)];
+
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (8 + L_BIT-1));
+
+        unsigned char *ptr = proxy->getBuffer1();
+        for (int i = 0; i < sz; i++) {
+            uint64_t dk = x[i] & N1_MASK;
+            ya[i] = convert2Long(&ptr);
+            convert2Array(&ptr, &yb[i * (L_BIT - 1)], L_BIT - 1);
+            z_1[i] = (dk + ya[i]) & N1_MASK;
+        }
+
+        uint64_t *z = REC(proxy, z_1, sz, N1_MASK);
+
+        unsigned char *ptr_out = proxy->getBuffer1();
+        int buffer_index = 0;
+        int y_index = 0;
+        int L1 = L_BIT - 1;
+        for (int i = 0; i < sz; i++) {
+            uint8_t w_sum = 0;
+            for (int t = L1 - 1; t >= 0; t--) {
+                uint8_t a_bit = bit(z[i], t);
+                int bi = buffer_index + t;
+                int yi = y_index + t;
+//                uint8_t w = yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi];
+//                proxy->getBuffer1()[bi] = (proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum) * proxy->generateCommonRandomOddByte();
+//                w_sum = (w_sum + w);
+                uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
+                proxy->getBuffer1()[bi] =(mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
+                w_sum = (w_sum + w) % LP;
+            }
+            buffer_index += L1;
+            y_index += L1;
+            ptr_out += L1;
+
+            /*for (int t = 0; t < L1; t++) {
+                int ind1 = (proxy->generateCommonRandomByte() % L1) + jk;
+                int ind2 = (proxy->generateCommonRandomByte() % L1) + jk;
+                uint8_t tmp = proxy->getBuffer1()[ind1];
+                proxy->getBuffer1()[ind1] = proxy->getBuffer1()[ind2];
+                proxy->getBuffer1()[ind2] = tmp;
+            }*/
+
+            uint8_t isWrap = 0;
+            if (z[i]<z_1[i])
+                isWrap = 1;
+            z_1[i] =  z_1[i] + proxy->getPRole()*isWrap*N1;
+            addVal2CharArray(proxy->getPRole()*f*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
+            addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
+            buffer_index +=16;
+        }
+        delete []yb;
+        delete []ya;
+        delete []z_1;
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (16 + L_BIT -1));
+        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);
+
+        ptr = proxy->getBuffer1();
+        uint64_t *m = new uint64_t[sz];
+        uint64_t val[2];
+        for (int i = 0; i < sz; i++) {
+            val[0] = convert2Long(&ptr);
+            val[1] = convert2Long(&ptr);
+            m[i] = val[f];
+        }
+        return m;
+
+    }
+    else if ( proxy->getPRole() == HELPER) {
+        unsigned char *ptr_out = proxy->getBuffer1();
+        unsigned char *ptr_out2 = proxy->getBuffer2();
+        uint8_t *w = new uint8_t [sz];
+        for (int i = 0; i < sz; i++) {
+            uint64_t y = proxy->generateRandom() & N1_MASK;
+            uint64_t ya_1 = proxy->generateRandom() & N1_MASK;
+            uint64_t ya_2 = (y - ya_1) & N1_MASK;
+            addVal2CharArray(ya_1, &ptr_out);
+            addVal2CharArray(ya_2, &ptr_out2);
+            for (int j = 0; j < L_BIT - 1; j++) {
+                uint8_t k = (y >> j) & 0x1;
+                uint8_t yb_1 = proxy->generateRandomByte() % 0x3f;
+                uint8_t yb_2 = LP - yb_1 + k; //mod(k - yb_1, LP);
+                addVal2CharArray(yb_1, &ptr_out);
+                addVal2CharArray(yb_2, &ptr_out2);
+            }
+            w[i] = 0;
+            if (y<ya_1)
+                w[i] = 1;
+        }
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * (8 + L_BIT-1));
+        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * (8 + L_BIT-1));
+        thr1.join();
+        thr2.join();
+
+        thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz * (16 + L_BIT -1));
+        thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz * (16 + L_BIT -1));
+        thr1.join();
+        thr2.join();
+
+
+        unsigned char *ptr = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
+        ptr_out = proxy->getBuffer1();
+        ptr_out2 = proxy->getBuffer2();
+
+        int L1 = L_BIT-1;
+        int jk = 0;
+        for (int j = 0; j < sz; j++) {
+            uint8_t res = 0;
+            for (int i = 0; i < L1; i++) {
+                uint8_t tmp = (proxy->getBuffer1()[jk + i] + proxy->getBuffer2()[jk + i]) % LP;
+                if (((int) tmp) == 0) {
+                    res = 1;
+                    break;
+                }
+            }
+            jk += L1;
+            ptr += L1;
+            ptr2 += L1;
+
+
+            uint64_t val1 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
+            uint64_t val2 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
+            jk += 16;
+            uint64_t vs_1 = proxy->generateRandom();
+            uint64_t vs_2 = (val1 - vs_1);
+            addVal2CharArray(vs_1, &ptr_out);
+            addVal2CharArray(vs_2, &ptr_out2);
+            vs_1 = proxy->generateRandom();
+            vs_2 = (val2 - vs_1);
+            addVal2CharArray(vs_1, &ptr_out);
+            addVal2CharArray(vs_2, &ptr_out2);
+        }
+
+        thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * 16);
+        thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * 16);
+        thr1.join();
+        thr2.join();
+
+        delete [] w;
+
+        return 0;
+    }
+    return 0;
 }
 
 uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {

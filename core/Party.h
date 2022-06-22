@@ -105,23 +105,40 @@ public:
 
     uint64_t generateRandom() {
         srand(seed);
-        uint64_t val = 0;
-        for (int i = 3; i >= 0; i -= 1) {
-            uint64_t a = rand() & 0xffff;
-            val = val ^ (a << (i * 16));
-        }
-        seed += 4;
+        uint64_t a = rand();
+        srand(seed + 1);
+        uint64_t val = rand() ^ (a << 32);
+        seed += 2;
+        return val;
+    }
+    uint8_t generateRandomByte() {
+        srand(seed);
+        uint8_t val = rand() >> 24;
+        seed += 1;
         return val;
     }
 
+
     uint64_t generateCommonRandom() {
         srand(common_seed);
-        uint64_t val = 0;
-        for (int i = 3; i >= 0; i -= 1) {
-            uint64_t a = rand() & 0xffff;
-            val = val ^ (a << (i * 16));
-        }
-        common_seed += 4;
+        uint64_t a = rand();
+        srand(common_seed + 1);
+        uint64_t val = rand() ^ (a << 32);
+        common_seed += 2;
+        return val;
+    }
+
+    uint8_t generateCommonRandomByte() {
+        srand(common_seed);
+        uint8_t val = rand() >> 24;
+        common_seed += 1;
+        return val;
+    }
+
+    uint8_t generateCommonRandomOddByte() {
+        srand(common_seed);
+        uint8_t val = (rand() & 0xfe) + 1;
+        common_seed += 1;
         return val;
     }
 
