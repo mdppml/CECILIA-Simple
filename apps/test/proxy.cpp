@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <iostream>
-#include <sstream>
 #include <deque>
 #include <chrono>
 #include <tuple>
@@ -8,10 +7,8 @@
 #include "../../core/core.h"
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
-#include "../../utils/flib.h"
 #include "../../Eigen/Eigen"
 #include <bitset>
-#include <algorithm>
 
 
 using namespace std;
@@ -493,33 +490,16 @@ void CL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling CL (convolutional layer)";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t row = 5;
-    uint64_t col = 5;
-    double ** tmp = new double *[row]; //TODO remove this later
-    for (uint64_t i = 0; i< row; i++){
-        tmp[i] = new double [col];
-        for (uint64_t j = 0; j< col; j++){
-            tmp[i][j] = i*row + j;
-            if (j % 2 == 0){
-                tmp[i][j] *= -1;
-            }
-        }
-    }
-    uint64_t** x = proxy->createShare(tmp, row, col);//random_2D_data(proxy, row, col, 0, 10), row, col);
+    uint64_t row = 28;
+    uint64_t col = 28;
+    uint64_t** x = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
     print2DArray("Original X: ", convert2double(REC(proxy, x, row, col), row, col), row, col);
 
     uint64_t k_number = 1;
-    uint64_t k_row = 2;
-    uint64_t k_col = 2;
+    uint64_t k_row = 5;
+    uint64_t k_col = 5;
     uint64_t stride = 1;
-    tmp = new double *[k_number]; //TODO remove this later
-    for (uint64_t i = 0; i< k_number; i++){
-        tmp[i] = new double [k_row * k_col];
-        for (uint64_t j = 0; j< k_row * k_col; j++){
-            tmp[i][j] = j;
-        }
-    }
-    uint64_t** kernel = proxy->createShare(tmp, k_number, k_row * k_col);//random_2D_data(proxy, k_number, k_row * k_col, -5, 5), k_number, k_row * k_col);
+    uint64_t** kernel = proxy->createShare(random_2D_data(proxy, k_number, k_row * k_col, -5, 5), k_number, k_row * k_col);
     print2DArray("Original Kernel: ", convert2double(REC(proxy, kernel, k_number, k_row * k_col), k_number, k_row * k_col), k_number, k_row * k_col);
 
     proxy->SendBytes(CNN_CL);
@@ -534,19 +514,19 @@ void CL_Test(Party *proxy){
         addVal2CharArray(mmaxParams, &ptr_out, 4);
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), 4 * 8);
     }
-    cout << "calling CL" << endl;
+
     uint64_t*** conv = CL(proxy, x, row, kernel, k_row, k_number, stride);
     uint64_t conv_size = floor((row - k_row) / stride) + 1;
     uint64_t lastpos = row - k_row + 1; // this is equal to conv_size if stride == 1
-    uint64_t out_size = conv_size; // TODO /2
-    /*double*** reconstructed_conv = new double **[k_number];
+    uint64_t out_size = conv_size/2;
+    double*** reconstructed_conv = new double **[k_number];
     for(uint64_t k = 0; k<k_number; k++){
         reconstructed_conv[k] = convert2double(REC(proxy, conv[k], out_size, out_size), out_size, out_size);
-    }*/
+    }
 
     // checking the result
     double*** conv_unreduced = new double **[k_number]; // no reduction with MAX
-    //double*** corr_conv = new double **[k_number];
+    double*** computed_conv = new double **[k_number];
     bool allCorrect = true;
 
     for(uint64_t kern = 0; kern < k_number; kern++){
@@ -565,42 +545,41 @@ void CL_Test(Party *proxy){
                 if(dot_product > 0) {
                     relu = dot_product;
                 }
-
                 conv_unreduced[kern][r / stride][c / stride] = relu;
-                double reconstructed = convert2double(REC(proxy, conv[kern][r/stride][c/stride]));
-                cout << fixed << "activated conv: " << reconstructed << " --- expected: " << relu << " --- absolute difference: " << abs(reconstructed - relu)<< endl;
-                if(abs(relu - reconstructed) >= 0.1) {
-                    allCorrect = false;
-                }
             }
         }
-        print2DArray("correct convolution: ", conv_unreduced[kern], conv_size, conv_size);
-        print2DArray("calculated convolution: ", convert2double(REC(proxy,conv[kern], conv_size, conv_size), conv_size, conv_size), conv_size, conv_size);
 
-        // MAXPOOL reduction
-        /*corr_conv[kern] = new double *[out_size];
+        // MAXPOOL reduction for window size 2x2
+        computed_conv[kern] = new double *[out_size];
         for(uint64_t r = 0; r<conv_size; r+=2){
-            corr_conv[kern][r/2] = new double [out_size];
+            computed_conv[kern][r / 2] = new double [out_size];
             for(uint64_t c = 0; c<conv_size; c+=2){
                 double a = std::max(conv_unreduced[kern][r][c], conv_unreduced[kern][r][c+1]);
                 double b = std::max(conv_unreduced[kern][r+1][c], conv_unreduced[kern][r+1][c+1]);
                 double m = std::max(a,b);
-                corr_conv[kern][r/2][c/2] = m;
-                if (m != reconstructed_conv[kern][r/2][c/2]){
+                computed_conv[kern][r / 2][c / 2] = m;
+                if (abs(m - reconstructed_conv[kern][r/2][c/2]) > 0.0001){
                     allCorrect = false;
-                    cout << "computed max value in kernel, win_r, win_c " << kern << ", " << r/2 << ", " << c/2 << " of " << reconstructed_conv[kern][r/2][c/2] << endl;
-                    cout << "BUT it is " << m << endl;
-
+                    //cout << "computed (kernel = " << kern << ", win_r = " << r/2 << ", win_c = " << c/2 << ") " << reconstructed_conv[kern][r/2][c/2] << "; BUT it is " << m << endl;
                 }
             }
-        }*/
+        }
     }
 
     if(allCorrect){
         cout<<"CL works correctly"<<endl;
+        for (uint64_t k = 0; k<k_number; k++){
+            cout << "Channel " << k << endl;
+            print2DArray("Channel of computed convolution", reconstructed_conv[k], out_size, out_size);
+        }
     }
     else{
         cout<<"CL works incorrectly" <<endl;
+        for (uint64_t k = 0; k<k_number; k++){
+            cout << "Channel " << k << endl;
+            print2DArray("Channel of computed convolution", reconstructed_conv[k], out_size, out_size);
+            print2DArray("Channel should be this", computed_conv[k], out_size, out_size);
+        }
     }
 
 }
