@@ -105,27 +105,18 @@ int main(int argc, char* argv[]) {
         else if (op == CNN_MMAX){
             cout << "CNN_MMAX" << endl;
 
-            Receive(helper->getSocketP1(), helper->getBuffer1(), 8 * 4);
-            Receive(helper->getSocketP2(), helper->getBuffer2(), 8 * 4);
-
-            unsigned char* ptr = helper->getBuffer1();
-            unsigned char* ptr2 = helper->getBuffer2();
             uint64_t mmaxParams [4];
-            bool areParamsMatching = true;
-            for (uint8_t i = 0; i < 4; i++){
-                mmaxParams[i] = convert2Long(&ptr);
-                uint64_t p2 = convert2Long(&ptr2);
-                if (mmaxParams[i] != p2){
-                    cout << "Parameters from P0 and P1 must match... " << convert2double(mmaxParams[i]) << " != " << convert2double(p2) << endl;
-                    areParamsMatching = false;
-                }
-            }
-            if (mmaxParams[0] > 0 and mmaxParams[1] > 0 and mmaxParams[2] > 0 and mmaxParams[2] <= mmaxParams[0] and mmaxParams[2] <= mmaxParams[1] and areParamsMatching){
+            mmaxParams[0] = helper->ReadInt();
+            mmaxParams[1] = helper->ReadInt();
+            mmaxParams[2] = helper->ReadInt();
+            mmaxParams[3] = helper->ReadInt();
+
+            if (mmaxParams[0] > 0 and mmaxParams[1] > 0 and mmaxParams[2] > 0 and mmaxParams[2] <= mmaxParams[0] and mmaxParams[2] <= mmaxParams[1]){
                 MAX(helper, nullptr, mmaxParams[0], mmaxParams[1], mmaxParams[2]);
                 cout << "finished MMAX" << endl;
             }
             else{
-                cout << "ERROR: received mmax parameters were not matching each other or were not in valid range..." << endl;
+                cout << "ERROR: received mmax parameters were not in valid range..." << endl;
             }
         }
         else if (op == CNN_RELU){
@@ -148,10 +139,12 @@ int main(int argc, char* argv[]) {
         }
         else if (op == CNN_CL){
             cout << "CNN_CL" << endl;
-            unsigned char *ptr = helper->getBuffer1();
-            Receive(helper->getSocketP1(), helper->getBuffer1(), 4*8);
-            uint64_t params[4];
-            convert2Array(&ptr, &params[0], 4);
+
+            uint64_t params [4];
+            params[0] = helper->ReadInt();
+            params[1] = helper->ReadInt();
+            params[2] = helper->ReadInt();
+            params[3] = helper->ReadInt();
             CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
         }
         else if( op == RKN_GM2KM) {
@@ -178,6 +171,7 @@ int main(int argc, char* argv[]) {
             RKN_ITERATION(helper, 0, 0, 0, size1, size2, 0, 0, 0);
         }
         else if (op == CORE_DIV){
+            cout << "CORE_DIV" << endl;
             DIV(helper, 0, 0);
         }
         else if (op == CORE_END)

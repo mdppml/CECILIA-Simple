@@ -220,22 +220,31 @@ public:
 //        }
 //    }
 
-    void SendBytes(op o, uint32_t sz = 0, uint32_t sz2 = 0) {
+    /**
+     * Sends at least the operational op to the helper.
+     * Additional parameters for calling the according operation might be send.
+     * @param o the operation to be performed, the operation is one of the building blocks defined as constants in constant.h
+     * @param params additional parameters to be send.
+     * By default Null, but if additional parameters are desired to send, use a vector holding all those parameters.
+     * @param size the size of params. Default is 0 but if params is not NULL, size matches the number of parameters stored in params.
+     */
+    void SendBytes(op o, uint32_t *params = NULL, uint32_t size = 0) {
+        // this will be called by both parties P1 and P2 but must only be executed for one of those,
+        // otherwise, the helper will receive the same information twice (or in the worst case not read from P2 and mess up future results)
         if (p_role == P1) {
             unsigned char *ptr = &buffer[0];
             size_t s = 1;
             addVal2CharArray((uint8_t) o, &ptr);
-            if (sz != 0) {
-                addVal2CharArray((uint32_t) sz, &ptr);
-                s += 4;
-            }
-            if (sz2 != 0) {
-                addVal2CharArray((uint32_t) sz2, &ptr);
-                s += 4;
+            if (params != NULL && size > 0) {
+                for(uint32_t i = 0; i<size; i++){
+                    addVal2CharArray((uint32_t) params[i], &ptr);
+                    s += 4; // one 32 bit value requires 2^4 bits; if we were to store 64 bit values --> += 8
+                }
             }
             Send(socket_helper, buffer, s);
         }
     }
+
 
     void PrintBytes() {
         PBytes();

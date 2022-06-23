@@ -666,12 +666,10 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint64_t size){
     // K is 2^63 - 1
     uint8_t exchangingBit = 2 * size;
     role pRole = proxy->getPRole();
-    cout << "starting individual parts " << endl;
     if (pRole == P1 || pRole == P2) {
         // init
         uint64_t* f = new uint64_t [size];
         uint64_t* t = new uint64_t [size];
-        cout << "start to fill f and t vectors" << endl;
         for (uint64_t counter = 0; counter < size; counter++){
             f[counter] = proxy->generateCommonRandom() & 0x1;
             t[counter] = x[counter] & K; // get first L-1 bit of the share
@@ -775,7 +773,7 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
         }
         return result;
     } else if (proxy->getPRole() == HELPER) {
-        for (int16_t i = L_BIT-1; i >= 0; i--) {
+        for (int16_t i = FRAC-1; i >= 0; i--) {
             //___4. step (DRELU)
             DRELU(proxy, 0);
 
