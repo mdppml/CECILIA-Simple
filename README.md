@@ -6,6 +6,10 @@ PPAURORA is a C++ project for the private computation of AUROC and AUPRC using s
 
 No installation is required.
 
+Make sure to clone the repository using the "--recurse-submodules" or "--recurse" flag to initialise the submodules as well.
+
+If you already have a local version of this repository without submodules, use the command "git submodule update --init --recursive" to initialise the submodules.
+
 ## Compiling
 
 ### AUROC

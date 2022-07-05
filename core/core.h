@@ -128,8 +128,8 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
     return b;
 }
 
+/**Reconstruct a secret shared 2D array.*/
 uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
-    // Reconstruct a secret shared 2D array
     uint64_t **b = new uint64_t*[n_row];
     if (proxy->getPRole() == P1) {
         unsigned char *ptr = proxy->getBuffer1();
@@ -177,12 +177,12 @@ uint64_t ADD(Party* proxy, uint64_t a, uint64_t b) {
     return a + b;
 }
 
+/**
+ * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param size the number of multiplication triples that will be generated
+ */
 void GenerateMultiplicationTriple(Party* proxy, uint64_t **mt1, uint64_t **mt2, uint32_t size) {
-    // Input(s)
-    // mt1 and mt2: 3-by-size array whose rows will be a_i, b_i and c_i, respectively
-    // size: the number of multiplication triples that will be generated
-    // Return(s)
-    // None
 
     srand(time(NULL));
     for (int i = 0; i < size; i++) {
@@ -365,11 +365,14 @@ uint64_t* MUX(Party* proxy, uint64_t *x, uint64_t *y, uint64_t *b, uint32_t sz) 
     return NULL;
 }
 
+/** Check @p b>@p a
+ *
+ * @param a reconstructed value
+ * @param b boolean share
+ * @param L1
+ * @return
+ */
 uint8_t PCB(Party* proxy, uint64_t a, uint8_t *b, int L1) {
-    // b is a boolean share
-    // a is reconstructed value
-    // check b>a
-
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint8_t w_sum = 0;
         for (int i = L1 - 1; i >= 0; i--) {
@@ -418,11 +421,14 @@ uint8_t PCB(Party* proxy, uint64_t a, uint8_t *b, int L1) {
     return -1;
 }
 
+/** Check b>a
+ *
+ * @param a reconstructed value
+ * @param b boolean share
+ * @param L1
+ * @return
+ */
 uint8_t *PCB(Party* proxy, uint64_t *a, uint8_t *b, uint32_t sz, int L1) {
-    // b is a boolean share
-    // a is reconstructed value
-    // check b>a
-
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         for (int j = 0; j < sz; j++) {
             int jk = j * L1;
@@ -479,8 +485,12 @@ uint8_t *PCB(Party* proxy, uint64_t *a, uint8_t *b, uint32_t sz, int L1) {
     return NULL;
 }
 
+/** Modular conversion.
+ *
+ * @param x a value in the ring 2^63
+ * @return
+ */
 uint64_t MOC(Party* proxy, uint64_t x) {
-    // x is a value in the ring 2^63.
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t z_1;
         uint64_t ya;
@@ -561,9 +571,13 @@ uint64_t MOC(Party* proxy, uint64_t x) {
     return -1;
 }
 
+/** Multiple modular conversions.
+ *
+ * @param x an array of values in the ring 2^63
+ * @param sz the length of @p x
+ * @return
+ */
 uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
-    // x is a value in the ring 2^63.
-    // sz is the length of x.
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t *z_1 = new uint64_t[sz];
         uint64_t *ya = new uint64_t[sz];
@@ -628,6 +642,11 @@ uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
     return NULL;
 }
 
+/** Most significant bit: Returns the first (=left-most) bit of @p x.
+ *
+ * @param x
+ * @return The first bit of @p x
+ */
 uint64_t MSB(Party *proxy, uint64_t x) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t d_k = x & N1_MASK;
@@ -965,6 +984,14 @@ uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
     return NULL;
 }
 
+
+/** Comparison between two numbers.
+ *
+ * @param proxy
+ * @param x
+ * @param y
+ * @return 0 if @p x < @p y else 1
+ */
 uint64_t CMP(Party* proxy, uint64_t x, uint64_t y) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t diff = x - y;
@@ -976,15 +1003,15 @@ uint64_t CMP(Party* proxy, uint64_t x, uint64_t y) {
     return -1;
 }
 
+ /** Multiplication of two numbers.
+  *
+  * @param proxy
+  * @param a a share of the first multiplicand
+  * @param b a share of the second multiplicand
+  * @return the share of the multiplication of @p a and @p b
+  */
 uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
-    /*
-     * Input(s)
-     * a: a share of the first multiplicand - uint64_t
-     * b: a share of the second multiplicand - uint64_t
-     *
-     * Output(s)
-     * Returns the share of the multiplication of a and b - uint64_t
-     */
+
     if(DEBUG_FLAG >= 1)
         cout << "************************************************************\nNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
@@ -1157,16 +1184,14 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     }
 }
 
+/** Multiplication of two arrays of numbers.
+ *
+ * @param a one of the vectors of shares of the multiplicands
+ * @param b the other vector of shares of the multiplicands
+ * @param size the size of the vectors @p a and @p b
+ * @return a vector containing the share of the result of the multiplication
+ */
 uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
-    /*
-     * Input(s)
-     * a: one of the vectors of shares of the multiplicands - uint64_t vector
-     * b: the other vector of shares of the multiplicands - uint64_t vector
-     * size: the size of the vectors a and b
-     *
-     * Output(s)
-     * Returns an uint64_t vector containing the share of the result of the multiplication
-     */
     if(DEBUG_FLAG >= 1)
         cout << "************************************************************\nMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
@@ -1207,18 +1232,13 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     return nullptr;
 }
 
+/** Exponential. Note that this function considers only the specific number of least significant bits not to cause
+ * overflow. This is different for positive and negative powers.
+ *
+ * @param a the value that will be used as the power of exp
+ * @return Returns the arithmetic secret share of exp(@p a)
+ */
 uint64_t EXP(Party* proxy, uint64_t a) {
-    /*
-     * Note that this function considers only the specific number of least significant bits not to cause overflow.
-     * This is different for positive and negative powers.
-     *
-     * Input(s)
-     * a: the value that will be used as the power of exp
-     * n_bits: the number of bits that one can need to cover the largest possible power
-     *
-     * Output(s)
-     * Returns the arithmetic secret share of exp(a)
-     */
     int p_role = proxy->getPRole();
     int n_bits = proxy->getNBits();
     int neg_n_bits = proxy->getNegNBits();
@@ -1326,18 +1346,14 @@ uint64_t EXP(Party* proxy, uint64_t a) {
     return 0;
 }
 
+/** Multiple exponentials. Note that this function considers only the specific number of least significant bits not to
+ * cause overflow. This is different for positive and negative powers.
+ *
+ * @param a the vector of values that will be used as the power of exp
+ * @param size the length of @p a
+ * @return a vector of arithmetic secret shares for each exp(@p a)
+ */
 uint64_t* EXP(Party* proxy, uint64_t *a, uint32_t size) {
-    /*
-     * Note that this function considers only the specific number of least significant bits not to cause overflow.
-     * This is different for positive and negative powers.
-     *
-     * Input(s)
-     * a: the vector of values that will be used as the power of exp
-     * n_bits: the number of bits that one can need to cover the largest possible power
-     *
-     * Output(s)
-     * Returns the arithmetic secret share of exp(a)
-     */
     int p_role = proxy->getPRole();
     int n_bits = proxy->getNBits();
     int neg_n_bits = proxy->getNegNBits();
@@ -1514,12 +1530,14 @@ uint64_t* EXP(Party* proxy, uint64_t *a, uint32_t size) {
     }
 }
 
+/** PartialSum: sum the elements of each section separately.
+ *
+ * @param a the vector on which we perform the partial summation
+ * @param size the size of @p a
+ * @param d the size of the part that we will use to partition @p a
+ * @return
+ */
 uint64_t* PSUM(Party* proxy, uint64_t *a, uint32_t size, uint32_t d) {
-    // PartialSum: sum the elements of each section separately
-    // Input(s)
-    // x: the vector on which we perform the partial summation
-    // size: the length of the vector x
-    // d: the size of the part that we will use to partition x
     int p_role = proxy->getPRole();
     if(p_role == P1 || p_role == P2) {
         uint64_t *ps_x = new uint64_t[size / d];
@@ -1537,6 +1555,14 @@ uint64_t* PSUM(Party* proxy, uint64_t *a, uint32_t size, uint32_t d) {
     }
 }
 
+/** computes the dot product of two single arithmetically shared vectors.
+ *
+ * @param proxy
+ * @param a vector
+ * @param b vector
+ * @param size the length of the vectors
+ * @return
+ */
 uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     // This function computes the dot product of two single arithmetically shared vectors.
     // Input(s)
@@ -1566,14 +1592,15 @@ uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     }
 }
 
+/** Computes the dot product of arithmetically shared vectors, which are formed by vectors.
+ *
+ * @param a vector formed by vectors of given size
+ * @param b vector formed by vectors of given size
+ * @param size the length of the vectors
+ * @param d the size of the partial vectors forming the main vectors
+ * @return Dot product of the given (@p size / @p d) vectors as a vector of (@p size / @p d)
+ */
 uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) {
-    // This function computes the dot product of arithmetically shared vectors, which are formed by vectors.
-    // Input(s)
-    // x and y: vectors formed by vectors of given size
-    // size: the lenght of the vectors
-    // d: the size of the partial vectors forming the main vectors
-    // Return(s)
-    // Dot product of the given (size/d) vectors as a vector of (size / d)
     int p_role = proxy->getPRole();
     if(p_role == P1 || p_role == P2) {
         // compute elementwise multiplication of vectors
@@ -1595,18 +1622,17 @@ uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) 
 
 }
 
+/** Perform multiplication of matrices a and b.
+ * The function assumes that the number of columns of a equals to the number of rows of b.
+ *
+ * @param a two dimensional matrix
+ * @param b two dimensional matrix
+ * @param a_row number of rows of @p a and @p b
+ * @param a_col number of columns of @p a
+ * @param b_col number of columns of @p b
+ * @return a matrix of size @p a_row by @p b_col
+ */
 uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
-    /*
-     * Perform multiplication of matrices a and b. The function assumes that the number of columns of a equals to
-     * the number of rows of b.
-     *
-     * Input(s)
-     * a: two dimensional matrix of size a_row-by-a_col
-     * b: two dimensional matrix of size a_col-by-b_col
-     *
-     * Output(s)
-     * Returns a matrix of size a_row-by-b_col
-     */
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrices such that all required multiplications can be performed in one go
@@ -1653,20 +1679,20 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
     }
 }
 
+/** Perform several multiplications of matrices of size a_row-by-a_col and a_col-by-b_col stored in a and b.
+ *
+ * @param a three dimensional matrix
+ * @param b three dimensional matrix
+ * @param n_matrices number of two-dimensional matrices of @p a and @p b
+ * @param a_row number of rows per two-dimensional matrix
+ * @param a_col number of columns per two-dimensional matrix of @p a
+ * @param b_col number of columns per two-dimensional matrix of @p b
+ * @return a matrix of size @p n_matrices by @p a_row by @p b_col
+ */
 uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
-    /*
-     * Perform several multiplications of matrices of size a_row-by-a_col and a_col-by-b_col stored in a and b.
-     *
-     * Input(s)
-     * a: three dimensional matrix of size n_matrices-by-a_row-by-a_col
-     * b: three dimensional matrix of size n_matrices-by-a_col-by-b_col
-     *
-     * Output(s)
-     * Returns a matrix of size n_matrices-by-a_row-by-b_col
-     */
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
-        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        // form a single vector for each matrix such that all required multiplications can be performed in one go
         uint32_t size = n_matrices * a_row * a_col * b_col;
         uint32_t size2 = a_row * a_col * b_col;
         uint64_t *concat_a = new uint64_t[size];
@@ -1719,18 +1745,15 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
     }
 }
 
+/** Perform multiplication of matrix a and vector b. The function assumes that the number of columns of a is equal to
+ * the length of b.
+ * @param a two dimensional matrix
+ * @param b vector
+ * @param a_row number of rows of @p a
+ * @param a_col number of columns of @p a / size of @p b
+ * @return a vector of size @p a_row
+ */
 uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uint32_t a_col) {
-    /*
-     * Perform multiplication of matrice a and vector b. The function assumes that the number of columns of a equals to
-     * the length of b.
-     *
-     * Input(s)
-     * a: two dimensional matrix of size a_row-by-a_col
-     * b: a vector of size a_col
-     *
-     * Output(s)
-     * Returns a vector of length a_row
-     */
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrices such that all required multiplications can be performed in one go
@@ -1772,18 +1795,18 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
     }
 }
 
+/** Perform n_matrices multiplications of matrices of size a_row-by-a_col and vectors of size a_col stored in a and
+ * b, respectively.
+ *
+ * @param a three dimensional matrix
+ * @param b two dimensional matrix
+ * @param n_matrices number of matrices in @p a / vectors in @p b
+ * @param a_row number of rows of @p a
+ * @param a_col number of columns of @p a / size of @p b
+ * @return a two-dimensional matrix of size @p n_matrices by @p a_row
+ */
 uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col) {
-    /*
-     * Perform n_matrices multiplications of matrices of size a_row-by-a_col and vectors of size a_col stored in a and
-     * b, respectively.
-     *
-     * Input(s)
-     * a: three dimensional matrix of size n_matrices-by-a_row-by-a_col
-     * b: two dimensional matrix of size n_matrices-by-a_col
-     *
-     * Output(s)
-     * Returns a two-dimensional matrix of size n_matrices-by-a_row
-     */
+
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrices such that all required multiplications can be performed in one go
@@ -1833,16 +1856,13 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
     }
 }
 
-
+/** Get the Modular Inverse (MDI) of a given number a with modulo being the specified ring size.
+ * For the resulting/returned value b, it must hold ab mod(modulo) are congruent to 1. The modulo under which a
+ * multiplied with the inverse are equal to 1, will always be the ring size.
+ * @param a secret share of the value for which the modular inverse shall be calculated.
+ * @return the secret share of the modular inverse of a under the ring size.
+ */
 uint64_t MDI(Party* proxy, uint64_t a){
-    /**
-     * Get the Modular Inverse (MDI) of a given number a with modulo being the specified ring size.
-     * For the resulting/returned value b, it must hold
-     *      ab mod(modulo) are congruent to 1.
-     * @param a secret share of the value for which the modular inverse shall be calculated.
-     * The modulo under which a multiplied with the inverse are equal to 1, will always be the ring size.
-     * @return the secret share of the modular inverse of a under the ring size.
-     */
     cout << "searching for MDI of value " << convert2double(a) << endl;
     uint64_t exchangingBit = RING_N / 64;
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
