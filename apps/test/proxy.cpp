@@ -8,7 +8,6 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
-#include "../../Eigen/Eigen"
 #include <bitset>
 
 
@@ -89,7 +88,6 @@ void MOC_Test(Party *proxy){
         cout<<"MOC works correctly"<<endl;
     else
         cout<<"MOC works incorrectly"<<endl;
-
 }
 
 void MMOC_Test(Party *proxy){

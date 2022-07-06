@@ -43,7 +43,11 @@ enum op {
     // AUC
     AUC_MSB,AUC_TDIV,AUC_MROU,AUC_MDIV,
     // CNN                                 CL1: 1 image, several kernel; CL2: several images, 1 kernel
+<<<<<<< HEAD
     CNN_MAX, CNN_MMAX, CNN_RELU, CNN_MRELU, CNN_DRLU, CNN_MDRLU, CNN_CL, CNN_FCL, CNN_MDI,
+=======
+    CNN_MAX, CNN_MMAX, CNN_RELU, CNN_MRELU, CNN_DRLU, CNN_MDRLU, CNN_CL, CNN_FCL,
+>>>>>>> 9fec3ee42dec0361354e14f01d8274cf5a0231c3
     // RKN
     RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT, RKN_ITER
 };
