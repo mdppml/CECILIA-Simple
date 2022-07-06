@@ -105,11 +105,10 @@ int main(int argc, char* argv[]) {
         else if (op == CNN_MMAX){
             cout << "CNN_MMAX" << endl;
 
-            uint64_t mmaxParams [4];
+            uint64_t mmaxParams [3];
             mmaxParams[0] = helper->ReadInt();
             mmaxParams[1] = helper->ReadInt();
             mmaxParams[2] = helper->ReadInt();
-            mmaxParams[3] = helper->ReadInt();
 
             if (mmaxParams[0] > 0 and mmaxParams[1] > 0 and mmaxParams[2] > 0 and mmaxParams[2] <= mmaxParams[0] and mmaxParams[2] <= mmaxParams[1]){
                 MAX(helper, nullptr, mmaxParams[0], mmaxParams[1], mmaxParams[2]);
@@ -140,12 +139,21 @@ int main(int argc, char* argv[]) {
         else if (op == CNN_CL){
             cout << "CNN_CL" << endl;
 
-            uint64_t params [4];
+            uint32_t params [6];
             params[0] = helper->ReadInt();
             params[1] = helper->ReadInt();
             params[2] = helper->ReadInt();
             params[3] = helper->ReadInt();
-            CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
+            params[4] = helper->ReadInt();
+            params[5] = helper->ReadInt();
+            CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5]);
+            }
+        else if (op == CNN_FCL){
+            uint32_t *params = new uint32_t [3];
+            params[0] = helper->ReadInt();
+            params[1] = helper->ReadInt(); //TODO this can be calculated here.
+            params[2] = helper->ReadInt();
+            FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
         }
         else if( op == RKN_GM2KM) {
             cout << "RKN_GM2KM" << endl;

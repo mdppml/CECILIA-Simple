@@ -176,6 +176,40 @@ uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
 uint64_t ADD(Party* proxy, uint64_t a, uint64_t b) {
     return a + b;
 }
+/**
+ * Adds values of a and b at equal position.
+ * @param proxy
+ * @param a
+ * @param b
+ * @param size length of vectors a and b
+ * @return vector of length size containing the sum of according values in a and b.
+ */
+uint64_t* ADD(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+    uint64_t* sum = new uint64_t[size];
+    for(uint32_t i = 0; i<size; i++){
+        sum[i] = a[i] + b[i];
+    }
+    return sum;
+}
+
+/**
+ * Adds values of all vectors in a at equal position to calculate their sum (sum over column where each row is one vector).
+ * @param proxy
+ * @param a matrix containing several vectors of length size. Values of all vectors at same position shall be summed up.
+ * @param n_vectors number of vectors in a
+ * @param size length of each vector in a
+ * @return
+ */
+uint64_t* ADD(Party* proxy, uint64_t **a, uint32_t n_vectors, uint32_t size) {
+    uint64_t* res = new uint64_t [size];
+    for(uint32_t i = 0; i<size; i++){
+        res[i] = 0;
+        for(uint32_t v = 0; v<n_vectors; v++){
+            res[i] += a[v][i];
+        }
+    }
+    return res;
+}
 
 void GenerateMultiplicationTriple(Party* proxy, uint64_t **mt1, uint64_t **mt2, uint32_t size) {
     // Input(s)
@@ -1791,14 +1825,12 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
         uint32_t size2 = a_row * a_col;
         uint64_t *concat_a = new uint64_t[size];
         uint64_t *concat_b = new uint64_t[size];
-
         for(uint32_t n = 0; n < n_matrices; n++) {
             for (uint32_t i = 0; i < size2; i++) {
                 concat_a[size2 * n + i] = a[n][i / a_col][i % a_col];
                 concat_b[size2 * n + i] = b[n][i % a_col];
             }
         }
-
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
 
         // recover the resulting vector
