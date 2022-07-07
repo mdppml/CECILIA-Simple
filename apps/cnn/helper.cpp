@@ -13,7 +13,6 @@ int main(int argc, char* argv[]) {
     Party *helper = new Party(HELPER,port,address);
     while (1){
         int op = helper->ReadByte();
-        cout << "Operation: " << op << endl;
         if (op == CNN_MAX){
             int matrix_size = helper->ReadInt();
             MAX(helper, 0, matrix_size);

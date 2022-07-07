@@ -18,9 +18,8 @@ int main(int argc, char* argv[]) {
 
     auto *helper = new Party(HELPER,port,address);
     bool keep_looping = true;
-    uint32_t sz, n_gms, matrix_size, size1, size2;
-    unsigned char* ptr;
-    uint64_t params [4];
+    uint32_t sz, n_gms, size1, size2;
+    uint64_t params [6];
     op operation;
     while (keep_looping){
         operation = static_cast<op>(helper->ReadByte());
@@ -96,8 +95,8 @@ int main(int argc, char* argv[]) {
                 MATVECMUL(helper, nullptr, nullptr, 0, sz, 0);
                 break;
             case CNN_MAX:
-                matrix_size = helper->ReadInt();
-                MAX(helper,nullptr, matrix_size);
+                sz = helper->ReadInt();
+                MAX(helper,nullptr, sz);
                 break;
             case CNN_MMAX:
                 params[0] = helper->ReadInt();
@@ -128,13 +127,14 @@ int main(int argc, char* argv[]) {
                 params[1] = helper->ReadInt();
                 params[2] = helper->ReadInt();
                 params[3] = helper->ReadInt();
-                CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
+                params[4] = helper->ReadInt();
+                params[5] = helper->ReadInt();
+                CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5]);
                 break;
             case CNN_FCL:
-                ptr = helper->getBuffer1();
-                Receive(helper->getSocketP2(), helper->getBuffer1(), 3 * 8);
-                convert2Array(&ptr, &params[0], 3);
-                cout << "HELPER FCL: i_dim = " << params[0] << ", i_number= " << params[1] << ", node_number = " << params[2] << endl;
+                params[0] = helper->ReadInt();
+                params[1] = helper->ReadInt(); //TODO this can be calculated here.
+                params[2] = helper->ReadInt();
                 FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
                 break;
             case CNN_MRELU:

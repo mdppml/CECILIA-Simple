@@ -4,12 +4,17 @@
 #include "../../core/rkn.h"
 
 int main(int argc, char* argv[]) {
+    if (argc < 2){
+        cout << "Calling Helper without specifying address (1) and port (2) is not possible." << endl;
+        return 1;
+    }
     string address(argv[1]);
     uint16_t port = atoi(argv[2]);
 
     Party *helper = new Party(HELPER,port,address);
     while (1){
         int op = helper->ReadByte();
+        cout << "Operation: " << op << endl;
         if (op == CORE_MMSB){
             cout << "CORE_MMSB" << endl;
             int sz = helper->ReadInt();
@@ -64,6 +69,9 @@ int main(int argc, char* argv[]) {
             int sz = helper->ReadInt();
             DP(helper, 0, 0, sz, 0);
         }
+        else if (op == CORE_DIV){
+            DIV(helper, 0, 0);
+        }
         else if (op == CORE_EXP) {
             cout << "CORE_EXP" << endl;
             EXP(helper, 0);
@@ -98,47 +106,31 @@ int main(int argc, char* argv[]) {
             MATVECMUL(helper, 0, 0, 0, sz, 0);
         }
         else if (op == CNN_MAX){
-            cout << "CNN_MAX" << endl;
             int matrix_size = helper->ReadInt();
             MAX(helper,nullptr, matrix_size);
         }
         else if (op == CNN_MMAX){
-            cout << "CNN_MMAX" << endl;
-
-            uint64_t mmaxParams [3];
+            uint32_t *mmaxParams = new uint32_t [3];
             mmaxParams[0] = helper->ReadInt();
             mmaxParams[1] = helper->ReadInt();
             mmaxParams[2] = helper->ReadInt();
-
-            if (mmaxParams[0] > 0 and mmaxParams[1] > 0 and mmaxParams[2] > 0 and mmaxParams[2] <= mmaxParams[0] and mmaxParams[2] <= mmaxParams[1]){
-                MAX(helper, nullptr, mmaxParams[0], mmaxParams[1], mmaxParams[2]);
-                cout << "finished MMAX" << endl;
-            }
-            else{
-                cout << "ERROR: received mmax parameters were not in valid range..." << endl;
-            }
+            MAX(helper, nullptr, mmaxParams[0], mmaxParams[1], mmaxParams[2]);
         }
         else if (op == CNN_RELU){
-            cout << "CNN_RELU" << endl;
             RELU(helper, 0);
         }
         else if (op == CNN_MRELU){
-            cout << "CNN_MRELU" << endl;
             uint64_t size = helper->ReadInt();
-            RELU(helper, 0, size);
+            RELU(helper, nullptr, size);
         }
         else if (op == CNN_DRLU){
-            cout << "CNN_DRLU" << endl;
             DRELU(helper, 0);
         }
         else if (op == CNN_MDRLU){
-            cout << "CNN_MDRLU" << endl;
             int size = helper->ReadInt();
             DRELU(helper, nullptr, size);
         }
         else if (op == CNN_CL){
-            cout << "CNN_CL" << endl;
-
             uint32_t params [6];
             params[0] = helper->ReadInt();
             params[1] = helper->ReadInt();
@@ -156,31 +148,23 @@ int main(int argc, char* argv[]) {
             FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
         }
         else if( op == RKN_GM2KM) {
-            cout << "RKN_GM2KM" << endl;
             int n_gms = helper->ReadInt();
             int sz = helper->ReadInt();
             GM2KM(helper, 0, 0, n_gms, sz);
         }
         else if( op == RKN_INVSQRT) {
-            cout << "RKN_INVSQRT" << endl;
             int sz = helper->ReadInt();
             INVSQRT(helper, 0, sz);
         }
         else if( op == RKN_MINVSQRT) {
-            cout << "RKN_MINVSQRT" << endl;
             int n_gms = helper->ReadInt();
             int sz = helper->ReadInt();
             INVSQRT(helper, 0, n_gms, (uint32_t) sz);
         }
         else if( op == RKN_ITER) {
-            cout << "RKN_ITER" << endl;
             int size1 = helper->ReadInt();
             int size2 = helper->ReadInt();
             RKN_ITERATION(helper, 0, 0, 0, size1, size2, 0, 0, 0);
-        }
-        else if (op == CORE_DIV){
-            cout << "CORE_DIV" << endl;
-            DIV(helper, 0, 0);
         }
         else if (op == CORE_END)
             break;
