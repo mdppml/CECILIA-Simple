@@ -619,14 +619,14 @@ void CL_Test(Party *proxy){
     //print2DArray("Original X - First Channel: ", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
     //print2DArray("Original First Kernel - All Channel: ", convert2double(REC(proxy, kernel[0], k_number, k_dim * k_dim), k_number, k_dim * k_dim), k_number, k_dim * k_dim);
 
-    uint32_t mmaxParams[6];
-    mmaxParams[0] = i_channel;
-    mmaxParams[1] = row;
-    mmaxParams[2] = col;
-    mmaxParams[3] = k_dim; // kernel size
-    mmaxParams[4] = k_number; // kernel number is also output channel
-    mmaxParams[5] = stride; // stride
-    proxy->SendBytes(CNN_CL, mmaxParams, 6);
+    uint32_t params[6];
+    params[0] = i_channel;
+    params[1] = row;
+    params[2] = col;
+    params[3] = k_dim; // kernel size
+    params[4] = k_number; // kernel number is also output channel
+    params[5] = stride; // stride
+    proxy->SendBytes(CNN_CL, params, 6);
 
     uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, doMaxpooling);
     uint64_t conv_size = floor((row - k_dim) / stride) + 1;
@@ -709,33 +709,27 @@ void FCL_Test(Party *proxy){
     uint32_t i_nodes = row*col*i_channel;
     uint32_t o_nodes = 10;
 
-    uint64_t*** x = new uint64_t **[i_channel];
-    for(uint64_t i = 0; i<i_channel; i++){
-        x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
-    }
-    uint64_t** weights = new uint64_t *[i_nodes];
-    for(uint32_t i = 0; i<i_nodes; i++){
-        weights[i] = proxy->createShare(random_1D_data(proxy, o_nodes, -5.0, 5.0), o_nodes);
-    }
-    // send params
-    uint32_t mmaxParams[3];
-    mmaxParams[0] = row;
-    mmaxParams[1] = i_channel;
-    mmaxParams[2] = o_nodes;
-    proxy->SendBytes(CNN_FCL, mmaxParams, 3);
+    uint64_t* x = proxy->createShare(random_1D_data(proxy, i_nodes, 0.0, 255.0), i_nodes);
+    uint64_t** weights = proxy->createShare(random_2D_data(proxy, i_nodes, o_nodes, -5.0, 5.0), i_nodes, o_nodes);
 
-    uint64_t *res = FCL(proxy, x, row, i_channel, weights, o_nodes);
+    // send params
+    uint32_t params[2];
+    params[0] = i_nodes;
+    params[1] = o_nodes;
+    proxy->SendBytes(CNN_FCL, params, 2);
+
+    uint64_t *res = FCL(proxy, x, i_nodes, weights, o_nodes);
     double* reconstructed_res = convert2double(REC(proxy, res, o_nodes), o_nodes);
 
     // checking the result
     bool allCorrect = true;
-    double *rec_flat_input = convert2double(REC(proxy, FLT(x, row, i_channel), i_nodes), i_nodes);
+    double *rec_input = convert2double(REC(proxy, x, i_nodes), i_nodes);
     double **rec_weights = convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes);
     double * original_res = new double [o_nodes];
     for(uint64_t o = 0; o<o_nodes; o++){
         double value = 0;
         for (int i = 0; i < i_nodes; ++i) {
-            value += rec_flat_input[i] * rec_weights[i][o];
+            value += rec_input[i] * rec_weights[i][o];
         }
         original_res[o] = value;
         if (value - reconstructed_res[o] > 0.0001){
@@ -767,7 +761,7 @@ void FLT_Test(Party *proxy){
     }
     uint32_t i_nodes = row*col*i_channel;
 
-    uint64_t *res = FLT(x, row, i_channel);
+    uint64_t *res = FLT(x, row, col, i_channel);
     double* reconstructed_res = convert2double(REC(proxy, res, i_nodes), i_nodes);
 
     // checking the result
@@ -2053,9 +2047,9 @@ int main(int argc, char* argv[]) {
 
     INC_Test(proxy);
     ADD_Test(proxy);
-    CL_Test(proxy);
-    FLT_Test(proxy);
-    FCL_Test(proxy);*/
+    CL_Test(proxy);*/
+    FLT_Test(proxy); //TODO
+    FCL_Test(proxy);
     PAD_Test(proxy);
 
     /*EXP_Test(proxy);

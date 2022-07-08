@@ -140,9 +140,8 @@ int main(int argc, char* argv[]) {
                 break;
             case CNN_FCL:
                 params[0] = helper->ReadInt();
-                params[1] = helper->ReadInt(); //TODO this can be calculated here.
-                params[2] = helper->ReadInt();
-                FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
+                params[1] = helper->ReadInt();
+                FCL(helper, nullptr, params[0], nullptr, params[1]);
                 break;
             case RKN_GM2KM:
                 n_gms = helper->ReadInt();

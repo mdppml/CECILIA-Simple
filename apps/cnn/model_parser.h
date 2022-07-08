@@ -286,44 +286,6 @@ string trim(string s, const char* ws)
     return ltrim(rtrim(s, ws), ws);
 }
 
-/**
- * Parse the specified file containing values only seperated by delimiter and return a 2D array containing the values.
- * @param file_path
- * @param delim
- * @param x first dimension of array
- * @param y second dimension
- * @return
- */
-double **parseFile(string file_path, const char* delim, uint32_t x, uint32_t y){
-    double ** weights = new double *[x];
-    fstream cv_weights_file;
-    cv_weights_file.open(file_path, ios::in);
-    string line;
-    if(cv_weights_file.is_open()){
-        // actual parsing
-        uint32_t position = 0;
-        int valueEnd;
-        uint32_t row = 0;
-        while (getline(cv_weights_file, line).good()){
-
-            line = trim(line);
-
-            // store values of this row in weights matrix
-            valueEnd = line.find(col_delim);
-            uint32_t valueStart = 0;
-            while (valueEnd != string::npos){
-                string value = line.substr(valueStart, valueEnd-valueStart);
-                weights[row][position] = stod(value);
-                valueStart = valueEnd+1;
-
-                valueEnd = line.find(col_delim, valueStart);
-                position++;
-            }
-            position = 0;
-            row++;
-        }
-    }
-}
 
 
 #endif //CECILIA_MODEL_PARSER_H

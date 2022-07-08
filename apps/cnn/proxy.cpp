@@ -52,6 +52,7 @@ int main(int argc, char* argv[]) {
     uint32_t k_number = 5;
     uint32_t k_dim = 5;
     uint32_t stride = 1;
+    uint32_t padding = 0;
     bool doMaxpool = true;
 
     uint32_t divisor = stride;
@@ -64,9 +65,9 @@ int main(int argc, char* argv[]) {
             stride = 2;
             divisor = stride;
             doMaxpool = false;
-            //TODO perform padding
+            padding = 2;
             // this is a well defined CNN architecture trained for the MNIST dataset
-            model_weights = getChameleonParameters(MODEL_DIR + CHAMELEON_MODEL_FILES, k_number, 1);
+            model_weights = getChameleonParameters(MODEL_DIR + CHAMELEON_MODEL_FILES, k_number, i_channel);
             break;
         }
         case 1:{
@@ -90,7 +91,7 @@ int main(int argc, char* argv[]) {
             k_dim = 5;
             break;
         }
-        default:
+        default:{
             cout << "No or unknown network has been specified. Use random weights to perform CNN inference for 3 convolutional layer and one fully connected layer" << endl;
             k_number = 16;
             model_weights = new double ***[4];
@@ -111,21 +112,28 @@ int main(int argc, char* argv[]) {
             model_weights[3] = new double **[1];
             model_weights[3][0] = random_2D_data(proxy, in_fcl, out_fcl, -5.0, 5.0);
             break;
+        }
     }
-    cout << "parsed parameters: # of input = " << i_number << ", i_channel = " << i_channel << ", widht = " << i_width << ", height = " << i_height << endl;
     //create shares
-    cout << "create shares of images" << endl;
     uint64_t*** data = new uint64_t** [i_channel]; //TODO read in real images
     for(uint64_t i = 0; i<i_channel; i++){
         data[i] = proxy->createShare(random_2D_data(proxy, i_height, i_width, 0.0, 255.0), i_height, i_width);
+    }
+    if(padding > 0){
+        for(uint32_t i = 0; i<i_channel; i++){
+            data[i] = PAD(data[i], i_height, i_width, 0, padding);
+        }
+        i_height += 2*padding;
+        i_width += 2*padding;
     }
 
     uint64_t ***kernel = new uint64_t**[k_number];
     for (uint32_t i = 0; i < k_number; i++) {
         kernel[i] = proxy->createShare(model_weights[0][i], i_channel, k_dim*k_dim);
-    }                                                                                                                       // CNN INFERENCE PIPELINE
-    cout << "Call Convolutional layer" << endl;
-    uint32_t params[7];
+    }
+
+    // CNN INFERENCE PIPELINE
+    /*uint32_t params[7];
     params[0] = i_channel;
     params[1] = i_height;
     params[2] = i_width;
@@ -133,7 +141,7 @@ int main(int argc, char* argv[]) {
     params[4] = k_number; // kernel number is also output channel
     params[5] = stride; // stride
     params[6] = doMaxpool;
-    proxy->SendBytes(CNN_CL, params, 7);
+    proxy->SendBytes(CNN_CL, params, 7);*/
 
     // PERFORMING CONVOLUTION
     uint64_t*** conv = CL(proxy, data, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool);
@@ -141,22 +149,31 @@ int main(int argc, char* argv[]) {
     //          size after conv         after maxpool divide by 2
     i_height = ((i_height - k_dim) + 1) / divisor;
     i_width = ((i_width - k_dim) + 1) / divisor;
-    cout << "new params: i_channel = " << i_channel << ", h = " << i_height << ", w = " << i_width << endl;
     //init what the architectures share for FCL:
     uint32_t nodes_out;
-    uint32_t nodes_in;
-    uint64_t **weights2;
+    uint32_t nodes_in = i_height*i_width*i_channel;
+
+    uint64_t* prev_layer_res;
+    uint64_t **weights = nullptr;
     // from here on network architectures differ
-    cout << nn_mode << endl;
     switch (nn_mode) {
-        case 0:
+        case 0:{
             k_number = 1;
             nodes_out = 100;
-            nodes_in = i_height*i_width*i_channel;
-            // fully connected layer:
-            weights2 = proxy->createShare(model_weights[1][0], nodes_out, nodes_in);
+            // FULLY CONNECTED LAYER
+            weights = proxy->createShare(model_weights[1][0], nodes_out, nodes_in);
+            uint64_t *flattened = FLT(conv, i_height, i_width, i_channel);
+            /*params[0] = nodes_in;
+            params[1] = nodes_out;
+            proxy->SendBytes(CNN_FCL, params, 2);*/
+            prev_layer_res = FCL(proxy, flattened, nodes_in, weights, nodes_out);
+
+            nodes_in = nodes_out;
+            i_channel = 1;
+            nodes_out = 10;
             break;
-        case 1:
+        }
+        case 1:{
             // PERFORMING CONVOLUTION
             kernel = new uint64_t**[k_number];
             for (uint32_t i = 0; i < k_number; i++) {
@@ -169,12 +186,14 @@ int main(int argc, char* argv[]) {
             i_width = ((i_width - k_dim) + 1) / (stride*2);
             cout << "finished CL2 (MiniONN)" << endl;
 
+            // fully connected layer:
             nodes_out = 100;
             nodes_in = i_height * i_width * i_channel;
-            // fully connected layer:
-            weights2 = proxy->createShare(model_weights[2][0], nodes_out, nodes_in);
+            weights = proxy->createShare(model_weights[2][0], nodes_out, nodes_in);
+            prev_layer_res = FLT(conv, i_height, i_width, i_channel);
             break;
-        default:
+        }
+        default:{
             // random network: 2 more convolutions, then fully connected layer:
             for (uint32_t c = 0; c<2; c++){
                 k_number -= (c+1);
@@ -191,26 +210,26 @@ int main(int argc, char* argv[]) {
                 i_width = ((i_width - k_dim) + 1) / (stride*2);
                 cout << "finished CL" << c+2 << " (random mode)"<< endl;
             }
+            // fully connected layer:
             nodes_out = 10;
             nodes_in = i_height * i_width * i_channel;
-            // fully connected layer:
-            weights2 = proxy->createShare(model_weights[3][0], nodes_out, nodes_in);
+            weights = proxy->createShare(model_weights[3][0], nodes_out, nodes_in);
+            prev_layer_res = FLT(conv, i_height, i_width, i_channel);
             break;
+        }
     }
-    cout << "single middle parts are done" << endl;
     // FULLY CONNECTED LAYER
-    params[0] = i_height;
-    params[1] = k_number; // input number is same as previous kernel number
-    params[2] = nodes_out;
-    cout << "call FCL" << endl;
-    proxy->SendBytes(CNN_FCL, params, 3);
-    uint64_t * output = FCL(proxy, conv, i_height, k_number, weights2, nodes_out);
+    /*params[0] = nodes_in;
+    params[1] = nodes_out;
+    proxy->SendBytes(CNN_FCL, params, 2);*/
+
+    uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out);
 
     for(uint64_t n = 0; n<nodes_out; n++){
         cout << "Node " << n << ": " << output[n] << endl;
     }
 
-    proxy->SendBytes(CORE_END);
+ //   proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
     return 0;
 }

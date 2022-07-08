@@ -990,31 +990,26 @@ uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t w
 /**
  * Implements functionality of a fully connected layer (FCL) TODO which activation?
  * @param proxy
- * @param input the input matrices to be fully connected to the output nodes of shape i_dim * i_dim * i_number
- * @param i_dim dimension of the input matrices
- * @param i_number number of the input matrices
- * @param weights to be used must be of shape node_number * (i_dim * i_dim * i_number) as provided by Chameleon files
+ * @param input the input vector of length in_size to be fully connected to the output nodes.
+ * @param in_size length of the input vector (when previous layer is a convolutional layer, use the Flattening method FLT before)
+ * @param weights to be used must be of shape in_size x node_number as provided by Chameleon files
  * @param node_number number of output nodes of this layer
  * @return the output layer that have been computed by using the dot product between input values and weights. It will be of length node_number.
  */
-uint64_t* FCL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number, uint64_t** weights, uint32_t node_number){
-    uint64_t out_size = i_dim * i_dim * i_number; //first dimension of output
+uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weights, uint32_t node_number){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
-        cout << out_size << ", " << node_number << endl;
-        uint64_t *flattened = FLT(input, i_dim, i_number);
-        uint64_t ** w = transpose(weights, out_size, node_number);
+        uint64_t ** w = transpose(weights, node_number, in_size);
         uint64_t *output = new uint64_t [node_number];
-       // uint64_t *stretched_flattened = new uint64_t [out_size*node_number];
-        //memcpy(stretched_flattened, flattened, node_number);
+        // uint64_t *stretched_flattened = new uint64_t [out_size*node_number];
+        //memcpy(stretched_flattened, input, node_number);
         for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
-            output[node] = DP(proxy, flattened, w[node], out_size);
+            output[node] = DP(proxy, input, w[node], in_size);
         }
         return output;
     }
     else if (proxy->getPRole() == HELPER){
-        cout << out_size << ", " << node_number << endl;
         for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
-            DP(proxy, nullptr, nullptr, out_size);
+            DP(proxy, nullptr, nullptr, in_size);
         }
         return nullptr;
     }
@@ -1024,22 +1019,21 @@ uint64_t* FCL(Party* proxy, uint64_t*** input, uint64_t i_dim, uint32_t i_number
     }
 }
 
-
 /**
  * Flatten the values of a matrix concatenating its values so that a single vector is the result
  * @param images matrices to be flattened to one single vactor
- * @param i_dim dimension of a single matrix in either direction (symmetric shape)
+ * @param i_height height of a single image in images
+ * @param i_width width of a single image in images
  * @param i_number number of matrices in images
  * @return the flattened vector of length i_dim * i_dim * i_number
  */
-uint64_t * FLT(uint64_t*** images, uint32_t i_dim, uint32_t i_number){
-    uint64_t i_size = i_dim * i_dim;
+uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t i_number){
+    uint64_t i_size = i_height * i_width;
     // stretch the input for vectorized MATVECMUL
     uint64_t * flattened = new uint64_t [i_size * i_number];
     for (uint32_t i = 0; i < i_number; i++){
         for (uint32_t el = 0; el < i_size; el ++) {
-            cout << "store in " << el + i*i_size << " from " << i << ", " << el/i_dim << ", " << el%i_dim << endl;
-            flattened[el + i * i_size] = images[i][el / i_dim][el % i_dim];
+            flattened[el + i * i_size] = images[i][el / i_width][el % i_width];
         }
     }
     return flattened;
