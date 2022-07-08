@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     auto *helper = new Party(HELPER,port,address);
     bool keep_looping = true;
     uint32_t sz, n_gms, size1, size2;
-    uint64_t params [6];
+    uint64_t params [7];
     op operation;
     while (keep_looping){
         operation = static_cast<op>(helper->ReadByte());
@@ -102,7 +102,6 @@ int main(int argc, char* argv[]) {
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
                 params[2] = helper->ReadInt();
-                params[3] = helper->ReadInt();
                 if (
                         params[0] > 0
                         and params[1] > 0
@@ -119,9 +118,16 @@ int main(int argc, char* argv[]) {
             case CNN_RELU:
                 RELU(helper, 0);
                 break;
+            case CNN_MRELU:
+                sz = helper->ReadInt();
+                RELU(helper, nullptr, sz);
+                break;
             case CNN_DRLU:
                 DRELU(helper, 0);
                 break;
+            case CNN_MDRLU:
+                sz = helper->ReadInt();
+                DRELU(helper, nullptr, sz);
             case CNN_CL:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
@@ -129,21 +135,14 @@ int main(int argc, char* argv[]) {
                 params[3] = helper->ReadInt();
                 params[4] = helper->ReadInt();
                 params[5] = helper->ReadInt();
-                CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5]);
+                params[6] = helper->ReadInt();
+                CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5], params[6]);
                 break;
             case CNN_FCL:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt(); //TODO this can be calculated here.
                 params[2] = helper->ReadInt();
                 FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
-                break;
-            case CNN_MRELU:
-                size1 = helper->ReadInt();
-                RELU(helper, nullptr, size1);
-                break;
-            case CNN_MDRLU:
-                size1 = helper->ReadInt();
-                DRELU(helper, nullptr, size1);
                 break;
             case RKN_GM2KM:
                 n_gms = helper->ReadInt();

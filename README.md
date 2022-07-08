@@ -17,13 +17,13 @@ If you already have a local version of this repository without submodules, use t
 #### helper
 
 ```bash
-c++ -std=gnu++17 -pthread -W -O3 examples/auroc/proxy.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h examples/auroc/llib.h -o proxy_auroc
+c++ -std=gnu++17 -pthread -W -O3 apps/proxy.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h examples/auroc/llib.h -o proxy_auroc
 ```
 
 #### proxy
 
 ```bash
-c++ -std=gnu++17 -pthread -W -O3 examples/auroc/helper.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h -o helper_auroc
+c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h -o helper_auroc
 ```
 
 ### AUROC WITH TIE
@@ -37,7 +37,7 @@ c++ -std=gnu++17 -pthread -W -O3 examples/auroctie/proxy.cpp core/Party.cpp core
 #### proxy
 
 ```bash
-c++ -std=gnu++17 -pthread -W -O3 examples/auroctie/helper.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h -o helper_auroctie
+c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h -o helper_auroctie
 ```
 
 ### AUPRC
@@ -51,7 +51,7 @@ c++ -std=gnu++17 -pthread -W -O3 examples/aupr/proxy.cpp core/Party.cpp core/Par
 #### proxy
 
 ```bash
-c++ -std=gnu++17 -pthread -W -O3 examples/aupr/helper.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h -o helper_aupr
+c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h -o helper_aupr
 ```
 
 ## Usage

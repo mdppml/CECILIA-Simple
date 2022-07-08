@@ -539,17 +539,75 @@ void MDRLU_Test(Party *proxy){
 
 }
 
-void CL_Test(Party *proxy){
-    cout<<setfill ('*')<<setw(50)<<"Calling CL (convolutional layer)";
+
+void PAD_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling PAD (padding)";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
     uint32_t row = 5;
     uint32_t col = 5;
+    uint32_t padding_value = 0;
+    uint32_t padding_size = 2;
+    uint64_t** x = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
+
+    print2DArray("Original matrix: ", convert2double(REC(proxy, x, row, col), row, col), row, col);
+
+    uint64_t** padded = PAD(x, row, col, padding_value, padding_size);
+    double** rec_padded = convert2double(REC(proxy, padded, row+2*padding_size, col+2*padding_size), row+2*padding_size, col+2*padding_size);
+
+    double** computed_padding = new double *[row + 2*padding_size];
+    for (uint32_t p = 0; p<padding_size; p++){
+        computed_padding[p] = new double [col + 2*padding_size];
+        computed_padding[p + padding_size + row] = new double [col + 2*padding_size];
+
+        for(uint32_t c = 0; c<(col + 2*padding_size); c++){
+            computed_padding[p][c] = padding_value;                      //top
+            computed_padding[p + padding_size + row][c] = padding_value; //bottom
+        }
+    }
+    for(uint64_t r = 0; r < row; r++){
+        computed_padding[padding_size + r] = new double [col + 2*padding_size];
+        for(uint32_t p = 0; p<padding_size;p++){
+            computed_padding[padding_size + r][p] = padding_value;
+            computed_padding[padding_size + r][padding_size + col + p] = padding_value;
+        }
+        for(uint32_t c = 0; c<col; c++) {
+            computed_padding[padding_size + r][c + padding_size] = convert2double(REC(proxy, x[r][c]));
+        }
+    }
+
+    // checking the result
+    bool allCorrect = true;
+    for (int i = 0; i < (2 * padding_size + row); ++i) {
+        for (int j = 0; j < (2 * padding_size + col); ++j) {
+            if (abs(computed_padding[i][j] - rec_padded[i][j]) > 0.0001){
+                allCorrect = false;
+            }
+        }
+    }
+    if(allCorrect){
+        cout<<"PAD works correctly"<<endl;
+    }
+    else{
+        cout<<"PAD works incorrectly" <<endl;
+        print2DArray("Computed Padding", rec_padded, row + 2*padding_size, col + 2*padding_size);
+        print2DArray("Correct Padding", computed_padding, row + 2*padding_size, col + 2*padding_size);
+    }
+
+}
+
+void CL_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling CL (convolutional layer)";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    uint32_t row = 28;
+    uint32_t col = 28;
     uint32_t i_channel = 3;
 
-    uint32_t k_number = 3;
-    uint32_t k_dim = 2;
-    uint32_t stride = 1;
+    uint32_t k_number = 16;
+    uint32_t k_dim = 5;
+    uint32_t stride = 2;
+    bool doMaxpooling = false;
     uint64_t*** x = new uint64_t **[i_channel];
     for(uint64_t i = 0; i<i_channel; i++){
         x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
@@ -570,7 +628,7 @@ void CL_Test(Party *proxy){
     mmaxParams[5] = stride; // stride
     proxy->SendBytes(CNN_CL, mmaxParams, 6);
 
-    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride);
+    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, doMaxpooling);
     uint64_t conv_size = floor((row - k_dim) / stride) + 1;
     uint64_t lastpos = row - k_dim + 1; // this is equal to conv_size if stride == 1
     uint64_t out_size = conv_size/2;
@@ -601,20 +659,25 @@ void CL_Test(Party *proxy){
                     relu = dot_product;
                 }
                 conv_unreduced[kern][r / stride][c / stride] = relu;
+                if(!doMaxpooling and abs(relu - reconstructed_conv[kern][r/stride][c/stride]) > 0.0001){
+                    allCorrect = false;
+                }
             }
         }
 
-        // MAXPOOL reduction for window size 2x2
-        computed_conv[kern] = new double *[out_size];
-        for(uint64_t r = 0; r<conv_size; r+=2){
-            computed_conv[kern][r / 2] = new double [out_size];
-            for(uint64_t c = 0; c<conv_size; c+=2){
-                double a = std::max(conv_unreduced[kern][r][c], conv_unreduced[kern][r][c+1]);
-                double b = std::max(conv_unreduced[kern][r+1][c], conv_unreduced[kern][r+1][c+1]);
-                double m = std::max(a,b);
-                computed_conv[kern][r / 2][c / 2] = m;
-                if (abs(m - reconstructed_conv[kern][r/2][c/2]) > 0.0001){
-                    allCorrect = false;
+        if(doMaxpooling){
+            // MAXPOOL reduction for window size 2x2
+            computed_conv[kern] = new double *[out_size];
+            for(uint64_t r = 0; r<conv_size; r+=2){
+                computed_conv[kern][r / 2] = new double [out_size];
+                for(uint64_t c = 0; c<conv_size; c+=2){
+                    double a = std::max(conv_unreduced[kern][r][c], conv_unreduced[kern][r][c+1]);
+                    double b = std::max(conv_unreduced[kern][r+1][c], conv_unreduced[kern][r+1][c+1]);
+                    double m = std::max(a,b);
+                    computed_conv[kern][r / 2][c / 2] = m;
+                    if (abs(m - reconstructed_conv[kern][r/2][c/2]) > 0.0001){
+                        allCorrect = false;
+                    }
                 }
             }
         }
@@ -648,22 +711,11 @@ void FCL_Test(Party *proxy){
 
     uint64_t*** x = new uint64_t **[i_channel];
     for(uint64_t i = 0; i<i_channel; i++){
-        //x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
-        x[i] = new uint64_t *[row];
-        for (int j = 0; j < row; ++j) {
-            x[i][j] = new uint64_t [col];
-            for (int k = 0; k < col; ++k) {
-                x[i][j][k] = proxy->createShare((i+1)*(j*col + k));
-            }
-        }
+        x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
     }
     uint64_t** weights = new uint64_t *[i_nodes];
     for(uint32_t i = 0; i<i_nodes; i++){
-        //weights[i] = proxy->createShare(random_1D_data(proxy, o_nodes, -5.0, 5.0), o_nodes);
-        weights[i] = new uint64_t [o_nodes];
-        for (int j = 0; j < o_nodes; ++j) {
-            weights[i][j] = proxy->createShare(i*i_nodes + j);
-        }
+        weights[i] = proxy->createShare(random_1D_data(proxy, o_nodes, -5.0, 5.0), o_nodes);
     }
     // send params
     uint32_t mmaxParams[3];
@@ -2001,9 +2053,10 @@ int main(int argc, char* argv[]) {
 
     INC_Test(proxy);
     ADD_Test(proxy);
-    CL_Test(proxy);*/
+    CL_Test(proxy);
     FLT_Test(proxy);
-    FCL_Test(proxy);
+    FCL_Test(proxy);*/
+    PAD_Test(proxy);
 
     /*EXP_Test(proxy);
     MEXP_Test(proxy);
