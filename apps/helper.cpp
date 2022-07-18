@@ -128,6 +128,7 @@ int main(int argc, char* argv[]) {
             case CNN_MDRLU:
                 sz = helper->ReadInt();
                 DRELU(helper, nullptr, sz);
+                break;
             case CNN_CL:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
@@ -136,12 +137,13 @@ int main(int argc, char* argv[]) {
                 params[4] = helper->ReadInt();
                 params[5] = helper->ReadInt();
                 params[6] = helper->ReadInt();
-                CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5], params[6]);
+                CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5], params[6],
+                   nullptr);
                 break;
             case CNN_FCL:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
-                FCL(helper, nullptr, params[0], nullptr, params[1]);
+                FCL(helper, nullptr, params[0], nullptr, params[1], nullptr);
                 break;
             case RKN_GM2KM:
                 n_gms = helper->ReadInt();

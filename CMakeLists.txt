@@ -19,7 +19,7 @@ add_executable(helper apps/helper.cpp)
 #add_executable(proxy_aupr apps/aupr/proxy.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES} core/auc.h)
 
 add_executable(helper_cnn apps/cnn/helper.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES} apps/cnn/model_parser.h )
-add_executable(proxy_cnn apps/cnn/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES} apps/cnn/model_parser.h )
+add_executable(proxy_cnn apps/cnn/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES} apps/cnn/model_parser.h apps/cnn/mnist/mnist_reader.hpp apps/cnn/mnist/mnist_reader_common.hpp apps/cnn/mnist/mnist_utils.hpp)
 
 add_executable(proxy_test apps/test/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
 

@@ -842,17 +842,17 @@ uint64_t ** PAD(uint64_t** input, uint32_t rows, uint64_t cols, uint64_t padding
             padded_input[padding_size + rows + i][pos] = padding_value;
         }
     }
-    for(uint32_t i = 0; i<rows; i++){
-        padded_input[i+padding_size] = new uint64_t[padded_row_length];
-        /*memset(padded_input[i+padding_size], padding_value, padding_size * sizeof(uint64_t));                     // left padding
-        memcpy(padded_input[i+padding_size], input[i], rows * sizeof(uint64_t));                      // copy values
-        memset(padded_input[i+padding_size]+ padding_size + cols, padding_value, padding_size * sizeof(uint64_t));   // right padding*/
+    for(uint32_t r = 0; r < rows; r++){
+        padded_input[r + padding_size] = new uint64_t[padded_row_length];
+        /*memset(padded_input[r+padding_size], padding_value, padding_size * sizeof(uint64_t));                     // left padding
+        memcpy(padded_input[r+padding_size], input[r], rows * sizeof(uint64_t));                      // copy values
+        memset(padded_input[r+padding_size]+ padding_size + cols, padding_value, padding_size * sizeof(uint64_t));   // right padding*/
         for(uint32_t pos = 0; pos < padding_size; pos++){                               // left and right padding
-            padded_input[padding_size + i][pos] = padding_value;
-            padded_input[padding_size + i][padding_size + cols + pos] = padding_value;
+            padded_input[padding_size + r][pos] = padding_value;
+            padded_input[padding_size + r][padding_size + cols + pos] = padding_value;
         }
-        for(uint32_t pos = 0; pos < cols; pos++){                               // copy values
-            padded_input[padding_size + i][padding_size + pos] = input[i][pos];
+        for(uint32_t c = 0; c < cols; c++){                               // copy values
+            padded_input[padding_size + r][padding_size + c] = input[r][c];
         }
     }
     return padded_input;
@@ -880,10 +880,14 @@ uint64_t ** PAD(uint64_t** input, uint32_t rows, uint64_t cols, uint64_t padding
  * the sum of the single multiplications between input and kernel of same channel number.
  * @param stride step size of each kernel to shift per iteration; must be > 0
  * @param doMaxpooling indicates if after Relu activation, maxpooling shall be performed.
+ * @param bias vector of length output_channel. For each kernel there is one bias value which is added to every value of the according output_channel.
  * @return Output of the input convoluted by the given kernels.
- *         Output size will be: number with Z = floor((28 - 5)/stride) + 1
+ *         Shape of output will be: h x w x c with
+ *         h = floor((i_height - k_dim)/stride) + 1 if doMaxpooling is false; otherwise h = floor((i_height - k_dim + 1)/(2*stride))
+ *         w = floor((i_weight - k_dim)/stride) + 1 if doMaxpooling is false; otherwise w = floor((i_weight - k_dim + 1)/(2*stride))
+ *         c = output_channel
  */
-uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, bool doMaxpooling){
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, bool doMaxpooling, uint64_t* bias){
     uint32_t k_size = k_dim * k_dim;
     uint32_t conv_width = static_cast<uint32_t>(floor((i_width - k_dim) / stride) + 1);
     uint32_t conv_height = static_cast<uint32_t>(floor((i_height - k_dim) / stride) + 1);
@@ -905,6 +909,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
 
             // sum up the channel results to obtain one output_channel for all input channel
             uint64_t* summed_channel_conv = ADD(proxy, conv_result, i_channel, conv_len);
+
             // ACTIVATION:
             uint64_t* conv_activated = new uint64_t [conv_len];
             // ReLU
@@ -922,7 +927,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
             for (uint32_t row = 0; row < out_width; row++) {
                 conv_layer[k][row] = new uint64_t[out_height];
                 for (uint32_t col = 0; col < out_width; col++) {
-                    conv_layer[k][row][col] = conv_activated[row * out_height + col];
+                    conv_layer[k][row][col] = conv_activated[row * out_height + col] + bias[k];
                 }
             }
         }
@@ -988,15 +993,17 @@ uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t w
 
 
 /**
- * Implements functionality of a fully connected layer (FCL) TODO which activation?
+ * Implements functionality of a fully connected layer (FCL) with ReLU as activation function.
  * @param proxy
  * @param input the input vector of length in_size to be fully connected to the output nodes.
  * @param in_size length of the input vector (when previous layer is a convolutional layer, use the Flattening method FLT before)
  * @param weights to be used must be of shape in_size x node_number as provided by Chameleon files
  * @param node_number number of output nodes of this layer
- * @return the output layer that have been computed by using the dot product between input values and weights. It will be of length node_number.
+ * @param bias vector of length node_number. For each output node there is one bias value which is added.
+ * @return the output layer that have been computed by using the dot product between input values and weights,
+ * activated with ReLu and the according bias added. It will be of length node_number.
  */
-uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weights, uint32_t node_number){
+uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weights, uint32_t node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
         uint64_t ** w = transpose(weights, node_number, in_size);
         uint64_t *output = new uint64_t [node_number];
@@ -1005,12 +1012,15 @@ uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weight
         for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
             output[node] = DP(proxy, input, w[node], in_size);
         }
+        uint64_t* relu = RELU(proxy, output, node_number);
+        output = ADD(proxy, relu, bias, node_number);
         return output;
     }
     else if (proxy->getPRole() == HELPER){
         for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
             DP(proxy, nullptr, nullptr, in_size);
         }
+        RELU(proxy, nullptr, node_number);
         return nullptr;
     }
     else{

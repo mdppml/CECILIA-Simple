@@ -24,6 +24,7 @@ const string initializer_id = "L=", input_id = "I=", dim_id = "dim_value:";
 
 using namespace std;
 string trim(string s, const char* ws=white_space);
+double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, bool flatten);
 
 /**
  * Get the model parameters of the model specified in the file at model_file_path
@@ -39,7 +40,7 @@ string trim(string s, const char* ws=white_space);
  * @param number_of_layer number of layer for which weights shall be parsed.
  * @return pointer to the 3D matrix holding the weights of all layer in 2D shape.
  */
-double*** getONNXParameters(const string model_file_path, vector<int> &dimensions, uint32_t number_of_layer){
+double*** getONNXParameters(const string& model_file_path, vector<int> &dimensions, uint32_t number_of_layer){
     double ***weights = new double **[2*number_of_layer+1];
     //read weights of each layer from model:
     fstream weights_file;
@@ -154,8 +155,8 @@ double*** getONNXParameters(const string model_file_path, vector<int> &dimension
  * The third dimension specifies the input channel.
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
-double**** getChameleonParameters(const string model_file_dir, uint32_t number_of_kernel, uint32_t i_channel){
-    double ****weights = new double ***[3]; // 1 CL, 2 FCL
+double**** getChameleonParameters(const string& model_file_dir, uint32_t number_of_kernel, uint32_t i_channel){
+    double ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
     string line;
 
     // convolutional layer:
@@ -196,73 +197,103 @@ double**** getChameleonParameters(const string model_file_dir, uint32_t number_o
     }
 
     // fully connected layer:
-    weights[1] = new double **[1]; // only one file
-    weights[1][0] = new double *[980];
-    fstream fc_weights_file;
     string file_path = model_file_dir + "ws_dense0" + file_ending;
-    fc_weights_file.open(file_path, ios::in);
+    weights[1] = parse2DParams(file_path, 980, 100, false);
 
-    if(fc_weights_file.is_open()){
-        // actual parsing
-        uint32_t col = 0;
-        uint32_t row = 0;
-        int valueEnd;
-        while (getline(fc_weights_file, line).good()){
-            weights[1][0][row] = new double [100];
-            line = trim(line);
-            // store values of this row in weights matrix
-            valueEnd = line.find(col_delim);
-            uint32_t valueStart = 0;
-            while (valueEnd != string::npos){
-                string value = line.substr(valueStart, valueEnd-valueStart);
-                weights[1][0][row][col] = stod(value);
-                valueStart = valueEnd+1;
-
-                valueEnd = line.find(col_delim, valueStart);
-                col++;
-            }
-            // last value not yet stored:
-            weights[1][0][row][col] = stod(line.substr(valueStart));
-            col = 0;
-            row++;
-        }
-        fc_weights_file.close();
-    }
-
-    weights[2] = new double **[1]; // only one file
-    weights[2][0] = new double *[100];
-    fstream fc_weights_file2;
     file_path = model_file_dir + "ws_dense1" + file_ending;
-    fc_weights_file2.open(file_path, ios::in);
+    weights[2] = parse2DParams(file_path, 100, 10, false);
 
-    if(fc_weights_file2.is_open()){
+    // bias
+    file_path = model_file_dir + "bs_conv0" + file_ending;
+    weights[3] = parse2DParams(file_path, 5, 1, true);
+
+    file_path = model_file_dir + "bs_dense0" + file_ending;
+    weights[4] = parse2DParams(file_path, 100, 1, true);
+
+    file_path = model_file_dir + "bs_dense1" + file_ending;
+    weights[5] = parse2DParams(file_path, 10, 1, true);
+
+    return weights;
+}
+/**
+ * Parse the parameters specified in a file, separated by col_delim.
+ * @param file_path path to the parameter file to be parsed
+ * @param rows number of rows expected to be parsed in this file. If the number of rows in the file exceeds this parameter, nullptr will be returned.
+ * @param cols number of cols expected to be parsed in this file. If the number of parameters per row in the file exceeds this parameter, nullptr will be returned.
+ * @param flatten defines if all parameters of the file shall be stored in a single row of the output.
+ * @return The parameters parsed from the given file or
+ * nullptr if rows or cols is smaller than the number of rows or number of parameters per row found in the file.
+ */
+double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, bool flatten) {
+    double *** params = new double **[1];
+    if(flatten){
+        params[0] = new double *[1];
+    }
+    else{
+        params[0] = new double *[rows];
+    }
+    fstream file_stream;
+    file_stream.open(file_path, ios::in);
+    string line;
+    if(file_stream.is_open()){
         // actual parsing
         uint32_t col = 0;
         uint32_t row = 0;
         int valueEnd;
-        while (getline(fc_weights_file2, line).good()){
-            weights[2][0][row] = new double [10];
+        while (getline(file_stream, line).good()){
             line = trim(line);
+            if(flatten){
+                if(col == 0){
+                    params[0][0] = new double [rows*cols];
+                }
+                if(cols > 1){
+                    valueEnd = line.find(col_delim);
+                    uint32_t valueStart = 0;
+                    while (valueEnd != string::npos){
+                        string value = line.substr(valueStart, valueEnd-valueStart);
+                        params[0][row][col] = stod(value);
+                        valueStart = valueEnd+1;
 
-            // store values of this row in weights matrix
-            valueEnd = line.find(col_delim);
-            uint32_t valueStart = 0;
-            while (valueEnd != string::npos){
-                string value = line.substr(valueStart, valueEnd-valueStart);
-                weights[1][0][row][col] = stod(value);
-                valueStart = valueEnd+1;
-
-                valueEnd = line.find(col_delim, valueStart);
-                col++;
+                        valueEnd = line.find(col_delim, valueStart);
+                        col++;
+                    }
+                    // last value not yet stored:
+                    params[0][row][col] = stod(line.substr(valueStart));
+                }
+                else if(cols == 1){
+                    // there is no col_delim to find
+                    uint32_t valueStart = 0;
+                    params[0][row][col] = stod(line);
+                    col++;
+                }
             }
-            // last value not yet stored:
-            weights[2][0][row][col] = stod(line.substr(valueStart));
-            col = 0;
-            row++;
+            else{
+                params[0][row] = new double [cols];
+                // store values of this row in weights matrix
+                valueEnd = line.find(col_delim);
+                uint32_t valueStart = 0;
+                while (valueEnd != string::npos){
+                    string value = line.substr(valueStart, valueEnd-valueStart);
+                    params[0][row][col] = stod(value);
+                    valueStart = valueEnd+1;
+
+                    valueEnd = line.find(col_delim, valueStart);
+                    col++;
+                }
+                // last value not yet stored:
+                params[0][row][col] = stod(line.substr(valueStart));
+
+                col = 0;
+                row++;
+                if(row > rows){
+                    cerr << "Rows found in file " << file_path << " exceeds number of rows expected (" << rows << ") !" << endl;
+                    return nullptr;
+                }
+            }
         }
-        fc_weights_file2.close();
+        file_stream.close();
     }
-    return weights;
+    return params;
 }
 
 // the following is derived from here: https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
@@ -285,7 +316,6 @@ string trim(string s, const char* ws)
 {
     return ltrim(rtrim(s, ws), ws);
 }
-
 
 
 #endif //CECILIA_MODEL_PARSER_H

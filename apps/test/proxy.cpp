@@ -604,10 +604,10 @@ void CL_Test(Party *proxy){
     uint32_t col = 28;
     uint32_t i_channel = 3;
 
-    uint32_t k_number = 16;
-    uint32_t k_dim = 5;
+    uint32_t k_number = 5;
+    uint32_t k_dim = 7;
     uint32_t stride = 2;
-    bool doMaxpooling = false;
+    bool doMaxpooling = true;
     uint64_t*** x = new uint64_t **[i_channel];
     for(uint64_t i = 0; i<i_channel; i++){
         x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
@@ -616,35 +616,46 @@ void CL_Test(Party *proxy){
     for(uint32_t o = 0; o<k_number; o++){
         kernel[o] = proxy->createShare(random_2D_data(proxy, i_channel, k_dim * k_dim, -5, 5), i_channel, k_dim * k_dim);
     }
-    //print2DArray("Original X - First Channel: ", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
-    //print2DArray("Original First Kernel - All Channel: ", convert2double(REC(proxy, kernel[0], k_number, k_dim * k_dim), k_number, k_dim * k_dim), k_number, k_dim * k_dim);
+    uint64_t *bias = proxy->createShare(random_1D_data(proxy, k_number), k_number);
 
-    uint32_t params[6];
+    uint32_t params[7];
     params[0] = i_channel;
     params[1] = row;
     params[2] = col;
     params[3] = k_dim; // kernel size
     params[4] = k_number; // kernel number is also output channel
-    params[5] = stride; // stride
-    proxy->SendBytes(CNN_CL, params, 6);
-
-    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, doMaxpooling);
-    uint64_t conv_size = floor((row - k_dim) / stride) + 1;
+    params[5] = stride;
+    params[6] = doMaxpooling;
+    proxy->SendBytes(CNN_CL, params, 7);
+    cout << "call CL" << endl;
+    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, doMaxpooling, bias);
+    cout << "returned from CL" << endl;
+    uint64_t conv_size = floor((row - k_dim + 1) / stride);
     uint64_t lastpos = row - k_dim + 1; // this is equal to conv_size if stride == 1
-    uint64_t out_size = conv_size/2;
+    uint64_t out_size = conv_size;
+    if(doMaxpooling){
+        out_size = conv_size/2;
+    }
     double*** reconstructed_conv = new double **[k_number];
     for(uint64_t k = 0; k<k_number; k++){
         reconstructed_conv[k] = convert2double(REC(proxy, conv[k], out_size, out_size), out_size, out_size);
     }
+    double* rec_bias = convert2double(REC(proxy, bias, k_number), k_number);
 
     // checking the result
     double*** conv_unreduced = new double **[k_number]; // no reduction with MAX
-    double*** computed_conv = new double **[k_number];
+    double*** computed_conv = new double **[k_number];  // final result (same to conv_unreduced if doMaxpooling = false)
     bool allCorrect = true;
     for(uint64_t kern = 0; kern < k_number; kern++){    // for each output channel
         conv_unreduced[kern] = new double *[conv_size];                // init kernels conv result
+        if(!doMaxpooling){
+            computed_conv[kern] = new double *[out_size];
+        }
         for(uint64_t r = 0; r<lastpos; r+=stride){
             conv_unreduced[kern][r / stride] = new double [conv_size];   // init row of conv result
+            if(!doMaxpooling){
+                computed_conv[kern][r/stride] = new double [out_size];
+            }
             for(uint64_t c = 0; c<lastpos; c+=stride){
                 double dot_product = 0;
                 for(uint64_t channel = 0; channel<i_channel; channel++){
@@ -652,22 +663,23 @@ void CL_Test(Party *proxy){
                         dot_product += convert2double(REC(proxy, x[channel][r + k_value/k_dim][c + k_value%k_dim])) * convert2double(REC(proxy, kernel[kern][channel][k_value]));
                     }
                 }
-
                 // Activation: RELU
                 double relu = 0;
                 if(dot_product > 0) {
                     relu = dot_product;
                 }
-                conv_unreduced[kern][r / stride][c / stride] = relu;
-                if(!doMaxpooling and abs(relu - reconstructed_conv[kern][r/stride][c/stride]) > 0.0001){
-                    allCorrect = false;
+                relu += rec_bias[kern];
+                conv_unreduced[kern][r / stride][c / stride] = relu; // does not matter if added here or after maxpool
+                if(!doMaxpooling){
+                    computed_conv[kern][r/stride][c/stride] = conv_unreduced[kern][r / stride][c / stride];
+                    if( abs(relu - reconstructed_conv[kern][r/stride][c/stride]) > 0.0001) {
+                        allCorrect = false;
+                    }
                 }
             }
         }
-
         if(doMaxpooling){
             // MAXPOOL reduction for window size 2x2
-            computed_conv[kern] = new double *[out_size];
             for(uint64_t r = 0; r<conv_size; r+=2){
                 computed_conv[kern][r / 2] = new double [out_size];
                 for(uint64_t c = 0; c<conv_size; c+=2){
@@ -711,6 +723,7 @@ void FCL_Test(Party *proxy){
 
     uint64_t* x = proxy->createShare(random_1D_data(proxy, i_nodes, 0.0, 255.0), i_nodes);
     uint64_t** weights = proxy->createShare(random_2D_data(proxy, i_nodes, o_nodes, -5.0, 5.0), i_nodes, o_nodes);
+    uint64_t *bias = proxy->createShare(random_1D_data(proxy, o_nodes), o_nodes);
 
     // send params
     uint32_t params[2];
@@ -718,20 +731,26 @@ void FCL_Test(Party *proxy){
     params[1] = o_nodes;
     proxy->SendBytes(CNN_FCL, params, 2);
 
-    uint64_t *res = FCL(proxy, x, i_nodes, weights, o_nodes);
+    uint64_t *res = FCL(proxy, x, i_nodes, weights, o_nodes, bias);
     double* reconstructed_res = convert2double(REC(proxy, res, o_nodes), o_nodes);
 
     // checking the result
     bool allCorrect = true;
     double *rec_input = convert2double(REC(proxy, x, i_nodes), i_nodes);
     double **rec_weights = convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes);
+    double* rec_bias = convert2double(REC(proxy, bias, o_nodes), o_nodes);
+
     double * original_res = new double [o_nodes];
     for(uint64_t o = 0; o<o_nodes; o++){
         double value = 0;
         for (int i = 0; i < i_nodes; ++i) {
             value += rec_input[i] * rec_weights[i][o];
         }
-        original_res[o] = value;
+        //ReLU activation
+        if(value < 0){
+            value = 0;
+        }
+        original_res[o] = value + bias[o];
         if (value - reconstructed_res[o] > 0.0001){
             allCorrect = false;
         }
@@ -2046,13 +2065,13 @@ int main(int argc, char* argv[]) {
     DIV_Test(proxy);
 
     INC_Test(proxy);
-    ADD_Test(proxy);
-    CL_Test(proxy);*/
-    FLT_Test(proxy); //TODO
+    ADD_Test(proxy);*/
+    CL_Test(proxy);/*
+    FLT_Test(proxy);
     FCL_Test(proxy);
     PAD_Test(proxy);
 
-    /*EXP_Test(proxy);
+    EXP_Test(proxy);
     MEXP_Test(proxy);
 
     DP_Test(proxy);

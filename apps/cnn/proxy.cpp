@@ -5,10 +5,23 @@
 #include <assert.h>
 #include "../../core/cnn.h"
 #include "model_parser.h"
+#include "mnist/mnist_reader.hpp"
 
 using namespace std;
 const string MODEL_DIR = "../../apps/cnn/model_files/";
 const string MINIONN_MODEL_FILE = "MiniONN.txt", CHAMELEON_MODEL_FILES = "Chameleon_CNN/";
+const string MNIST_DATA = "../../apps/cnn/mnist/";
+
+uint64_t layer_number;
+uint32_t i_number, i_channel, i_width, i_height;
+uint32_t k_number, k_dim;
+uint32_t stride, padding;
+uint32_t divisor;
+bool doMaxpool;
+uint32_t curr_layer;
+
+void resetParams(uint32_t mode, vector<int> params);
+void initParams(uint32_t mode);
 
 int main(int argc, char* argv[]) {
     if (argc < 6){
@@ -16,7 +29,6 @@ int main(int argc, char* argv[]) {
         cout << "Specify the Network Mode with the 6th parameter: 0 = CHAMELEON, 1 = MINIONN" << endl;
         return 1;
     }
-    cout << "start proxy" << endl;
     uint8_t role = atoi(argv[1]);
     uint16_t cport = atoi(argv[2]);
     string caddress(argv[3]);
@@ -41,60 +53,38 @@ int main(int argc, char* argv[]) {
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
     // parse model parameters
-    vector<int> d;
-    double**** model_weights;
-
-    // init input parameter --> all supported networks expect the same input shape.
-    uint32_t i_number = 10;
-    uint32_t i_channel = 1;
-    uint32_t i_width = 28;
-    uint32_t i_height = 28;
-    uint32_t k_number = 5;
-    uint32_t k_dim = 5;
-    uint32_t stride = 1;
-    uint32_t padding = 0;
-    bool doMaxpool = true;
-
-    uint32_t divisor = stride;
-    if(doMaxpool){
-        divisor *= 2;
-    }
+    vector<int> dimensions;
+    initParams(nn_mode);
+    double**** model_weights = new double ***[layer_number];
+    uint32_t* bias_dimensions = new uint32_t [layer_number];
     switch (nn_mode) {
         case 0:{
             cout << "CHAMELEON" << endl;
-            stride = 2;
-            divisor = stride;
-            doMaxpool = false;
-            padding = 2;
-            // this is a well defined CNN architecture trained for the MNIST dataset
-            model_weights = getChameleonParameters(MODEL_DIR + CHAMELEON_MODEL_FILES, k_number, i_channel);
+            model_weights = getChameleonParameters(MODEL_DIR + CHAMELEON_MODEL_FILES, 5, i_channel);
+            bias_dimensions[0] = 5;
+            bias_dimensions[1] = 100;
+            bias_dimensions[2] = 10;
+
             break;
         }
         case 1:{
             cout << "MINIONN" << endl;
-            model_weights[0] = getONNXParameters(MODEL_DIR + MINIONN_MODEL_FILE, d, 4); //TODO I dont know which weights belong to which kernel in one layer
-            uint64_t * weight_dims = new uint64_t [d.at(0)];
-            for (uint64_t i = 0; i<d.at(0); i++){
-                int w = d[i+1];
+            model_weights[0] = getONNXParameters(MODEL_DIR + MINIONN_MODEL_FILE, dimensions, layer_number);
+            uint64_t * weight_dims = new uint64_t [dimensions.at(0)];
+            for (uint64_t i = 0; i < dimensions.at(0); i++){
+                int w = dimensions[i + 1];
                 weight_dims[i] = convert2uint64(w);
             }
-            print1DArray("weight dimensions", convert2double(weight_dims, d.at(0)), d.at(0));
-            //print2DArray("model weights - layer 2: ", model_weights[0], d.at(1), d.at(2));
-            print2DArray("model weights - layer 3: ", model_weights[0][1], d.at(3), 1, 0);
-
-            uint32_t input_param_start = d.at(0)+1;
-            i_number = d.at(input_param_start);
-            i_channel = d.at(input_param_start + 1);
-            i_width = d.at(input_param_start + 2);
-            i_height = d.at(input_param_start + 2);
-            k_number = 5; //TODO
-            k_dim = 5;
+            //TODO weights are not clear
+            //TODO bias are unknown
+            print1DArray("weight dimensions", convert2double(weight_dims, dimensions.at(0)), dimensions.at(0));
+            //print2DArray("model weights - layer 2: ", model_weights[0], dimensions.at(1), dimensions.at(2));
+            print2DArray("model weights - layer 3: ", model_weights[0][1], dimensions.at(3), 1, 0);
+            resetParams(nn_mode, dimensions);
             break;
         }
         default:{
             cout << "No or unknown network has been specified. Use random weights to perform CNN inference for 3 convolutional layer and one fully connected layer" << endl;
-            k_number = 16;
-            model_weights = new double ***[4];
             // fill weights for convolutional layer
             for(uint32_t layer = 0; layer<3; layer++){
                 model_weights[layer] = new double **[k_number];
@@ -102,9 +92,7 @@ int main(int argc, char* argv[]) {
                     model_weights[layer][kernel] = random_2D_data(proxy, k_dim-layer, k_dim-layer, -5.0, 5.0);
                 }
                 k_number -= (layer + 1);
-                // layer 0 has 5 kernel: 5x5
-                // layer 1 has 4 kernel: 4x4 and
-                // layer 2 has 2 kernel: 3x3
+                // layer 0 has 5 kernel: 5x5    layer 1 has 4 kernel: 4x4 and   layer 2 has 2 kernel: 3x3
             }
             uint32_t in_fcl = (((((i_height - k_dim + 1) / divisor) - k_dim) / divisor) - k_dim - 1) / divisor;
             uint32_t out_fcl = 10;
@@ -114,123 +102,183 @@ int main(int argc, char* argv[]) {
             break;
         }
     }
-    //create shares
-    uint64_t*** data = new uint64_t** [i_channel]; //TODO read in real images
-    for(uint64_t i = 0; i<i_channel; i++){
-        data[i] = proxy->createShare(random_2D_data(proxy, i_height, i_width, 0.0, 255.0), i_height, i_width);
-    }
-    if(padding > 0){
-        for(uint32_t i = 0; i<i_channel; i++){
-            data[i] = PAD(data[i], i_height, i_width, 0, padding);
-        }
-        i_height += 2*padding;
-        i_width += 2*padding;
-    }
+    //read in MNIST data
+    mnist::MNIST_dataset<vector, vector<uint8_t>, uint8_t> dataset =
+            mnist::read_dataset<vector, vector, uint8_t, uint8_t>(MNIST_DATA);
 
-    uint64_t ***kernel = new uint64_t**[k_number];
+    vector<vector<unsigned char>> training = dataset.test_images;
+    uint64_t*** data = new uint64_t** [training.size()];
+    vector<unsigned char> label = dataset.test_labels;
+    for (uint32_t i = 0; i < training.size(); ++i) {
+        data[i] = new uint64_t *[i_height];
+        for (uint32_t r = 0; r < i_height; ++r) {
+            data[i][r] = new uint64_t [i_width];
+            for (uint32_t c = 0; c < i_width; ++c) {
+                double pixelValue = training.at(i).at(r*i_width + c);
+                data[i][r][c] = proxy->createShare(pixelValue);                 // store directly as secret shares
+            }
+        }
+    }
+    // secret shares of model parameter
+    uint64_t **bias = new uint64_t *[layer_number];
+    for (int layer = 0; layer < layer_number; ++layer) {
+        bias[layer] = proxy->createShare(model_weights[layer + 3][0][0], bias_dimensions[layer]);
+        //print1DArray("BIAS: ", convert2double(REC(proxy, bias[layer], bias_dimensions[layer]), bias_dimensions[layer]), bias_dimensions[layer]);
+    }
+    uint64_t ***kernel = new uint64_t**[k_number]; // weights of all kernel for first CL
     for (uint32_t i = 0; i < k_number; i++) {
         kernel[i] = proxy->createShare(model_weights[0][i], i_channel, k_dim*k_dim);
     }
 
     // CNN INFERENCE PIPELINE
-    /*uint32_t params[7];
-    params[0] = i_channel;
-    params[1] = i_height;
-    params[2] = i_width;
-    params[3] = k_dim; // kernel size
-    params[4] = k_number; // kernel number is also output channel
-    params[5] = stride; // stride
-    params[6] = doMaxpool;
-    proxy->SendBytes(CNN_CL, params, 7);*/
-
-    // PERFORMING CONVOLUTION
-    uint64_t*** conv = CL(proxy, data, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool);
-    i_channel = k_number;
-    //          size after conv         after maxpool divide by 2
-    i_height = ((i_height - k_dim) + 1) / divisor;
-    i_width = ((i_width - k_dim) + 1) / divisor;
-    //init what the architectures share for FCL:
-    uint32_t nodes_out;
-    uint32_t nodes_in = i_height*i_width*i_channel;
-
-    uint64_t* prev_layer_res;
-    uint64_t **weights = nullptr;
-    // from here on network architectures differ
-    switch (nn_mode) {
-        case 0:{
-            k_number = 1;
-            nodes_out = 100;
-            // FULLY CONNECTED LAYER
-            weights = proxy->createShare(model_weights[1][0], nodes_out, nodes_in);
-            uint64_t *flattened = FLT(conv, i_height, i_width, i_channel);
-            /*params[0] = nodes_in;
-            params[1] = nodes_out;
-            proxy->SendBytes(CNN_FCL, params, 2);*/
-            prev_layer_res = FCL(proxy, flattened, nodes_in, weights, nodes_out);
-
-            nodes_in = nodes_out;
-            i_channel = 1;
-            nodes_out = 10;
-            break;
-        }
-        case 1:{
-            // PERFORMING CONVOLUTION
-            kernel = new uint64_t**[k_number];
-            for (uint32_t i = 0; i < k_number; i++) {
-                kernel[i] = proxy->createShare(model_weights[1][i], i_channel, k_dim*k_dim);
+    for (uint32_t image = 0; image < i_number; ++image) {
+        resetParams(nn_mode, dimensions);
+        uint64_t *** input = new uint64_t **[i_channel];
+        if(padding > 0){
+            for(uint32_t i = 0; i<i_channel; i++){
+                input[i] = PAD(data[image], i_height, i_width, 0, padding);
             }
-            //TODO might be problematic if conv changes size...
-            conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool);
-            i_channel = k_number;
-            i_height = ((i_height - k_dim) + 1) / (stride*2);
-            i_width = ((i_width - k_dim) + 1) / (stride*2);
-            cout << "finished CL2 (MiniONN)" << endl;
-
-            // fully connected layer:
-            nodes_out = 100;
-            nodes_in = i_height * i_width * i_channel;
-            weights = proxy->createShare(model_weights[2][0], nodes_out, nodes_in);
-            prev_layer_res = FLT(conv, i_height, i_width, i_channel);
-            break;
+            i_height += 2*padding;
+            i_width += 2*padding;
         }
-        default:{
-            // random network: 2 more convolutions, then fully connected layer:
-            for (uint32_t c = 0; c<2; c++){
-                k_number -= (c+1);
-                k_dim -= 1;
+
+        // PERFORMING CONVOLUTION
+        uint64_t*** conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool, bias[curr_layer]);
+        i_channel = k_number;
+        //          size after conv
+        i_height = ((i_height - k_dim) + 1) / divisor;
+        i_width = ((i_width - k_dim) + 1) / divisor;
+        curr_layer++;
+
+        //init what the architectures share for FCL:
+        uint32_t nodes_out;
+        uint32_t nodes_in = i_height*i_width*i_channel;
+
+        uint64_t* prev_layer_res;
+        uint64_t **weights;
+
+        switch (nn_mode) {                              // from here on network architectures differ
+            case 0:{
+                k_number = 1;
+                nodes_out = 100;
+                // FULLY CONNECTED LAYER
+                weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
+                uint64_t *flattened = FLT(conv, i_height, i_width, i_channel);
+                prev_layer_res = FCL(proxy, flattened, nodes_in, weights, nodes_out, bias[curr_layer]);
+
+                curr_layer++;
+                nodes_in = nodes_out;
+                i_channel = 1;
+                nodes_out = 10;
+                break;
+            }
+            case 1:{
                 // PERFORMING CONVOLUTION
                 kernel = new uint64_t**[k_number];
                 for (uint32_t i = 0; i < k_number; i++) {
-                    kernel[i] = proxy->createShare(model_weights[c+1][i], i_channel, k_dim*k_dim);
+                    kernel[i] = proxy->createShare(model_weights[curr_layer][i], 1, k_dim*k_dim);
                 }
                 //TODO might be problematic if conv changes size...
-                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool);
+                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool, bias[curr_layer]);
                 i_channel = k_number;
                 i_height = ((i_height - k_dim) + 1) / (stride*2);
                 i_width = ((i_width - k_dim) + 1) / (stride*2);
-                cout << "finished CL" << c+2 << " (random mode)"<< endl;
+                cout << "finished CL2 (MiniONN)" << endl;
+
+                curr_layer++;
+                // fully connected layer:
+                nodes_out = 100;
+                nodes_in = i_height * i_width * i_channel;
+                weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
+                prev_layer_res = FLT(conv, i_height, i_width, i_channel);
+                break;
             }
-            // fully connected layer:
-            nodes_out = 10;
-            nodes_in = i_height * i_width * i_channel;
-            weights = proxy->createShare(model_weights[3][0], nodes_out, nodes_in);
-            prev_layer_res = FLT(conv, i_height, i_width, i_channel);
+            default:{
+                // random network: 2 more convolutions, then fully connected layer:
+                for (uint32_t c = 0; c<2; c++){
+                    k_number -= (c+1);
+                    k_dim -= 1;
+                    // PERFORMING CONVOLUTION
+                    kernel = new uint64_t**[k_number];
+                    for (uint32_t i = 0; i < k_number; i++) {
+                        kernel[i] = proxy->createShare(model_weights[curr_layer][i], i_channel, k_dim*k_dim);
+                    }
+                    //TODO might be problematic if conv changes size...
+                    conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool, bias[curr_layer]);
+                    i_channel = k_number;
+                    i_height = ((i_height - k_dim) + 1) / (stride*2);
+                    i_width = ((i_width - k_dim) + 1) / (stride*2);
+                    curr_layer++;
+                    cout << "finished CL" << curr_layer << " (random mode)"<< endl;
+                }
+                // fully connected layer:
+                nodes_out = 10;
+                nodes_in = i_height * i_width * i_channel;
+                weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
+                prev_layer_res = FLT(conv, i_height, i_width, i_channel);
+                break;
+            }
+        }
+        // FULLY CONNECTED LAYER
+        uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
+        uint64_t maxNode = MAX(proxy, output, nodes_out);
+        //TODO if MINIONN: do ASM(output[i]) = RELU(output[i])/RELU(output, nodes_out))
+        cout << "Recognized number " << convert2double(REC(proxy, maxNode)) << ": " << endl;
+        print1DArray("output", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
+        cout << "LABEL = " << to_string(label[image]) << endl;
+    }
+
+    proxy->PrintBytes();
+    return 0;
+}
+
+void initParams(uint32_t mode) {
+    layer_number = 4;
+    curr_layer = 0;
+    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
+    k_number = 5, k_dim = 5;
+    stride = 1;
+    padding = 0;
+    doMaxpool = true;
+    switch (mode) {
+        case 0:{
+            layer_number = 3;
+            stride = 2;
+            padding = 2;
+            doMaxpool = false;
+            // i_width and i_height are adjusted after padding is performed; all other parameters are not modified.
+            break;
+        }
+        default:{
+            k_number = 16;
             break;
         }
     }
-    // FULLY CONNECTED LAYER
-    /*params[0] = nodes_in;
-    params[1] = nodes_out;
-    proxy->SendBytes(CNN_FCL, params, 2);*/
-
-    uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out);
-
-    for(uint64_t n = 0; n<nodes_out; n++){
-        cout << "Node " << n << ": " << output[n] << endl;
+    divisor = stride;
+    if(doMaxpool){
+        divisor *= 2;
     }
+}
 
- //   proxy->SendBytes(CORE_END);
-    proxy->PrintBytes();
-    return 0;
+void resetParams(uint32_t mode, vector<int> params) {
+    i_channel = 1, i_width = 28, i_height = 28;
+    k_number = 5;
+    curr_layer = 0;
+    switch (mode) {
+        case 0: {
+            // i_width and i_height are adjusted after padding; all other parameters are not modified.
+            break;
+        }
+        case 1: {
+            uint32_t input_param_start = params.at(0) + 1;
+            i_width = params.at(input_param_start + 2);
+            i_height = params.at(input_param_start + 2);
+            break;
+        }
+        default: {
+            k_number = 16;
+            break;
+        }
+    }
 }
 
