@@ -3,4 +3,4 @@
 	url = https://gitlab.com/libeigen/eigen.git
 [submodule "dependencies/benchmark"]
 	path = dependencies/benchmark
-	url = git@github.com:google/benchmark.git
+	url = https://github.com/google/benchmark.git
