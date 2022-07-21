@@ -1,105 +1,150 @@
+//
+// Created by debora on 08.07.22.
+//
 #include <iostream>
 #include "../../core/core.h"
 #include "../../core/cnn.h"
+#include "model_parser.h"
+
+const string MODEL_DIR = "../../apps/cnn/model_files/";
+const string MINIONN_MODEL_FILE = "MiniONN.txt";
+
+uint32_t i_number, i_channel, i_width, i_height;
+uint32_t k_number, k_dim;
+uint32_t stride, padding;
+bool doMaxpool;
+uint32_t divisor;
+
+void resetParams(uint32_t mode, vector<int> params);
+void initParams(uint32_t mode);
 
 int main(int argc, char* argv[]) {
-    if (argc < 3){
-        cout << "Calling Helper without specifying address (1) and port (2) is not possible." << endl;
-        return -1;
+    if (argc != 4) {
+        clog << "Error: The program requires exactly two arguments; the IP address of the helper and the port it is listening on." << endl;
+        return 1;
     }
-    uint16_t port = atoi(argv[2]);
     string address(argv[1]);
+    uint16_t port = strtol(argv[2], nullptr, 10);
+    uint32_t nn_mode = atoi(argv[3]);
 
-    Party *helper = new Party(HELPER,port,address);
-    while (1){
-        int op = helper->ReadByte();
-        cout << "Operation: " << op << endl;
-        if (op == CNN_MAX){
-            int matrix_size = helper->ReadInt();
-            MAX(helper, 0, matrix_size);
+    auto *helper = new Party(HELPER,port,address);
+
+    // parse model parameters
+    vector<int> dimensions;
+    initParams(nn_mode);
+
+    for (int image = 0; image < i_number; ++image) {
+        resetParams(nn_mode, dimensions);
+
+        // CNN INFERENCE PIPELINE
+        // PERFORMING CONVOLUTION
+        CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, doMaxpool, nullptr);
+        i_channel = k_number;
+        //          size after conv         after maxpool divide by 2
+        i_height = ((i_height - k_dim) + 1) / divisor;
+        i_width = ((i_width - k_dim) + 1) / divisor;
+        //init what the architectures share for FCL:
+        uint32_t nodes_out;
+        uint32_t nodes_in = i_height * i_width * i_channel;
+
+        // from here on network architectures differ
+        switch (nn_mode) {
+            case 0: {
+                k_number = 1;
+                nodes_out = 100;
+                // FULLY CONNECTED LAYER
+                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+
+                nodes_in = nodes_out;
+                i_channel = 1;
+                nodes_out = 10;
+                break;
+            }
+            case 1: {
+                // PERFORMING CONVOLUTION
+                CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, doMaxpool, nullptr);
+                i_channel = k_number;
+                i_height = ((i_height - k_dim) + 1) / (stride * 2);
+                i_width = ((i_width - k_dim) + 1) / (stride * 2);
+
+                // fully connected layer:
+                nodes_out = 100;
+                nodes_in = i_height * i_width * i_channel;
+                break;
+            }
+            default: {
+                // random network: 2 more convolutions, then fully connected layer:
+                for (uint32_t c = 0; c < 2; c++) {
+                    k_number -= (c + 1);
+                    k_dim -= 1;
+                    // PERFORMING CONVOLUTION
+                    CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, doMaxpool,
+                       nullptr);
+                    i_channel = k_number;
+                    i_height = ((i_height - k_dim) + 1) / (stride * 2);
+                    i_width = ((i_width - k_dim) + 1) / (stride * 2);
+                    cout << "finished CL" << c + 2 << " (random mode)" << endl;
+                }
+                // fully connected layer:
+                nodes_out = 10;
+                nodes_in = i_height * i_width * i_channel;
+                break;
+            }
         }
-        else if (op == CNN_MMAX){
-            int mmaxParams = helper->ReadInt();
-            uint16_t mRows = (mmaxParams >> 48);
-            uint16_t mCols = (mmaxParams >> 32);
-            uint16_t window_size = (mmaxParams & 0b0000000011111111);
-            MAX(helper, nullptr, mRows, mCols, window_size);
-        }
-        else if (op == CNN_RELU){
-            RELU(helper,0);
-        }
-        else if (op == CNN_DRLU){
-            DRELU(helper,0);
-        }
-        else if (op == CNN_CL){
-            unsigned char *ptr = helper->getBuffer1();
-            Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
-            uint64_t params [4];
-            convert2Array(&ptr, &params[0], 4);
-            cout << "HELPER CL: i_dim = " << params[0] << ", k_dim= " << params[1] << ", k_number = " << params[2] << ", stride= " << params[3] << endl;
-            CL(helper, nullptr, params[0], nullptr, params[1], params[2], params[3]);
-            cout << "finished CL1" << endl;
-        }
-        else if (op == CNN_CL2){
-            cout << "operation CL2 received." << endl;
-            unsigned char *ptr = helper->getBuffer1();
-            Receive(helper->getSocketP2(), helper->getBuffer1(), 4 * 8);
-            uint64_t params [4];
-            convert2Array(&ptr, &params[0], 4);
-            cout << "HELPER CL2: i_dim = " << params[0] << ", i_number= " << params[1] << ", k_dim = " << params[2] << ", stride= " << params[3] << endl;
-            //CL(helper, nullptr, params[0], params[1], nullptr, params[2], params[3]);
-            cout << "finished CL2" << endl;
-        }
-        else if (op == CNN_FCL){
-            cout << "operation FCL received." << endl;
-            unsigned char *ptr = helper->getBuffer1();
-            Receive(helper->getSocketP2(), helper->getBuffer1(), 3 * 8);
-            uint64_t params [3];
-            convert2Array(&ptr, &params[0], 3);
-            cout << "HELPER FCL: i_dim = " << params[0] << ", i_number= " << params[1] << ", node_number = " << params[2] << endl;
-            FCL(helper, nullptr, params[0], params[1], nullptr, params[2]);
-        }
-        else if (op == CORE_MSB){
-            MSB(helper,0);
-        }
-        else if (op == CORE_MMSB){
-            int sz = helper->ReadInt();
-            MSB(helper,0,sz);
-        }
-        else if (op == CORE_MC){
-            MOC(helper,0);
-        }
-        else if (op == CORE_MMC){
-            int sz = helper->ReadInt();
-            MOC(helper,0,sz);
-        }
-        else if (op == CORE_CMP){
-            CMP(helper,0,0);
-        }
-        else if (op == CORE_MCMP){
-            int sz = helper->ReadInt();
-            CMP(helper,0,0,sz);
-        }else if (op == CORE_MUX){
-            MUX(helper,0, 0, 0);
-        }
-        else if (op == CORE_MMUX){
-            int sz = helper->ReadInt();
-            MUX(helper,0, 0, 0, sz);
-        }else if (op == CORE_MUL){
-            MUL(helper,0, 0);
-        }
-        else if (op == CORE_MMUL){
-            int sz = helper->ReadInt();
-            MUL(helper,0, 0, sz);
-        }
-        else if (op == CORE_DIV){
-            DIV(helper,0, 0);
-        }
-        else if (op == CORE_END) {
-            cout << "programm was ended. " << endl;
-            break;
-        }
+        // FULLY CONNECTED LAYER
+        FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+        MAX(helper, nullptr, nodes_out);
     }
     helper->PrintBytes();
     return 0;
+}
+
+void initParams(uint32_t mode) {
+    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
+    k_number = 5, k_dim = 5;
+    stride = 1;
+    padding = 0;
+    doMaxpool = true;
+    switch (mode) {
+        case 0:{
+            stride = 2;
+            padding = 2;
+            doMaxpool = false;
+            // i_width and i_height are adjusted after padding is performed; all other parameters are not modified.
+            break;
+        }
+        default:{
+            k_number = 16;
+            break;
+        }
+    }
+    divisor = stride;
+    if(doMaxpool){
+        divisor *= 2;
+    }
+}
+
+void resetParams(uint32_t mode, vector<int> params) {
+    i_channel = 1, i_width = 28, i_height = 28;
+    k_number = 5, k_dim = 5;
+    stride = 1;
+
+    switch (mode) {
+        case 0:{
+            i_height += 2 * padding;
+            i_width += 2 * padding;
+            stride = 2;
+            break;
+        }
+        case 1:{
+            uint32_t input_param_start = params.at(0)+1;
+            i_width = params.at(input_param_start + 2);
+            i_height = params.at(input_param_start + 2);
+            break;
+        }
+        default:{
+            k_number = 16;
+            break;
+        }
+    }
 }

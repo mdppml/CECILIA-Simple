@@ -7,7 +7,7 @@
 
 #include "core.h"
 #include "../utils/flib.h"
-#include "../Eigen/Eigen"
+#include "../dependencies/eigen/Eigen/Eigen"
 
 using namespace Eigen;
 

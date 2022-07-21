@@ -8,7 +8,8 @@
 #include <assert.h>
 #include "../../core/Party.h"
 #include "../../utils/parse_options.h"
-#include "llib.h"
+#include "../../utils/llib.h"
+#include "../../core/core.h"
 #include <sys/stat.h>
 #include <dirent.h>
 #include <algorithm>
@@ -106,7 +107,7 @@ void print_data(int nstation, uint64_t* sample_size, Party* proxy){
     for (int i=0;i<nstation;i++){
         cout<<"Station : "<<i<<endl;
         for(prediction n : c_data[i]) {
-            cout<<proxy->Reconstruct(n.val)<<"\t"<<proxy->Reconstruct(n.label)<<endl;
+            cout<< REC(proxy, n.val)<<"\t"<< REC(proxy, n.label)<<endl;
         }
     }
 }
