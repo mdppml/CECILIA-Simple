@@ -412,9 +412,9 @@ uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
         }
 
         uint64_t* e = new uint64_t [2*size]; // 2 shares per value to compute Relu for
-        uint8_t* f = new uint8_t[size];
-        uint8_t* g = new uint8_t[size];
-        uint8_t* h = new uint8_t[size];
+        int* f = new int[size];
+        int* g = new int[size];
+        int* h = new int[size];
         uint64_t* t = new uint64_t [size];
         for (uint64_t i = 0; i < size; i++){
             // create even random shares: store first all 'e_0', then all 'e_1'
@@ -440,11 +440,11 @@ uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
             z[j] = x[j] - d[j];
 
             // compute parts of a, b and c:
-            values[j*6] = proxy->getPRole() * f[j] * (K+1) - z[j];                  // a_0
-            values[j*6 + 1] = proxy->getPRole() * (1 - f[j]) * (K+1) - z[j];        // a_1
-            values[j*6 + 2] = (x[j] + e[j + g[j]*size]) * commonValues[j*4];        // b
-            values[j*6 + 3] = (e[j + h[j]*size]) * commonValues[j*4+1];             // c_0
-            values[j*6 + 4] = (e[j + (1-h[j])*size]) * commonValues[j*4+2];         // c_1
+            values[j*5] = proxy->getPRole() * f[j] * (K+1) - z[j];                  // a_0
+            values[j*5 + 1] = proxy->getPRole() * (1 - f[j]) * (K+1) - z[j];        // a_1
+            values[j*5 + 2] = (x[j] + e[j + g[j]*size]) * commonValues[j*3];        // b
+            values[j*5 + 3] = (e[j + h[j]*size]) * commonValues[j*3+1];             // c_0
+            values[j*5 + 4] = (e[j + (1-h[j])*size]) * commonValues[j*3+2];         // c_1
         }
         delete [] e;
         delete [] t;
@@ -466,15 +466,15 @@ uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
         for(uint64_t i = 0; i<size; i++) {
             uint64_t em;
             if (g[i] == h[i]) {
-                uint64_t r2_inverse = getModularInverse(commonValues[i*4 + 1]);
+                uint64_t r2_inverse = getModularInverse(commonValues[i*3 + 1]);
                 em = ac[i*4 + 2 * f[i]] * r2_inverse;
             } else {
-                uint64_t r3_inverse = getModularInverse(commonValues[i*4 + 2]);
+                uint64_t r3_inverse = getModularInverse(commonValues[i*3 + 2]);
                 em = ac[i*4 + 2 * f[i] + 1] * r3_inverse;
             }
 
-            uint64_t r0_inverse = getModularInverse(commonValues[i*4]);
-            uint64_t xm = ab[i*4 + f[i]] * r0_inverse - em;
+            uint64_t r0_inverse = getModularInverse(commonValues[i*3]);
+            uint64_t xm = ab[i*2 + f[i]] * r0_inverse - em;
             z[i] = x[i] - xm;
         }
         delete [] f;
@@ -493,7 +493,7 @@ uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
         uint64_t reconstructedVals[5*size];
         for (uint i = 0; i < 5*size; i++) {
             reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
-            if ((i % 6) < 2){
+            if ((i % 5) < 2){
                 reconstructedVals[i] /= (K+1);
             }
         }
@@ -501,18 +501,18 @@ uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
         uint64_t ab [2*size];
         uint64_t ac [4*size];
         for (uint i = 0; i < size; i++) {
-            ab[i*2] = reconstructedVals[i*6] * reconstructedVals[i*6 + 2]; // a_0 * b
-            ab[i*2 + 1] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 2]; // a_1 * b
+            ab[i*2] = reconstructedVals[i*5] * reconstructedVals[i*5 + 2]; // a_0 * b
+            ab[i*2 + 1] = reconstructedVals[i*5 + 1] * reconstructedVals[i*5 + 2]; // a_1 * b
 
-            ac[i*4] = reconstructedVals[i*6] * reconstructedVals[i*6 + 3]; // a_0 * c_0
-            ac[i*4 + 1] = reconstructedVals[i*6] * reconstructedVals[i*6 + 4]; // a_0 * c_1
-            ac[i*4 + 2] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 3]; // a_1 * c_0
-            ac[i*4 + 3] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 4]; // a_1 * c_1
+            ac[i*4] = reconstructedVals[i*5] * reconstructedVals[i*5 + 3]; // a_0 * c_0
+            ac[i*4 + 1] = reconstructedVals[i*5] * reconstructedVals[i*5 + 4]; // a_0 * c_1
+            ac[i*4 + 2] = reconstructedVals[i*5 + 1] * reconstructedVals[i*5 + 3]; // a_1 * c_0
+            ac[i*4 + 3] = reconstructedVals[i*5 + 1] * reconstructedVals[i*5 + 4]; // a_1 * c_1
         }
         // create fresh shares
         uint64_t share1 [6*size];
         uint64_t share2 [6*size];
-        uint64_t* tmp = convert2uint64(random_1D_data(proxy, 6*size), size);
+        uint64_t* tmp = convert2uint64(random_1D_data(proxy, 6*size), 6*size);
         for (uint i = 0; i < 2*size; i++) {
             share1[i] = tmp[i];
             share2[i] = ab[i] - tmp[i];
