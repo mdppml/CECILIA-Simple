@@ -811,7 +811,7 @@ uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t w
         stretched_input[c] = new uint64_t *[conv_width * conv_height];
         for(uint32_t row = 0; row < last_row_start; row += stride) {
             for(uint32_t col = 0; col < last_col_start; col += stride) {
-                uint32_t index = (row * conv_height + col);
+                uint32_t index = (row * conv_height + col)/stride;
                 stretched_input[c][index] = new uint64_t[k_size];
                 // shift kernel over all cols in according row
                 for (uint32_t l = 0; l < k_size; l++) {
@@ -917,7 +917,6 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     // stretch the input for vectorized MATVECMUL
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
-        //print2DArray("Stretched matrix for MATVECMUL", convert2double(REC(proxy, stretched_input[0], conv_len, k_size), conv_len, k_size), conv_len, k_size);
 
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
@@ -929,9 +928,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         uint64_t ***conv_layer = new uint64_t **[output_channel];
         for (uint32_t k = 0; k < output_channel; k++) {
             // multiply stretched_input with kernel (for all channel)
-            //print2DArray("kernel ", convert2double(REC(proxy, kernel[k], i_channel, k_size), i_channel, k_size), i_channel, k_size);
             uint64_t **conv_result = MATVECMUL(proxy, stretched_input, kernel[k], i_channel, conv_len, k_size);
-            print2DArray("MATVECMUL result", convert2double(REC(proxy,conv_result,1, conv_len),1, conv_len),1, conv_len);
             // sum up the channel results to obtain one output_channel for all input channel
             uint64_t* summed_channel_conv;
             if(i_channel == 1){
@@ -941,16 +938,15 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                 summed_channel_conv = ADD(proxy, conv_result, i_channel, conv_len);
             }
             // ACTIVATION:
-            cout << "RELU..." << endl;
             uint64_t* conv_activated = RELU(proxy, summed_channel_conv, conv_len);
             delete[] conv_result;
-            print1DArray("ReLU result", convert2double(REC(proxy,conv_activated, conv_len), conv_len), conv_len);
+            //TODO print1DArray("ReLU result", convert2double(REC(proxy,conv_activated, conv_len), conv_len), conv_len);
             delete[] summed_channel_conv;
             if (doMaxpooling){
                 // Maxpool:
                 cout << "MAX..." << endl;
                 conv_activated = MAX(proxy, conv_activated, conv_width, conv_height, 2);
-                print1DArray("MAX result", convert2double(REC(proxy,conv_activated, conv_len/2), conv_len/2), conv_len/2);
+                // TODO print1DArray("MAX result", convert2double(REC(proxy,conv_activated, conv_len/2), conv_len/2), conv_len/2);
             }
             // bring result in matrix shape
             conv_layer[k] = new uint64_t *[out_height];
@@ -969,12 +965,10 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     else if (proxy->getPRole() == HELPER){
         // convolution:
         for (uint32_t k = 0; k < output_channel; k++) {
-            cout << "MATVECMUL..." << endl;
             MATVECMUL(proxy, nullptr, nullptr, 0, i_channel * conv_len * k_size, 0);
 
             // ACTIVATION:
             // ReLU
-            cout << "RELU..." << endl;
             RELU(proxy, 0, conv_len);
             if(doMaxpooling){
                 // Maxpool:

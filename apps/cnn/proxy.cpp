@@ -198,9 +198,9 @@ int main(int argc, char* argv[]) {
         input[0] = data[image]; // currently only 1 channel for input supported
 
         // PERFORMING CONVOLUTION
-        print2DArray("input", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
-        print2DArray("KERNEL: ", convert2double(REC(proxy, kernel[0], i_channel, k_dim*k_dim), i_channel, k_dim*k_dim), i_channel, k_dim*k_dim);
-        print1DArray("BIAS: ", convert2double(REC(proxy, bias[curr_layer], bias_dimensions[curr_layer]), bias_dimensions[curr_layer]), bias_dimensions[curr_layer]);
+        //print2DArray("input", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
+        //print2DArray("KERNEL: ", convert2double(REC(proxy, kernel[0], i_channel, k_dim*k_dim), i_channel, k_dim*k_dim), i_channel, k_dim*k_dim);
+        //print1DArray("BIAS: ", convert2double(REC(proxy, bias[curr_layer], bias_dimensions[curr_layer]), bias_dimensions[curr_layer]), bias_dimensions[curr_layer]);
         uint64_t*** conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, doMaxpool, bias[curr_layer]);
         i_channel = k_number;
         //          size after conv
@@ -366,7 +366,7 @@ int main(int argc, char* argv[]) {
         //TODO if MINIONN: do ASM(output[i]) = RELU(output[i])/RELU(output, nodes_out))
         cout << "Recognized pos " << argmax << ": " << endl;
         cout << "Recognized number " << maxNode << ": " << endl;
-        print1DArray("output", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
+        //print1DArray("output", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
         cout << "LABEL = " << to_string(label[image]) << endl;
         //TODO calc accuracy instead of comparing with training label
     }

@@ -1856,7 +1856,6 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
             }
         }
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
-        cout << "recover vector" << endl;
         // recover the resulting vector
         uint64_t **res = new uint64_t*[n_matrices];
         uint32_t ind = 0;
@@ -1876,13 +1875,11 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
         delete[] concat_a;
         delete[] concat_b;
         delete[] tmp;
-        cout << "return from MATVECMUL" << endl;
         return res;
     }
     else if( p_role == HELPER) {
         // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
         MUL(proxy, NULL, NULL, a_row);
-        cout << "return from MATVECMUL" << endl;
         return NULL;
     }
     else {
