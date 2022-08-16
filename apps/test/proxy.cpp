@@ -2065,18 +2065,17 @@ int main(int argc, char* argv[]) {
     MUL_Test(proxy);
     MMUL_Test(proxy);
 
-
-    MOC_Test(proxy);
-    MMOC_Test(proxy);
+//    MOC_Test(proxy);
+//    MMOC_Test(proxy);
 
     MSB_Test(proxy);
     MMSB_Test(proxy);
 
-    CMP_Test(proxy);
-    MCMP_Test(proxy);
+//    CMP_Test(proxy);
+//    MCMP_Test(proxy);
 
-    MUX_Test(proxy);
-    MMUX_Test(proxy);
+//    MUX_Test(proxy);
+//    MMUX_Test(proxy);
 
     MAX_Test(proxy);
     MMAX_Test(proxy);
