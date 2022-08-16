@@ -333,6 +333,33 @@ void printValue(string const &str1, double x) {
     cout << "==============================================================" << endl;
 }
 
+
+void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, uint32_t m_col, uint32_t w_row,
+                            uint32_t w_col) {
+    cout << "======================= " << str1 << " =======================" << endl << endl;
+    for(uint32_t i = 0; i < m_row; i++) {
+        //delimiter between windows in horizontal direction
+        if(i % w_row == 0){
+            for(uint32_t d = 0; d < m_col; d++){
+                cout << " _ _ _ _ _ _ _ _";
+            }
+            cout << endl;
+        }
+        for(uint32_t j = 0; j < m_col; j++){
+            //delimiter between windows in vertical direction
+            if(j % w_col == 0){
+                cout << "|\t";
+            }
+            cout << matrix[i*m_col + j] << " \t " ;
+        }
+        cout << "|" << endl;
+    }
+    for(uint32_t d = 0; d < m_col; d++){
+        cout << " _ _ _ _ _ _ _ _";
+    }
+    cout << endl << "==============================================================" << endl;
+}
+
 // Matrix operations
 static double** multiply_matrices(double** m1, double** m2, int m1_row, int m1_col, int m2_col) {
     double tmp;

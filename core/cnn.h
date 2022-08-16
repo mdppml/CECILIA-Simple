@@ -5,43 +5,9 @@
 #ifndef PPAUC_CNN_H
 #define PPAUC_CNN_H
 
-uint64_t * FLT(uint64_t*** images, uint32_t i_dim, uint32_t i_number);
-uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t conv_height, uint32_t conv_width, uint32_t kernel_dim,
-                uint32_t stride);
-uint64_t ** transpose(uint64_t** matrix, uint32_t rows, uint32_t cols);
-
-
 #include "core.h"
 #include "../utils/flib.h"
 #include "bitset"
-
-
-void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, uint32_t m_col, uint32_t w_row,
-                             uint32_t w_col) {
-    cout << "======================= " << str1 << " =======================" << endl << endl;
-    for(uint32_t i = 0; i < m_row; i++) {
-        //delimiter between windows in horizontal direction
-        if(i % w_row == 0){
-            for(uint32_t d = 0; d < m_col; d++){
-                cout << " _ _ _ _ _ _ _ _";
-            }
-            cout << endl;
-        }
-        for(uint32_t j = 0; j < m_col; j++){
-            //delimiter between windows in vertical direction
-            if(j % w_col == 0){
-                cout << "|\t";
-            }
-            cout << matrix[i*m_col + j] << " \t " ;
-        }
-        cout << "|" << endl;
-    }
-    for(uint32_t d = 0; d < m_col; d++){
-        cout << " _ _ _ _ _ _ _ _";
-    }
-    cout << endl << "==============================================================" << endl;
-}
-
 
 /**
  * Vectorized subtraction: subtract elementwise b from a (a-b)
@@ -58,7 +24,6 @@ uint64_t* SUB(const uint64_t *a, const uint64_t *b, uint32_t length){
     }
     return subtractedValues;
 }
-
 
 /**
  * Resort (RST) the given matrix so that elements of one window are found as a sequence of w_rows*w_cols.
@@ -87,7 +52,7 @@ uint64_t* SUB(const uint64_t *a, const uint64_t *b, uint32_t length){
  * @param w_rows number of rows in window
  * @param resortedMatrix pointer to the resulting resorted Matrix, which will have length of m_cols * m_rows
  *
- * CAUTION: can not process matrices greater than a size of xx by now.  TODO find out the max size
+ * CAUTION: only matrices up to a size of 9000 x 9000 can be granted to be processed.
  */
 void RST(const uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
     uint32_t winSize = w_cols * w_rows;
@@ -120,7 +85,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
      * comparing each value to its counterpart at the same position in the other half.
      * If size of the given matrix is odd, there will be a residue, which is stored in residue.
      */
-    uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX and its divided by 2 is size of each half.
+    uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX.
     bool isResidueStored = false;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t *maxElements = mShare;
@@ -132,10 +97,8 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
         while (cmpVectorSize > 1) {
             uint32_t halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
 
-            for (uint32_t i = 0; i < halfSize; i++){
-                firstHalf[i] = maxElements[i];
-                secondHalf[i] = maxElements[i + halfSize];
-            }
+            memcpy(firstHalf, maxElements, halfSize*sizeof(maxElements[0]));
+            memcpy(secondHalf, &maxElements[halfSize], halfSize*sizeof(maxElements[0]));
             if (cmpVectorSize & 0x1) {                          //there is a residue remaining
                 if (isResidueStored) {                          //second residue found --> add stored and current residue to one half each.
                     halfSize++;                                 //each half of window increases size by 1 because of residues
@@ -146,7 +109,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
                     residue = *(firstHalf + cmpVectorSize - 1); // store last element in residue
                 }
             }
-            if (halfSize > 0) {                                 // maximums are not yet found
+            if (halfSize > 0) {                                 // maximums not yet found
                 //compare: a-b =c and then MSB(c) =d
                 uint64_t *c = SUB(firstHalf, secondHalf, halfSize);
                 uint64_t *d = MSB(proxy, c, halfSize);
@@ -213,7 +176,6 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
     uint32_t numberOfWins;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t *resorted = new uint64_t [matrix_size];                // RESORT matrix to have all values of a window subsequently
-        // only rows calculated because always complete rows of windows are processed
         RST(mShare, m_cols, m_rows, window_size, window_size, resorted);
         numberOfWins = matrix_size / window_length;
         uint64_t *maxElements = new uint64_t [numberOfWins];
@@ -255,10 +217,8 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
                     }
                 }
                 uint64_t vHalfIndex = i * halfSize;         // index at which values of window i are to be stored.
-                for (uint32_t j = 0; j < halfSize; j++) {   // splitting the windows on firstHalf and secondHalf
-                    firstHalf[vHalfIndex + j] = *(currWindowStart + j);
-                    secondHalf[vHalfIndex + j] = *(currWindowMiddle + j);
-                }
+                memcpy(&firstHalf[vHalfIndex], currWindowStart, halfSize*sizeof(resorted[0]));
+                memcpy(&secondHalf[vHalfIndex], currWindowMiddle, halfSize*sizeof(resorted[0]));
             }
             if (comparisons > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
@@ -274,6 +234,7 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
         for (uint32_t m = 0; m < numberOfWins; m++){
             maxElements[m] = resorted[m];
         }
+        delete [] resorted;
         return maxElements;
     }
     else if ( proxy->getPRole() == HELPER) {
@@ -311,14 +272,14 @@ uint64_t* MAX(Party* proxy, uint64_t *mShare, uint32_t m_rows, uint32_t m_cols, 
 /**
  * Method for private computation of the RELU function.
  * @param proxy
- * @param x - variable x for which to compute RELU(x)
+ * @param x - secret share of variable x for which to compute RELU(x)
  * @return
  */
 uint64_t RELU(Party* proxy, uint64_t x){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
 
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t commonValues[4];
+        uint64_t commonValues[3];
         for (unsigned long & commonValue : commonValues) {
             commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
         }
@@ -339,97 +300,94 @@ uint64_t RELU(Party* proxy, uint64_t x){
         uint64_t z = x - d;
 
         // compute parts of a, b and c:
-        uint64_t values[6];
+        uint64_t values[5];
         values[0] = proxy->getPRole() * f * (K+1) - z;                  // a_0
         values[1] = proxy->getPRole() * (1 - f) * (K+1) - z;            // a_1
-        values[2] = (x + e[g]) * commonValues[0];                       // b_0
-        values[3] = (x + e[1 - g]) * commonValues[1];                   // b_1
-        values[4] = (e[h]) * commonValues[2];                           // c_0
-        values[5] = (e[1 - h]) * commonValues[3];                       // c_1
+        values[2] = (x + e[g]) * commonValues[0];                       // b
+        values[3] = (e[h]) * commonValues[1];                           // c_0
+        values[4] = (e[1 - h]) * commonValues[2];                       // c_1
 
         // proxy sends a,b and c to HELPER:
         unsigned char *ptr_out = proxy->getBuffer1();
-        addVal2CharArray(values, &ptr_out, 6);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 6 * 8);
+        addVal2CharArray(values, &ptr_out, 5);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 5 * 8);
 
         // receive fresh share from helper
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(),
-                8 * 8); // order is ab[0], ab[1], ab[2], ab[3], ac[0], ac[1], ac[2], ac[3]
+                6 * 8); // order is ab[0], ab[1], ac[0], ac[1], ac[2], ac[3]
 
         ptr_out = proxy->getBuffer1();
-        uint64_t ab[4];
+        uint64_t ab[2];
         uint64_t ac[4];
-        convert2Array(&ptr_out, &ab[0], 4);
+        convert2Array(&ptr_out, &ab[0], 2);
         convert2Array(&ptr_out, &ac[0], 4);
 
         uint64_t em;
         if (g == h){
-            uint64_t r2_inverse = getModularInverse(commonValues[2]);
+            uint64_t r2_inverse = getModularInverse(commonValues[1]);
             em = ac[2*f] * r2_inverse;
         }else{
-            uint64_t r3_inverse = getModularInverse(commonValues[3]);
+            uint64_t r3_inverse = getModularInverse(commonValues[2]);
             em = ac[2*f+1] * r3_inverse;
         }
 
         uint64_t r0_inverse = getModularInverse(commonValues[0]);
-        uint64_t xm = ab[2*f] * r0_inverse - em;
+        uint64_t xm = ab[f] * r0_inverse - em;
         z = x - xm;
         return z;
     }
     else if (proxy->getPRole() == HELPER) {
-
-
         MOC(proxy, 0);
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 6 * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 6 * 8);
+        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 5 * 8);
+        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 5 * 8);
         unsigned char *ptr = proxy->getBuffer1();
         unsigned char *ptr2 = proxy->getBuffer2();
 
-        uint64_t reconstructedVals[6];
-        for (uint i = 0; i < 6; i++) {
+        uint64_t reconstructedVals[5];
+        for (uint i = 0; i < 5; i++) {
             reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
             // 6 values expected per party --> first two (a values) are reconstructed and divided by K
             if (i < 2){
                 reconstructedVals[i] /= (K+1);
             }
-
         }
         // reconstruct values a, b and c obtained from proxy 1 and 2
-        uint64_t ab [4];
+        uint64_t ab [2];
         uint64_t ac [4];
-        ab[0] = reconstructedVals[0] * reconstructedVals[2]; // a_0 * b_0
-        ab[1] = reconstructedVals[0] * reconstructedVals[3]; // a_0 * b_1
-        ab[2] = reconstructedVals[1] * reconstructedVals[2]; // a_1 * b_0
-        ab[3] = reconstructedVals[1] * reconstructedVals[3]; // a_1 * b_1
+        ab[0] = reconstructedVals[0] * reconstructedVals[2]; // a_0 * b
+        ab[1] = reconstructedVals[1] * reconstructedVals[2]; // a_1 * b
 
-        ac[0] = reconstructedVals[0] * reconstructedVals[4]; // a_0 * c_0
-        ac[1] = reconstructedVals[0] * reconstructedVals[5]; // a_0 * c_1
-        ac[2] = reconstructedVals[1] * reconstructedVals[4]; // a_1 * c_0
-        ac[3] = reconstructedVals[1] * reconstructedVals[5]; // a_1 * c_1
+        ac[0] = reconstructedVals[0] * reconstructedVals[3]; // a_0 * c_0
+        ac[1] = reconstructedVals[0] * reconstructedVals[4]; // a_0 * c_1
+        ac[2] = reconstructedVals[1] * reconstructedVals[3]; // a_1 * c_0
+        ac[3] = reconstructedVals[1] * reconstructedVals[4]; // a_1 * c_1
         //cout << "ab and ac are calculated" << endl;
 
         // create fresh shares
-        uint64_t share1 [8];
-        uint64_t share2 [8];
-        for (uint i = 0; i < 4; i++) {
-            uint64_t tmp = proxy->generateRandom();
-            share1[i] = tmp;
-            share2[i] = ab[i] - tmp;
+        uint64_t share1 [6];
+        uint64_t share2 [6];
 
+        uint64_t tmp = proxy->generateRandom();
+        share1[0] = tmp;
+        share2[0] = ab[0] - tmp;
+        tmp = proxy->generateRandom();
+        share1[1] = tmp;
+        share2[1] = ab[1] - tmp;
+        for (uint i = 0; i < 4; i++) {
             tmp = proxy->generateRandom();
-            share1[i+4] = tmp;
-            share2[i+4] = ac[i] - tmp;
+            share1[i+2] = tmp;
+            share2[i+2] = ac[i] - tmp;
         }
 
         // send shares to proxy 1 and 2
         unsigned char *ptr_back = proxy->getBuffer1();
         unsigned char *ptr_back2 = proxy->getBuffer2();
-        addVal2CharArray(share1, &ptr_back, 8);
-        addVal2CharArray(share2, &ptr_back2, 8);
+        addVal2CharArray(share1, &ptr_back, 6);
+        addVal2CharArray(share2, &ptr_back2, 6);
 
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8 * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8 * 8);
+        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 6 * 8);
+        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 6 * 8);
 
         thr1.join();
         thr2.join();
@@ -447,17 +405,16 @@ uint64_t RELU(Party* proxy, uint64_t x){
  */
 uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
-
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t commonValues[4*size];
+        uint64_t commonValues[3*size];
         for (unsigned long & commonValue : commonValues) {
             commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
         }
 
         uint64_t* e = new uint64_t [2*size]; // 2 shares per value to compute Relu for
-        int* f = new int[size];
-        int* g = new int[size];
-        int* h = new int[size];
+        uint8_t* f = new uint8_t[size];
+        uint8_t* g = new uint8_t[size];
+        uint8_t* h = new uint8_t[size];
         uint64_t* t = new uint64_t [size];
         for (uint64_t i = 0; i < size; i++){
             // create even random shares: store first all 'e_0', then all 'e_1'
@@ -478,107 +435,112 @@ uint64_t* RELU(Party* proxy, uint64_t* x, uint64_t size){
         uint64_t* d = MOC(proxy, t, size);
 
         uint64_t* z = new uint64_t [size];
-        uint64_t values[6*size];
+        uint64_t values[5*size];
         for(uint64_t j = 0; j<size; j++){
             z[j] = x[j] - d[j];
 
             // compute parts of a, b and c:
             values[j*6] = proxy->getPRole() * f[j] * (K+1) - z[j];                  // a_0
             values[j*6 + 1] = proxy->getPRole() * (1 - f[j]) * (K+1) - z[j];        // a_1
-            values[j*6 + 2] = (x[j] + e[j + g[j]*size]) * commonValues[j*4];        // b_0
-            values[j*6 + 3] = (x[j] + e[j + (1-g[j])*size]) * commonValues[j*4+1];  // b_1
-            values[j*6 + 4] = (e[j + h[j]*size]) * commonValues[j*4+2];             // c_0
-            values[j*6 + 5] = (e[j + (1-h[j])*size]) * commonValues[j*4+3];         // c_1
+            values[j*6 + 2] = (x[j] + e[j + g[j]*size]) * commonValues[j*4];        // b
+            values[j*6 + 3] = (e[j + h[j]*size]) * commonValues[j*4+1];             // c_0
+            values[j*6 + 4] = (e[j + (1-h[j])*size]) * commonValues[j*4+2];         // c_1
         }
+        delete [] e;
+        delete [] t;
         // proxy sends a,b and c to HELPER:
         unsigned char *ptr_out = proxy->getBuffer1();
-        addVal2CharArray(values, &ptr_out, 6*size);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 6 * size * 8);
+        addVal2CharArray(values, &ptr_out, 5*size);
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 5 * size * 8);
 
         // receive fresh share from helper
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(),
-                8 * size * 8); // order is all (ab[0], ab[1], ab[2], ab[3]), then all (ac[0], ac[1], ac[2], ac[3])
+                6 * size * 8); // order is (ab[0], ab[1], then all (ac[0], ac[1], ac[2], ac[3])
 
         ptr_out = proxy->getBuffer1();
-        uint64_t ab[4*size];
+        uint64_t ab[2*size];
         uint64_t ac[4*size];
-        convert2Array(&ptr_out, &ab[0], 4*size);
+        convert2Array(&ptr_out, &ab[0], 2*size);
         convert2Array(&ptr_out, &ac[0], 4*size);
 
         for(uint64_t i = 0; i<size; i++) {
             uint64_t em;
             if (g[i] == h[i]) {
-                uint64_t r2_inverse = getModularInverse(commonValues[i*4 + 2]);
+                uint64_t r2_inverse = getModularInverse(commonValues[i*4 + 1]);
                 em = ac[i*4 + 2 * f[i]] * r2_inverse;
             } else {
-                uint64_t r3_inverse = getModularInverse(commonValues[i*4 + 3]);
+                uint64_t r3_inverse = getModularInverse(commonValues[i*4 + 2]);
                 em = ac[i*4 + 2 * f[i] + 1] * r3_inverse;
             }
 
             uint64_t r0_inverse = getModularInverse(commonValues[i*4]);
-            uint64_t xm = ab[i*4 + 2 * f[i]] * r0_inverse - em;
+            uint64_t xm = ab[i*4 + f[i]] * r0_inverse - em;
             z[i] = x[i] - xm;
         }
+        delete [] f;
+        delete [] g;
+        delete [] h;
         return z;
     }
     else if (proxy->getPRole() == HELPER) {
         MOC(proxy, 0, size);
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 6 * size * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 6 * size * 8);
+        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 5 * size * 8);
+        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 5 * size * 8);
         unsigned char *ptr = proxy->getBuffer1();
         unsigned char *ptr2 = proxy->getBuffer2();
 
-        uint64_t reconstructedVals[6*size];
-        for (uint i = 0; i < 6*size; i++) {
+        uint64_t reconstructedVals[5*size];
+        for (uint i = 0; i < 5*size; i++) {
             reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
-            // 6 values expected per party --> first two (a values) are reconstructed and divided by K
             if ((i % 6) < 2){
                 reconstructedVals[i] /= (K+1);
             }
-
         }
         // reconstruct values a, b and c obtained from proxy 1 and 2
-        uint64_t ab [4*size];
+        uint64_t ab [2*size];
         uint64_t ac [4*size];
         for (uint i = 0; i < size; i++) {
-            ab[i*4] = reconstructedVals[i*6] * reconstructedVals[i*6 + 2]; // a_0 * b_0
-            ab[i*4 + 1] = reconstructedVals[i*6] * reconstructedVals[i*6 + 3]; // a_0 * b_1
-            ab[i*4 + 2] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 2]; // a_1 * b_0
-            ab[i*4 + 3] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 3]; // a_1 * b_1
+            ab[i*2] = reconstructedVals[i*6] * reconstructedVals[i*6 + 2]; // a_0 * b
+            ab[i*2 + 1] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 2]; // a_1 * b
 
-            ac[i*4] = reconstructedVals[i*6] * reconstructedVals[i*6 + 4]; // a_0 * c_0
-            ac[i*4 + 1] = reconstructedVals[i*6] * reconstructedVals[i*6 + 5]; // a_0 * c_1
-            ac[i*4 + 2] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 4]; // a_1 * c_0
-            ac[i*4 + 3] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 5]; // a_1 * c_1
+            ac[i*4] = reconstructedVals[i*6] * reconstructedVals[i*6 + 3]; // a_0 * c_0
+            ac[i*4 + 1] = reconstructedVals[i*6] * reconstructedVals[i*6 + 4]; // a_0 * c_1
+            ac[i*4 + 2] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 3]; // a_1 * c_0
+            ac[i*4 + 3] = reconstructedVals[i*6 + 1] * reconstructedVals[i*6 + 4]; // a_1 * c_1
         }
         // create fresh shares
-        uint64_t share1 [8*size];
-        uint64_t share2 [8*size];
-        uint64_t* tmp = convert2uint64(random_1D_data(proxy, 8*size), size);
-        for (uint i = 0; i < 4*size; i++) {
+        uint64_t share1 [6*size];
+        uint64_t share2 [6*size];
+        uint64_t* tmp = convert2uint64(random_1D_data(proxy, 6*size), size);
+        for (uint i = 0; i < 2*size; i++) {
             share1[i] = tmp[i];
             share2[i] = ab[i] - tmp[i];
 
+            share1[i+2*size] = tmp[i+2*size];
+            share2[i+2*size] = ac[i] - tmp[i+2*size];
+
             share1[i+4*size] = tmp[i+4*size];
-            share2[i+4*size] = ac[i+4*size] - tmp[i+4*size];
+            share2[i+4*size] = ac[i + 2*size] - tmp[i+4*size];
         }
 
         // send shares to proxy 1 and 2
         unsigned char *ptr_back = proxy->getBuffer1();
         unsigned char *ptr_back2 = proxy->getBuffer2();
-        addVal2CharArray(share1, &ptr_back, 8*size);
-        addVal2CharArray(share2, &ptr_back2, 8*size);
+        addVal2CharArray(share1, &ptr_back, 6*size);
+        addVal2CharArray(share2, &ptr_back2, 6*size);
 
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 8 * size * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8 * size * 8);
+        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 6 * size * 8);
+        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 6 * size * 8);
 
         thr1.join();
         thr2.join();
+
         return nullptr;
     }
     return nullptr;
 }
+
 
 /**
  * Method for private computation of the derivative of the RELU function.
@@ -599,7 +561,6 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         K += 1; // increase K by 1 K is 2^63
         uint64_t d = MOC(proxy, t);
         uint64_t z = x - d;
-
 
         // compute parts of a:
         uint64_t values[exchangingBit];
@@ -676,6 +637,7 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint64_t size){
         }
 
         uint64_t* d = MOC(proxy, t, size);
+        delete [] t;
 
         uint64_t* z = new uint64_t [size];
         for (uint64_t counter = 0; counter < size; counter++){
@@ -692,6 +654,7 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint64_t size){
             c = floor(exBit / 2);
             values[exBit] = pRole * (1 - f[c]) * K - z[c];   // a_1
         }
+        delete [] f;
 
         // proxy sends a to HELPER:
         unsigned char *ptr = proxy->getBuffer1();
@@ -704,8 +667,12 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint64_t size){
 
         for (uint64_t c = 0; c < size; c++){
             z[c] = pRole - convert2Long(&ptr);
-            if (f[c])  // if f is 1  we get the next long value in the buffer.
+            if (f[c]) {  // if f is 1  we get the next long value in the buffer.
                 z[c] = pRole - convert2Long(&ptr);
+            }
+            else{// increase ptr so that not th accoriding a1 is read:
+                (*ptr)+=7;
+            }
         }
         return z;
     }
@@ -720,8 +687,6 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint64_t size){
 
         uint64_t reconstructedVals[exchangingBit];
         for (uint64_t v = 0; v < exchangingBit; v++) {
-            reconstructedVals[v] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
-            v++;
             reconstructedVals[v] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
         }
         //reassign buffer because ptr1 and ptr2 were incremented
@@ -741,6 +706,7 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint64_t size){
         thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
         thr1.join();
         thr2.join();
+        delete [] share;
 
         return nullptr;
     }
@@ -817,142 +783,8 @@ uint64_t DIV_BIT(Party* proxy, uint64_t a, uint64_t b) {
     return 0;
 }
 
-// LAYER FUNCTIONS:
-/**
- * Symmetric padding of the input matrix.
- * @param input matrix to be padded
- * @param rows number of rows in input
- * @param cols number of cols in input
- * @param padding_value value to be inserted for padding
- * @param padding_size number of padding_values to be inserted in each direction: top, bottom, right and left
- * @return the padded input matrix
- */
-uint64_t ** PAD(uint64_t** input, uint32_t rows, uint64_t cols, uint64_t padding_value, uint32_t padding_size){
-    uint32_t padded_row_length = 2*padding_size+cols;
-    uint32_t padded_col_length = 2*padding_size+rows;
+// LAYER HELPER FUNCTIONS:
 
-    uint64_t **padded_input = new uint64_t *[padded_col_length];
-    for (uint32_t i = 0; i<padding_size; i++){
-        padded_input[i] = new uint64_t [padded_row_length];
-        padded_input[padding_size + rows + i] = new uint64_t [padded_row_length];
-        //memset(padded_input[i], padding_value, padded_row_length * sizeof(uint64_t));           // top padding
-        //memset(padded_input[padding_size + rows + i], padding_value, padded_row_length * sizeof(uint64_t));    // bottom padding
-        for(uint32_t pos = 0; pos < padded_row_length; pos++){
-            padded_input[i][pos] = padding_value;
-            padded_input[padding_size + rows + i][pos] = padding_value;
-        }
-    }
-    for(uint32_t r = 0; r < rows; r++){
-        padded_input[r + padding_size] = new uint64_t[padded_row_length];
-        /*memset(padded_input[r+padding_size], padding_value, padding_size * sizeof(uint64_t));                     // left padding
-        memcpy(padded_input[r+padding_size], input[r], rows * sizeof(uint64_t));                      // copy values
-        memset(padded_input[r+padding_size]+ padding_size + cols, padding_value, padding_size * sizeof(uint64_t));   // right padding*/
-        for(uint32_t pos = 0; pos < padding_size; pos++){                               // left and right padding
-            padded_input[padding_size + r][pos] = padding_value;
-            padded_input[padding_size + r][padding_size + cols + pos] = padding_value;
-        }
-        for(uint32_t c = 0; c < cols; c++){                               // copy values
-            padded_input[padding_size + r][padding_size + c] = input[r][c];
-        }
-    }
-    return padded_input;
-}
-
-
-/**
- * Implements the function of a convolutional layer (CL) using ReLU as activation function
- * and then Maxpool with a 2x2 filter if according parameter is set.
- * The input is supposed to be in 3D shape such as images/matrices with one or several channel.
- * @param proxy
- * @param input data on which convolution is performed using the provided kernels.
- * Input has a shape of i_width x i_height x i_channel.
- * @param i_channel number of channels of the input; must be > 0
- * @param i_height size of input in the other dimension; must be > 0
- * @param i_width size of input in one dimension; must be > 0
- * @param kernel vector containing all kernel to be used for convolution.
- * The parameter kernel has shape output_channel * i_channel x k_dim * k_dim.
- * So each channel of a kernel is represented by a vector of length k_dim * k_dim.
- * The kernel's number of channels is defined by i_channel and all channel of a kernel are stored in 'kernel' sequentially.
- * Then all the channel of the next kernel follow.
- * @param k_dim dimension of the symmetric kernel; must be > 0
- * @param output_channel number of kernels with shape i_channel x k_dim x k_dim; must be > 0
- * For each kernel there will be one output channel in the result, where the value at the according location is
- * the sum of the single multiplications between input and kernel of same channel number.
- * @param stride step size of each kernel to shift per iteration; must be > 0
- * @param doMaxpooling indicates if after Relu activation, maxpooling shall be performed.
- * @param bias vector of length output_channel. For each kernel there is one bias value which is added to every value of the according output_channel.
- * @return Output of the input convoluted by the given kernels.
- *         Shape of output will be: h x w x c with
- *         h = floor((i_height - k_dim)/stride) + 1 if doMaxpooling is false; otherwise h = floor((i_height - k_dim + 1)/(2*stride))
- *         w = floor((i_weight - k_dim)/stride) + 1 if doMaxpooling is false; otherwise w = floor((i_weight - k_dim + 1)/(2*stride))
- *         c = output_channel
- */
-uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, bool doMaxpooling, uint64_t* bias){
-    uint32_t k_size = k_dim * k_dim;
-    uint32_t conv_width = static_cast<uint32_t>(floor((i_width - k_dim) / stride) + 1);
-    uint32_t conv_height = static_cast<uint32_t>(floor((i_height - k_dim) / stride) + 1);
-    uint32_t conv_len = conv_width * conv_height;
-
-    uint32_t out_width = conv_width;
-    uint32_t out_height = conv_height;
-    // stretch the input for vectorized MATVECMUL
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        uint64_t *** stretched_input = INC(input, i_channel, i_width, i_height, k_dim, stride);
-        //print2DArray("Stretched matrix for MATVECMUL", convert2double(REC(proxy, stretched_input[0], conv_len, k_size), conv_len, k_size), conv_len, k_size);
-
-        // convolution:
-        uint64_t ***conv_layer = new uint64_t **[output_channel];
-        for (uint32_t k = 0; k < output_channel; k++) {                          // for each kernel
-            // multiply stretched_input with kernel (for all channel)
-            uint64_t **conv_result = MATVECMUL(proxy, stretched_input, kernel[k], i_channel, conv_len, k_size);
-            //print2DArray("Result of MATVECMUL", convert2double(REC(proxy, conv_result, i_channel, conv_len), i_channel, conv_len), i_channel, conv_len);
-
-            // sum up the channel results to obtain one output_channel for all input channel
-            uint64_t* summed_channel_conv = ADD(proxy, conv_result, i_channel, conv_len);
-
-            // ACTIVATION:
-            uint64_t* conv_activated = new uint64_t [conv_len];
-            // ReLU
-            for (uint32_t i = 0; i < conv_len; i++) {
-                conv_activated[i] = RELU(proxy, summed_channel_conv[i]);
-            }
-            if (doMaxpooling){
-                out_height /= 2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
-                out_width /= 2;
-                // Maxpool:
-                conv_activated = MAX(proxy, conv_activated, conv_width, conv_height, 2);
-            }
-            // bring result in matrix shape
-            conv_layer[k] = new uint64_t *[out_height];
-            for (uint32_t row = 0; row < out_width; row++) {
-                conv_layer[k][row] = new uint64_t[out_height];
-                for (uint32_t col = 0; col < out_width; col++) {
-                    conv_layer[k][row][col] = conv_activated[row * out_height + col] + bias[k];
-                }
-            }
-        }
-        return conv_layer;
-    }
-    else if (proxy->getPRole() == HELPER){
-        // convolution:
-        for (uint32_t k = 0; k < output_channel; k++) {
-            MATVECMUL(proxy, nullptr, nullptr, 0, i_channel * conv_len * k_size, 0);
-
-            // ACTIVATION:
-            // ReLU
-            for (uint32_t i = 0; i < conv_len; i++) {
-                RELU(proxy, 0);
-            }
-            if(doMaxpooling){
-                // Maxpool:
-                MAX(proxy, nullptr, conv_width,  conv_height, 2);
-            }
-        }
-        return nullptr;
-    }
-    return nullptr;
-
-}
 /**
  *
  * Increase the size of input by stretching its values per channel so that
@@ -964,25 +796,25 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  * @param k_dim kernel dimension. Each kernel's channel holds k_dim * k_dim values in total.
  * @param stride step size of the kernels
  * @return the stretched input image with shape channel x conv_width*conv_height x k_dim*k_dim
- *         with conv_width = (width - k_dim)/stride + 1 and conv_height = (height - k_dim)/stride + 1
+ *         with conv_width = (width - k_dim + 1)/stride and conv_height = (height - k_dim + 1)/stride
  */
 uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t width, uint32_t k_dim,
                 uint32_t stride) {
     uint32_t k_size = k_dim * k_dim;
-    uint32_t conv_height = (height - k_dim)/stride + 1;
     uint32_t last_row_start = height - k_dim + 1;
     uint32_t last_col_start = width - k_dim + 1;
+    uint32_t conv_height = last_row_start/stride;
+    uint32_t conv_width = last_col_start/stride;
     // stretch the input for vectorized MATVECMUL
     uint64_t ***stretched_input = new uint64_t **[channel];
     for(uint32_t c = 0; c < channel; c++){
-        stretched_input[c] = new uint64_t *[height * width];
+        stretched_input[c] = new uint64_t *[conv_width * conv_height];
         for(uint32_t row = 0; row < last_row_start; row += stride) {
             for(uint32_t col = 0; col < last_col_start; col += stride) {
-                uint32_t index = (row * conv_height + col) / stride;
+                uint32_t index = (row * conv_height + col);
                 stretched_input[c][index] = new uint64_t[k_size];
                 // shift kernel over all cols in according row
                 for (uint32_t l = 0; l < k_size; l++) {
-                    //                    row           columns have same length as kernel size
                     stretched_input[c][index][l] = input[c][row + l / k_dim][col + l % k_dim];
                 }
             }
@@ -991,6 +823,170 @@ uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t w
     return stretched_input;
 }
 
+/**
+ * Symmetric padding of the input matrix.
+ * @param input matrix to be padded
+ * @param rows number of rows in input
+ * @param cols number of cols in input
+ * @param padding_value value to be inserted for padding
+ * @param padding_size number of padding_values to be inserted in each direction: top, bottom, right and left
+ * @return the padded input matrix
+ */
+uint64_t **PAD(uint64_t** input, uint32_t rows, uint64_t cols, uint64_t padding_value, uint32_t padding_size){
+    uint32_t padded_row_length = 2*padding_size+cols;
+    uint32_t padded_col_length = 2*padding_size+rows;
+    uint64_t** padded_input = new uint64_t *[padded_col_length];
+
+    for (uint32_t i = 0; i<padded_col_length; i++){
+        padded_input[i] = new uint64_t[padded_row_length];
+        // init whole matrix with padding value
+        memset(padded_input[i], padding_value, padded_row_length*sizeof (uint64_t));
+        if(i >= padding_size && i < (padding_size + rows)){
+            memcpy(&padded_input[i][padding_size], input[i - padding_size], cols * sizeof(uint64_t));        // copy values
+        }
+    }
+    return padded_input;
+}
+
+/**
+ * Flatten the values of a matrix concatenating its values so that a single vector is the result
+ * @param images matrices to be flattened to one single vactor
+ * @param i_height height of a single image in images
+ * @param i_width width of a single image in images
+ * @param i_number number of matrices in images
+ * @return the flattened vector of length i_dim * i_dim * i_number
+ */
+uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t i_number){
+    uint64_t i_size = i_height * i_width;
+    uint64_t * flattened = new uint64_t [i_size * i_number];
+    for (uint32_t i = 0; i < i_number; i++){
+        for (uint32_t el = 0; el < i_size; el ++) {
+            flattened[el + i * i_size] = images[i][el / i_width][el % i_width];
+        }
+    }
+    return flattened;
+}
+
+uint64_t ** transpose(uint64_t** matrix, uint32_t rows, uint32_t cols){
+    uint64_t ** res = new uint64_t *[cols];
+    for (int c = 0; c < cols; ++c) {
+        res[c] = new uint64_t [rows];
+        for(int r = c; r<rows; r++) {
+            res[c][r] = matrix[r][c];
+        }
+    }
+    return res;
+}
+
+// LAYER FUNCTIONS:
+
+/**
+ * Implements the function of a convolutional layer (CL) using ReLU as activation function
+ * and then Maxpool with a 2x2 filter if according parameter is set.
+ *
+ * @param proxy
+ * @param input data on which convolution is performed using the provided kernels.
+ * The input is supposed to be in 2D shape where each channel is appended in the second dimension.
+ * So a input of shape WxHxC is supposed to be represented in shape WxH*C.
+ * @param i_channel number of channels of the input; must be > 0
+ * @param i_height size of input in one dimension, divided by i_channel; must be > 0
+ * @param i_width size of input in the other dimension; must be > 0
+ * @param kernel vector containing all kernel to be used for convolution.
+ * The parameter kernel has shape output_channel x i_channel * k_dim * k_dim.
+ * So each channel of a kernel is represented by a vector of length k_dim * k_dim.
+ * The kernel's number of channels is defined by i_channel.
+ * @param k_dim dimension of the symmetric kernel; must be > 0
+ * @param output_channel number of kernels with length i_channel * k_dim * k_dim; must be > 0
+ * For each kernel there will be one output channel in the result, where the value at the according location is
+ * the sum of the single multiplications between input and kernel of same channel number.
+ * @param stride step size of each kernel to shift per iteration; must be > 0
+ * @param doMaxpooling indicates if after Relu activation, maxpooling shall be performed.
+ * @param bias vector of length output_channel. For each kernel there is one bias value which is added to every value of the according output_channel.
+ * @return Output of the input convoluted by the given kernels.
+ *         Shape of output will be:  c x h x w with
+ *         c = output_channel
+ *         h = floor((i_height - k_dim + 1)/stride) if doMaxpooling is false; otherwise h = floor((i_height - k_dim + 1)/(2*stride))
+ *         w = floor((i_weight - k_dim + 1)/stride) if doMaxpooling is false; otherwise w = floor((i_weight - k_dim + 1)/(2*stride))
+ */
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, bool doMaxpooling, uint64_t* bias){
+    cout << "CL..." << endl;
+    uint32_t k_size = k_dim * k_dim;
+    uint32_t conv_width = static_cast<uint32_t>(floor((i_width - k_dim + 1) / stride));
+    uint32_t conv_height = static_cast<uint32_t>(floor((i_height - k_dim + 1) / stride));
+    uint32_t conv_len = conv_width * conv_height;
+    // stretch the input for vectorized MATVECMUL
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
+        //print2DArray("Stretched matrix for MATVECMUL", convert2double(REC(proxy, stretched_input[0], conv_len, k_size), conv_len, k_size), conv_len, k_size);
+
+        uint32_t out_width = conv_width;
+        uint32_t out_height = conv_height;
+        if (doMaxpooling) {
+            out_height /= 2; // divide by 2 because maxpool has window size of 2 --> reduces by half.
+            out_width /= 2;
+        }
+        // convolution:
+        uint64_t ***conv_layer = new uint64_t **[output_channel];
+        for (uint32_t k = 0; k < output_channel; k++) {
+            // multiply stretched_input with kernel (for all channel)
+            //print2DArray("kernel ", convert2double(REC(proxy, kernel[k], i_channel, k_size), i_channel, k_size), i_channel, k_size);
+            uint64_t **conv_result = MATVECMUL(proxy, stretched_input, kernel[k], i_channel, conv_len, k_size);
+            print2DArray("MATVECMUL result", convert2double(REC(proxy,conv_result,1, conv_len),1, conv_len),1, conv_len);
+            // sum up the channel results to obtain one output_channel for all input channel
+            uint64_t* summed_channel_conv;
+            if(i_channel == 1){
+                summed_channel_conv = conv_result[0];
+            }
+            else{
+                summed_channel_conv = ADD(proxy, conv_result, i_channel, conv_len);
+            }
+            // ACTIVATION:
+            cout << "RELU..." << endl;
+            uint64_t* conv_activated = RELU(proxy, summed_channel_conv, conv_len);
+            delete[] conv_result;
+            print1DArray("ReLU result", convert2double(REC(proxy,conv_activated, conv_len), conv_len), conv_len);
+            delete[] summed_channel_conv;
+            if (doMaxpooling){
+                // Maxpool:
+                cout << "MAX..." << endl;
+                conv_activated = MAX(proxy, conv_activated, conv_width, conv_height, 2);
+                print1DArray("MAX result", convert2double(REC(proxy,conv_activated, conv_len/2), conv_len/2), conv_len/2);
+            }
+            // bring result in matrix shape
+            conv_layer[k] = new uint64_t *[out_height];
+            for (uint32_t row = 0; row < out_height; row++) {
+                conv_layer[k][row] = new uint64_t[out_width];
+                for (uint32_t col = 0; col < out_width; col++) {
+                    conv_layer[k][row][col] = conv_activated[row * out_width + col] + bias[k];
+                }
+            }
+            delete[] conv_activated;
+        }
+        delete [] stretched_input;
+        cout << "close CL." << endl;
+        return conv_layer;
+    }
+    else if (proxy->getPRole() == HELPER){
+        // convolution:
+        for (uint32_t k = 0; k < output_channel; k++) {
+            cout << "MATVECMUL..." << endl;
+            MATVECMUL(proxy, nullptr, nullptr, 0, i_channel * conv_len * k_size, 0);
+
+            // ACTIVATION:
+            // ReLU
+            cout << "RELU..." << endl;
+            RELU(proxy, 0, conv_len);
+            if(doMaxpooling){
+                // Maxpool:
+                cout << "MAX..." << endl;
+                MAX(proxy, nullptr, conv_width,  conv_height, 2);
+            }
+        }
+        return nullptr;
+    }
+    return nullptr;
+
+}
 
 /**
  * Implements functionality of a fully connected layer (FCL) with ReLU as activation function.
@@ -1006,20 +1002,15 @@ uint64_t ***INC(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t w
 uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weights, uint32_t node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
         uint64_t ** w = transpose(weights, node_number, in_size);
-        uint64_t *output = new uint64_t [node_number];
-        // uint64_t *stretched_flattened = new uint64_t [out_size*node_number];
-        //memcpy(stretched_flattened, input, node_number);
-        for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
-            output[node] = DP(proxy, input, w[node], in_size);
-        }
+        uint64_t *output = MATVECMUL(proxy, w, input, node_number, in_size);
+
         uint64_t* relu = RELU(proxy, output, node_number);
         output = ADD(proxy, relu, bias, node_number);
+        delete[] relu;
         return output;
     }
     else if (proxy->getPRole() == HELPER){
-        for (uint32_t node = 0; node < node_number; node++){ //TODO use metes stretching method to make for loop obsolete.
-            DP(proxy, nullptr, nullptr, in_size);
-        }
+        MATVECMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
         RELU(proxy, nullptr, node_number);
         return nullptr;
     }
@@ -1029,36 +1020,6 @@ uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weight
     }
 }
 
-/**
- * Flatten the values of a matrix concatenating its values so that a single vector is the result
- * @param images matrices to be flattened to one single vactor
- * @param i_height height of a single image in images
- * @param i_width width of a single image in images
- * @param i_number number of matrices in images
- * @return the flattened vector of length i_dim * i_dim * i_number
- */
-uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t i_number){
-    uint64_t i_size = i_height * i_width;
-    // stretch the input for vectorized MATVECMUL
-    uint64_t * flattened = new uint64_t [i_size * i_number];
-    for (uint32_t i = 0; i < i_number; i++){
-        for (uint32_t el = 0; el < i_size; el ++) {
-            flattened[el + i * i_size] = images[i][el / i_width][el % i_width];
-        }
-    }
-    return flattened;
-}
-
-uint64_t ** transpose(uint64_t** matrix, uint32_t rows, uint32_t cols){
-    uint64_t ** res = new uint64_t *[cols];
-    for (int c = 0; c < cols; ++c) {
-        res[c] = new uint64_t [rows];
-        for(int r = 0; r<rows; r++) {
-            res[c][r] = matrix[r][c];
-        }
-    }
-    return res;
-}
 
 #endif //PPAUC_CNN_H
 

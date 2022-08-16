@@ -8,6 +8,8 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
+#include "../cnn/model_parser.h"
+#include "../cnn/mnist/mnist_reader.hpp"
 #include <bitset>
 
 
@@ -270,17 +272,19 @@ void MMUX_Test(Party *proxy){
     proxy->SendBytes(CORE_MMUX,params, 1);
     uint64_t *r = MUX(proxy,x, y, z, sz);
     // checking the result
-    uint64_t *x_reconstructed = REC(proxy,x,sz);
-    uint64_t *y_reconstructed = REC(proxy,y,sz);
-    uint64_t *z_reconstructed = REC(proxy,z,sz);
-    uint64_t *r_reconstructed = REC(proxy,r,sz);
+    double *x_reconstructed = convert2double(REC(proxy, x, sz), sz);
+    double *y_reconstructed = convert2double(REC(proxy, y, sz), sz);
+    double *z_reconstructed = convert2double(REC(proxy, z, sz), sz);
+    double *r_reconstructed = convert2double(REC(proxy, r, sz), sz);
     bool flag = true;
-    uint64_t r_computed;
+    double r_computed;
     for (int i=0;i<sz;i++){
-        if (z_reconstructed[i] == 0)
+        if (z_reconstructed[i] == 0) {
             r_computed = x_reconstructed[i];
-        else if (z_reconstructed[i] == (1<<FRAC))
+        }
+        else if (z_reconstructed[i] == 1){
             r_computed = y_reconstructed[i];
+        }
         if (r_reconstructed[i] != r_computed){
             flag = false;
             break;
@@ -288,9 +292,9 @@ void MMUX_Test(Party *proxy){
     }
     if (flag)
         cout<<"Vectorized MUX works correctly"<<endl;
-    else
-        cout<<"Vectorized MUX works incorrectly"<<endl;
-
+    else {
+        cout << "Vectorized MUX works incorrectly" << endl;
+    }
 }
 
 void MAX_Test(Party *proxy){
@@ -334,7 +338,7 @@ void MMAX_Test(Party *proxy){
     int precision = 3;
 
     // INIT PARAMETER
-    uint32_t mmaxParams[4];
+    uint32_t mmaxParams[3];
     mmaxParams[0] = WSZ*3; // matrix Rows
     mmaxParams[1] = WSZ*3; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
@@ -385,20 +389,20 @@ void RST_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RST";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t mRows = 6;
-    uint32_t mCols = 4;
+    uint32_t mRows = WSZ*10;
+    uint32_t mCols = WSZ*10;
     uint64_t mSize = mCols*mRows;
 
-    uint32_t wRows = 2;
-    uint32_t wCols = 2;
-    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize, 32), mSize);
+    uint32_t wRows = WSZ;
+    uint32_t wCols = WSZ;
+    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize, 1000.0), mSize);
     auto *resorted = new uint64_t [sz];
-    print1DMatrixByWindows("RST original", convert2double(REC(proxy, shareOfMatrix, mSize), mSize), mRows, mCols, wRows, wCols);
+    //print1DMatrixByWindows("RST original", convert2double(REC(proxy, shareOfMatrix, mSize), mSize), mRows, mCols, wRows, wCols);
     RST(shareOfMatrix, mCols, mRows, wCols, wRows, resorted);
 
     uint64_t wElements = wRows * wCols;
     uint64_t numberOfWins = mSize / wElements;
-    print1DMatrixByWindows("RST finished: resorted", convert2double(REC(proxy, resorted, mSize), mSize), numberOfWins, wElements, 1, 1);
+    //print1DMatrixByWindows("RST finished: resorted", convert2double(REC(proxy, resorted, mSize), mSize), numberOfWins, wElements, 1, 1);
 }
 
 void RELU_Test(Party *proxy){
@@ -435,18 +439,19 @@ void MRELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MRELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t size = 10;
+    uint64_t size = 36;
     uint32_t* params = new uint32_t[1];
     params[0] = size;
-    uint64_t* x = proxy->createShare(random_1D_data(proxy, size), size);
+    double *data = new double[36]{ -388.343, -527.582, 15495.7, -1059.36, -1865.63, -817.842, -622.102, -734.863, -1762.31, -1048.34, -295.554, -1361.46, -1551.74, -700.654, -939.806, -1967.38, 15800.1, -260.365, -1539.25, -422.697, -1086.19, -1119.65, -553.375, -1298.74, 14831, -1670.82, 16177.9, -843.397, -1249.25, 14663.5, -1406.12, -385.09, -933.092, -1605.56, -1883.78, 67.9065};
+    uint64_t* x = proxy->createShare(data, size); //random_1D_data(proxy, size), size);//
     proxy->SendBytes(CNN_MRELU, params, 1);
-    uint64_t* relu = RELU(proxy, x, size);
-    uint64_t* reconstructed_relu = REC(proxy, relu, size);
+    uint64_t* mrelu = RELU(proxy, x, size);
+    uint64_t* rec_mrelu = REC(proxy, mrelu, size);
 
     // checking the result
     double* correct_relu = new double [size];
     double* originalX = convert2double(REC(proxy, x, size), size);
-    double* pp_result = convert2double(reconstructed_relu, size);
+    double* pp_result = convert2double(rec_mrelu, size);
     bool foundIncorrect = false;
     for(uint64_t i = 0; i<size; i++){
         if (originalX[i] >= 0){
@@ -544,14 +549,12 @@ void PAD_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling PAD (padding)";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t row = 5;
-    uint32_t col = 5;
+    uint32_t row = 28;
+    uint32_t col = 28;
     uint32_t padding_value = 0;
     uint32_t padding_size = 2;
-    uint64_t** x = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
-
-    print2DArray("Original matrix: ", convert2double(REC(proxy, x, row, col), row, col), row, col);
-
+    uint64_t** x = proxy->createShare(random_2D_data(proxy, row, col, 0.0, 255.0), row, col);
+    //print2DArray("Original matrix: ", convert2double(REC(proxy, x, row, col), row, col), row, col);
     uint64_t** padded = PAD(x, row, col, padding_value, padding_size);
     double** rec_padded = convert2double(REC(proxy, padded, row+2*padding_size, col+2*padding_size), row+2*padding_size, col+2*padding_size);
 
@@ -585,6 +588,7 @@ void PAD_Test(Party *proxy){
             }
         }
     }
+    print2DArray("Computed Padding", rec_padded, row + 2*padding_size, col + 2*padding_size);
     if(allCorrect){
         cout<<"PAD works correctly"<<endl;
     }
@@ -600,23 +604,42 @@ void CL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling CL (convolutional layer)";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t row = 28;
-    uint32_t col = 28;
-    uint32_t i_channel = 3;
+    uint32_t row = 8;
+    uint32_t col = 8;
+    uint32_t i_channel = 1;
 
-    uint32_t k_number = 5;
-    uint32_t k_dim = 7;
-    uint32_t stride = 2;
+    uint32_t k_number = 1;
+    uint32_t k_dim = 3;
+    uint32_t stride = 1;
     bool doMaxpooling = true;
-    uint64_t*** x = new uint64_t **[i_channel];
+
+    uint64_t*** x = new uint64_t** [i_channel];
+    /*double **** model_param = getChameleonParameters("../../apps/cnn/model_files/Chameleon_CNN/", k_number);
+    mnist::MNIST_dataset<vector, vector<uint8_t>, uint8_t> dataset =
+            mnist::read_dataset<vector, vector, uint8_t, uint8_t>("../../apps/cnn/mnist/");
+    vector<vector<unsigned char>> training = dataset.test_images;
+    vector<unsigned char> label = dataset.test_labels;
+
+    for (uint32_t i = 0; i < i_channel; ++i) {
+        x[i] = new uint64_t *[row];
+        for (uint32_t r = 0; r < row; ++r) {
+            x[i][r] = new uint64_t [col];
+            for (uint32_t c = 0; c < col; ++c) {
+                double pixelValue = training.at(i).at(r*col + c);
+                x[i][r][c] = proxy->createShare(pixelValue);                 // store directly as secret shares
+            }
+        }
+    }*/
     for(uint64_t i = 0; i<i_channel; i++){
         x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
     }
     uint64_t*** kernel = new uint64_t **[k_number];
     for(uint32_t o = 0; o<k_number; o++){
-        kernel[o] = proxy->createShare(random_2D_data(proxy, i_channel, k_dim * k_dim, -5, 5), i_channel, k_dim * k_dim);
+        kernel[o] = proxy->createShare(random_2D_data(proxy, i_channel, k_dim * k_dim, -5, 5), i_channel, k_dim * k_dim); // proxy->createShare(model_param[0][o], i_channel, k_dim * k_dim);
+        double** rec_kernel = convert2double(REC(proxy, kernel[o], i_channel, k_dim * k_dim), i_channel, k_dim * k_dim);
+        print2DArray("recon kernel: ", rec_kernel, i_channel, k_dim * k_dim);
     }
-    uint64_t *bias = proxy->createShare(random_1D_data(proxy, k_number), k_number);
+    uint64_t *bias = proxy->createShare(random_1D_data(proxy, k_number), k_number); // proxy->createShare(model_param[3][0][0], k_number);
 
     uint32_t params[7];
     params[0] = i_channel;
@@ -627,52 +650,50 @@ void CL_Test(Party *proxy){
     params[5] = stride;
     params[6] = doMaxpooling;
     proxy->SendBytes(CNN_CL, params, 7);
-    cout << "call CL" << endl;
+    print2DArray("First channel of x", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
+
     uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, doMaxpooling, bias);
-    cout << "returned from CL" << endl;
     uint64_t conv_size = floor((row - k_dim + 1) / stride);
     uint64_t lastpos = row - k_dim + 1; // this is equal to conv_size if stride == 1
     uint64_t out_size = conv_size;
     if(doMaxpooling){
         out_size = conv_size/2;
     }
-    double*** reconstructed_conv = new double **[k_number];
-    for(uint64_t k = 0; k<k_number; k++){
-        reconstructed_conv[k] = convert2double(REC(proxy, conv[k], out_size, out_size), out_size, out_size);
-    }
     double* rec_bias = convert2double(REC(proxy, bias, k_number), k_number);
+    print1DArray("recon bias: ", rec_bias, k_number);
+    delete[] bias;
 
     // checking the result
     double*** conv_unreduced = new double **[k_number]; // no reduction with MAX
-    double*** computed_conv = new double **[k_number];  // final result (same to conv_unreduced if doMaxpooling = false)
+    double*** correct_conv = new double **[k_number];
     bool allCorrect = true;
-    for(uint64_t kern = 0; kern < k_number; kern++){    // for each output channel
+    for(uint32_t kern = 0; kern < k_number; kern++){    // for each output channel
         conv_unreduced[kern] = new double *[conv_size];                // init kernels conv result
-        if(!doMaxpooling){
-            computed_conv[kern] = new double *[out_size];
-        }
-        for(uint64_t r = 0; r<lastpos; r+=stride){
-            conv_unreduced[kern][r / stride] = new double [conv_size];   // init row of conv result
+        correct_conv[kern] = new double *[out_size];
+        for(uint32_t cr = 0; cr < lastpos; cr+=stride){
+            conv_unreduced[kern][cr / stride] = new double [conv_size];   // init row of conv result
             if(!doMaxpooling){
-                computed_conv[kern][r/stride] = new double [out_size];
+                correct_conv[kern][cr / stride] = new double [out_size];
             }
-            for(uint64_t c = 0; c<lastpos; c+=stride){
+            for(uint32_t cc = 0; cc < lastpos; cc+=stride){
                 double dot_product = 0;
-                for(uint64_t channel = 0; channel<i_channel; channel++){
-                    for(uint64_t k_value = 0; k_value<(k_dim*k_dim); k_value++){
-                        dot_product += convert2double(REC(proxy, x[channel][r + k_value/k_dim][c + k_value%k_dim])) * convert2double(REC(proxy, kernel[kern][channel][k_value]));
+                for(uint32_t channel = 0; channel<i_channel; channel++){
+                    for(uint32_t k_value = 0; k_value<(k_dim*k_dim); k_value++){
+                        double v = convert2double(REC(proxy, x[channel][cr + k_value / k_dim][cc + k_value % k_dim]));
+                        double weight = convert2double(REC(proxy, kernel[kern][channel][k_value]));
+                        dot_product += v * weight;
                     }
                 }
                 // Activation: RELU
-                double relu = 0;
+                double relu = 0.0;
                 if(dot_product > 0) {
                     relu = dot_product;
                 }
                 relu += rec_bias[kern];
-                conv_unreduced[kern][r / stride][c / stride] = relu; // does not matter if added here or after maxpool
+                conv_unreduced[kern][cr / stride][cc / stride] = relu; // does not matter if added here or after maxpool
                 if(!doMaxpooling){
-                    computed_conv[kern][r/stride][c/stride] = conv_unreduced[kern][r / stride][c / stride];
-                    if( abs(relu - reconstructed_conv[kern][r/stride][c/stride]) > 0.0001) {
+                    correct_conv[kern][cr / stride][cc / stride] = relu;
+                    if(abs(relu - convert2double(REC(proxy, conv[kern][cr / stride][cc / stride]))) > 0.0001) {
                         allCorrect = false;
                     }
                 }
@@ -680,30 +701,32 @@ void CL_Test(Party *proxy){
         }
         if(doMaxpooling){
             // MAXPOOL reduction for window size 2x2
-            for(uint64_t r = 0; r<conv_size; r+=2){
-                computed_conv[kern][r / 2] = new double [out_size];
-                for(uint64_t c = 0; c<conv_size; c+=2){
-                    double a = std::max(conv_unreduced[kern][r][c], conv_unreduced[kern][r][c+1]);
-                    double b = std::max(conv_unreduced[kern][r+1][c], conv_unreduced[kern][r+1][c+1]);
+            for(uint32_t mr = 0; mr < out_size; mr++){
+                correct_conv[kern][mr] = new double [out_size];
+                for(uint32_t mc = 0; mc < out_size; mc++){
+                    uint32_t conv_r = mr * 2, conv_c = mc * 2;
+                    double a = std::max(conv_unreduced[kern][conv_r][conv_c], conv_unreduced[kern][conv_r][conv_c+1]);
+                    double b = std::max(conv_unreduced[kern][conv_r+1][conv_c], conv_unreduced[kern][conv_r+1][conv_c+1]);
                     double m = std::max(a,b);
-                    computed_conv[kern][r / 2][c / 2] = m;
-                    if (abs(m - reconstructed_conv[kern][r/2][c/2]) > 0.0001){
+                    correct_conv[kern][mr][mc] = m;
+                    if (abs(m - convert2double(REC(proxy, conv[kern][mr][mc]))) > 0.0001){
                         allCorrect = false;
                     }
                 }
             }
         }
     }
-
     if(allCorrect){
         cout<<"CL works correctly"<<endl;
     }
     else{
         cout<<"CL works incorrectly" <<endl;
+        print2DArray("First channel of x", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
+        print1DArray("kernel 0", convert2double(REC(proxy, kernel[0][0], k_dim*k_dim), k_dim*k_dim), k_dim*k_dim);
         for (uint64_t k = 0; k<k_number; k++){
             cout << "Channel " << k << endl;
-            print2DArray("Channel of computed convolution", reconstructed_conv[k], out_size, out_size);
-            print2DArray("Channel should be this", computed_conv[k], out_size, out_size);
+            print2DArray("Channel of computed convolution", convert2double(REC(proxy, conv[k], out_size, out_size), out_size, out_size), out_size, out_size);
+            print2DArray("Channel of correct convolution", correct_conv[k], out_size, out_size);
         }
     }
 
@@ -812,23 +835,23 @@ void INC_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling INC (increasing input matrix for conv)";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t row = 5;
-    uint32_t col = 5;
+    uint32_t row = 28;
+    uint32_t col = 28;
     uint32_t i_channel = 1;
     uint64_t *** x = new uint64_t **[i_channel];
     for(uint64_t i = 0; i<i_channel; i++){
         x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
     }
-    print2DArray("Original X: ", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
+    //print2DArray("Original X: ", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
 
-    uint32_t k_number = 1;
-    uint32_t k_dim = 2;
+    uint32_t k_number = 5;
+    uint32_t k_dim = 5;
     uint32_t k_len = k_dim*k_dim;
     uint32_t stride = 1;
 
-    uint32_t conv_height = static_cast<uint32_t>(floor((row - k_dim) / stride) + 1);
-    uint32_t conv_width = static_cast<uint32_t>(floor((col - k_dim) / stride) + 1);
     uint32_t lastpos = row - k_dim + 1;
+    uint32_t conv_height = static_cast<uint32_t>(floor(lastpos / stride));
+    uint32_t conv_width = static_cast<uint32_t>(floor((col - k_dim + 1) / stride));
 
     uint64_t*** stretchedX = INC(x, i_channel, row, col, k_dim, stride);
     // checking the result
@@ -2037,7 +2060,9 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-    /*MUL_Test(proxy);
+    /*
+    ADD_Test(proxy);
+    MUL_Test(proxy);
     MMUL_Test(proxy);
 
 
@@ -2056,21 +2081,20 @@ int main(int argc, char* argv[]) {
     MAX_Test(proxy);
     MMAX_Test(proxy);
 
-    RST_Test(proxy);
+    RST_Test(proxy);*/
     RELU_Test(proxy);
-    MRELU_Test(proxy);//TODO
+    MRELU_Test(proxy);/*
 
     DRLU_Test(proxy);
-    MDRLU_Test(proxy); //TODO
-    DIV_Test(proxy);
+    MDRLU_Test(proxy);//TODO
+    //DIV_Test(proxy);
 
     INC_Test(proxy);
-    ADD_Test(proxy);*/
-    CL_Test(proxy);/*
     FLT_Test(proxy);
-    FCL_Test(proxy);
-    PAD_Test(proxy);
-
+    FCL_Test(proxy); //TODO
+    PAD_Test(proxy);*/
+    //CL_Test(proxy);
+/*
     EXP_Test(proxy);
     MEXP_Test(proxy);
 

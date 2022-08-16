@@ -15,12 +15,64 @@ uint32_t stride, padding;
 bool doMaxpool;
 uint32_t divisor;
 
-void resetParams(uint32_t mode, vector<int> params);
-void initParams(uint32_t mode);
+void initParams(uint32_t mode) {
+    i_number = 1, i_channel = 1, i_width = 28, i_height = 28;
+    k_dim = 5;
+    stride = 1;
+    padding = 0;
+    doMaxpool = true;
+    switch (mode) {
+        case 0:{
+            stride = 2;
+            padding = 2;
+            doMaxpool = false;
+            // i_width and i_height are adjusted after padding is performed; all other parameters are not modified.
+            break;
+        }
+        case 2:{
+            k_number = 20;
+        }
+        case 3:{
+            k_number = 16;
+            break;
+        }
+            // for all other cases nothing to change
+    }
+    divisor = stride;
+    if(doMaxpool){
+        divisor *= 2;
+    }
+}
+
+void resetParams(uint32_t mode) {
+    i_channel = 1;
+    switch (mode) {
+        case 0:{
+            k_number = 5;
+            break;
+        }
+        case 1:{
+            k_number = 6;
+            break;
+        }
+        case 2:{
+            k_number = 20;
+            break;
+        }
+        case 3:{
+            k_number = 16;
+            break;
+        }
+    }
+    if(padding > 0){
+        i_height = 28 + 2*padding;
+        i_width =  28 + 2*padding;
+    }
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
-        clog << "Error: The program requires exactly two arguments; the IP address of the helper and the port it is listening on." << endl;
+        clog << "Error: The program requires exactly three arguments; the IP address of the helper, the port it is listening on and the network mode." << endl;
         return 1;
     }
     string address(argv[1]);
@@ -30,11 +82,10 @@ int main(int argc, char* argv[]) {
     auto *helper = new Party(HELPER,port,address);
 
     // parse model parameters
-    vector<int> dimensions;
     initParams(nn_mode);
 
     for (int image = 0; image < i_number; ++image) {
-        resetParams(nn_mode, dimensions);
+        resetParams(nn_mode);
 
         // CNN INFERENCE PIPELINE
         // PERFORMING CONVOLUTION
@@ -50,29 +101,72 @@ int main(int argc, char* argv[]) {
         // from here on network architectures differ
         switch (nn_mode) {
             case 0: {
-                k_number = 1;
                 nodes_out = 100;
                 // FULLY CONNECTED LAYER
                 FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-
                 nodes_in = nodes_out;
-                i_channel = 1;
-                nodes_out = 10;
                 break;
             }
             case 1: {
+                k_number = 16;
                 // PERFORMING CONVOLUTION
                 CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, doMaxpool, nullptr);
                 i_channel = k_number;
-                i_height = ((i_height - k_dim) + 1) / (stride * 2);
-                i_width = ((i_width - k_dim) + 1) / (stride * 2);
+                i_height = ((i_height - k_dim) + 1) / (stride*2);
+                i_width = ((i_width - k_dim) + 1) / (stride*2);
+                cout << "finished CL2 (LeNet5)" << endl;
 
                 // fully connected layer:
-                nodes_out = 100;
+                nodes_out = 120;
                 nodes_in = i_height * i_width * i_channel;
+                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                cout << "finished FCL1 (LeNet5)" << endl;
+
+                nodes_in = nodes_out;
+                nodes_out = 84;
+                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                cout << "finished FCL2 (LeNet5)" << endl;
+
+                nodes_in = nodes_out;
+                break;
                 break;
             }
-            default: {
+            case 2:{
+                // PERFORMING CONVOLUTION
+                k_number = 50;
+                cout << "k: " << k_number << ", c: " << i_channel << endl;
+                cout << "w: " << i_width << ", h: " << i_height << endl;
+                CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, doMaxpool,
+                   nullptr);
+                i_channel = k_number;
+                i_height = ((i_height - k_dim) + 1) / (stride*2);
+                i_width = ((i_width - k_dim) + 1) / (stride*2);
+
+                k_number = 800;
+                cout << "k: " << k_number << ", c: " << i_channel << endl;
+                cout << "w: " << i_width << ", h: " << i_height << endl;
+                CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, doMaxpool,
+                   nullptr);
+                i_channel = k_number;
+                i_height = ((i_height - k_dim) + 1) / (stride*2);
+                i_width = ((i_width - k_dim) + 1) / (stride*2);
+                cout << i_height << " x " << i_width << endl;
+
+                // fully connected layer:
+                nodes_out = 800;
+                nodes_in = i_height * i_width * i_channel;
+                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                cout << "finished FCL1 (LeNet_NN)" << endl;
+
+                nodes_in = nodes_out;
+                nodes_out = 500;
+                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                cout << "finished FCL2 (LeNet_NN)" << endl;
+
+                nodes_in = nodes_out;
+                break;
+            }
+            case 3: {
                 // random network: 2 more convolutions, then fully connected layer:
                 for (uint32_t c = 0; c < 2; c++) {
                     k_number -= (c + 1);
@@ -86,65 +180,15 @@ int main(int argc, char* argv[]) {
                     cout << "finished CL" << c + 2 << " (random mode)" << endl;
                 }
                 // fully connected layer:
-                nodes_out = 10;
                 nodes_in = i_height * i_width * i_channel;
                 break;
             }
         }
+        nodes_out = 10;
         // FULLY CONNECTED LAYER
         FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
         MAX(helper, nullptr, nodes_out);
     }
     helper->PrintBytes();
     return 0;
-}
-
-void initParams(uint32_t mode) {
-    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
-    k_number = 5, k_dim = 5;
-    stride = 1;
-    padding = 0;
-    doMaxpool = true;
-    switch (mode) {
-        case 0:{
-            stride = 2;
-            padding = 2;
-            doMaxpool = false;
-            // i_width and i_height are adjusted after padding is performed; all other parameters are not modified.
-            break;
-        }
-        default:{
-            k_number = 16;
-            break;
-        }
-    }
-    divisor = stride;
-    if(doMaxpool){
-        divisor *= 2;
-    }
-}
-
-void resetParams(uint32_t mode, vector<int> params) {
-    i_channel = 1, i_width = 28, i_height = 28;
-    k_number = 5, k_dim = 5;
-    stride = 1;
-
-    switch (mode) {
-        case 0:{
-            i_height += 2 * padding;
-            i_width += 2 * padding;
-            stride = 2;
-            break;
-        }
-        case 1:{
-            uint32_t input_param_start = params.at(0)+1;
-            i_width = params.at(input_param_start + 2);
-            i_height = params.at(input_param_start + 2);
-            break;
-        }
-        default:{
-            k_number = 16;
-            break;
-        }
-    }
 }

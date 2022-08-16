@@ -73,17 +73,19 @@ c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h uti
 
 
 ## CNN
-### Last parameter for proxies defines the model to be used. Can be 0 (Chameleon) or 1 (MiniONN). MiniONNs model parameter are not consistent.
 ```bash
-./helper_cnn "127.0.0.1" 7777
+./helper_cnn <ip of helper> <port of helper> <model>
+./proxy_cnn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <model> 
+./proxy_cnn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <model> 
+```
+- model = model to be used: [0, 1, 2] with 0 - Chameleon, 1 - MiniONN (MiniONNs model parameter are not consistent), 2 - LeNet5, other value or none - a 4-layer CNN with random weights
+
+```bash
+./helper_cnn "127.0.0.1" 7777 ß
 ./proxy_cnn 0 8888 "127.0.0.1" 7777 "127.0.0.1" 0
 ./proxy_cnn 1 8888 "127.0.0.1" 7777 "127.0.0.1" 0
 ```
 
-```bash
-./test_maxpool_helper "127.0.0.1" 7777
-./test_maxpool_proxy 1 8888 "127.0.0.1" 7777 "127.0.0.1" 0 1024 1024 2 2
-``` 
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

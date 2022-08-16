@@ -14,9 +14,13 @@
 const char col_delim = ',';
 const char* white_space = &" \t\n\r\f\v" [ col_delim]; // any whitespace to be removed
 
-// constants for CHAMELEON
-const string conv_file_name = "ws_conv0_filter";
 const string file_ending = ".txt";
+// constants for CHAMELEON
+const string ch_conv_name = "ws_conv0_filter";
+// constants for LeNet
+const string le_conv_name0 = "conv0_weight_";
+const string le_conv_name1 = "conv1_weight_";
+const string le_conv_name2 = "conv2_weight_";
 
 // constants for MINIONN
 const char row_start = '[', row_end = ']', name_end = ':';
@@ -25,6 +29,7 @@ const string initializer_id = "L=", input_id = "I=", dim_id = "dim_value:";
 using namespace std;
 string trim(string s, const char* ws=white_space);
 double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, bool flatten);
+double*** parseAllKernelFiles(const string& file_dir, const string file_name_prefix, uint32_t number_of_kernels);
 
 /**
  * Get the model parameters of the model specified in the file at model_file_path
@@ -79,7 +84,6 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
                 if(line.compare("I=1:") == 0){
                     while(getline(weights_file,line).good() && line.find(input_id) != 0){
                         //parse specification of this one input.
-                        cout << line << endl;
                         int start = line.find(dim_id);
                         if(start != string::npos && (start + dim_id.length()) < line.length()){
                             string dim_value = line.substr(start + dim_id.length());
@@ -140,81 +144,62 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
     return weights;
 }
 
+// Parsing Helper functions for LeNet and Chameleon:
 /**
- * Get the model parameters from the Chameleon CNN trained on the MNIST dataset. The parameters are specified by the files
- * in the specified directory.
- * @param model_file_dir directory to all the file specifying the weights of one convolutional layer and two fully connected layer.
- * The files are expected to be plain txt files containing nothing than the values separated by col_delim.
- * @param number_of_kernel defines the number of kernels used in the convolutional layer. All kernel have size 5x5.
- * For each kernel, another file specifying the parameters is in the given model_file_dir.
- * Two further files can be found there specifying the fully connected layers' weights.
- * @param i_channel defines the number of input channel (for maintainance/adaption, currently this should be always 1)
- * @return a 4D vector where the first dimension combines all weights of a layer, so the first dimension will be of size 3.
- * the second dimension specifies the values of a kernel.
- * Only the convolutional layer uses several kernel, for the second and third layer, the second dimensions size will be one.
- * The third dimension specifies the input channel.
- * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
+ * Parses all Kernel files which are at the given directory and of the following name pattern:
+ * file_name_prefix + \<number of kernel\> + file_ending. \<number of kernel\> is a value in [0, number_of_kernels-1]
+ * @param file_dir the directory where the files to be read are located
+ * @param file_name_prefix prefix of the naming convention of the files
+ * @param number_of_kernels number of files to be parsed.
+ * @return a 3D matrix where the first dimension is the different kernels (from the different files),
+ * the second dimension is the one of input channels which is currently always 1
+ * the third dimension is the values of the kernel which are 25
  */
-double**** getChameleonParameters(const string& model_file_dir, uint32_t number_of_kernel, uint32_t i_channel){
-    double ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
+double*** parseAllKernelFiles(const string& file_dir, const string file_name_prefix, uint32_t number_of_kernels, uint32_t i_channel){
+    double*** weights = new double **[number_of_kernels];
     string line;
-
-    // convolutional layer:
-    weights[0] = new double **[number_of_kernel];
-    //read weights of each layer from model:
-    for (uint32_t k = 0; k<number_of_kernel; k++){
-        weights[0][k] = new double *[i_channel]; // only one input channel
+    for (uint32_t k = 0; k<number_of_kernels; k++){
+        weights[k] = new double *[i_channel]; // only one input channel
         // init file reading
         fstream cv_weights_file;
-        string file_path = model_file_dir + conv_file_name + to_string(k) + file_ending;
+        string file_path = file_dir + file_name_prefix + to_string(k) + file_ending;
         cv_weights_file.open(file_path, ios::in);
-
         if(cv_weights_file.is_open()){
-            for(uint32_t i = 0; i<i_channel; i++){
-                weights[0][k][i] = new double [25];
-                // actual parsing
-                uint32_t position = 0;
-                int valueEnd;
-                while (getline(cv_weights_file, line).good()){
-                    line = trim(line);
-                    // store values of this row in weights matrix
-                    valueEnd = line.find(col_delim);
-                    uint32_t valueStart = 0;
-                    while (valueEnd != string::npos){
-                        string value = line.substr(valueStart, valueEnd-valueStart);
-                        weights[0][k][i][position] = stod(value);
-                        valueStart = valueEnd+1;
+            // actual parsing
+            uint32_t position = 0;
+            int c = -1;
+            int valueEnd;
+            while (getline(cv_weights_file, line).good()){
+                if(position == 0){
+                    c++;
+                    weights[k][c] = new double [25];
+                }
+                line = trim(line);
+                // store values of this row in weights matrix
+                valueEnd = line.find(col_delim);
+                uint32_t valueStart = 0;
+                while (valueEnd != string::npos){
+                    string value = line.substr(valueStart, valueEnd-valueStart);
+                    weights[k][c][position] = stod(value);
+                    valueStart = valueEnd+1;
 
-                        valueEnd = line.find(col_delim, valueStart);
-                        position++;
-                    }
-                    // last value not yet stored:
-                    weights[0][k][i][position] = stod(line.substr(valueStart));
+                    valueEnd = line.find(col_delim, valueStart);
                     position++;
                 }
+                // last value not yet stored:
+                weights[k][c][position] = stod(line.substr(valueStart));
+                position++;
+                if(position == 25){
+                    // next channel
+                    position = 0;
+                }
             }
+            cv_weights_file.close();
         }
     }
-
-    // fully connected layer:
-    string file_path = model_file_dir + "ws_dense0" + file_ending;
-    weights[1] = parse2DParams(file_path, 980, 100, false);
-
-    file_path = model_file_dir + "ws_dense1" + file_ending;
-    weights[2] = parse2DParams(file_path, 100, 10, false);
-
-    // bias
-    file_path = model_file_dir + "bs_conv0" + file_ending;
-    weights[3] = parse2DParams(file_path, 5, 1, true);
-
-    file_path = model_file_dir + "bs_dense0" + file_ending;
-    weights[4] = parse2DParams(file_path, 100, 1, true);
-
-    file_path = model_file_dir + "bs_dense1" + file_ending;
-    weights[5] = parse2DParams(file_path, 10, 1, true);
-
     return weights;
 }
+
 /**
  * Parse the parameters specified in a file, separated by col_delim.
  * @param file_path path to the parameter file to be parsed
@@ -262,7 +247,6 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
                 }
                 else if(cols == 1){
                     // there is no col_delim to find
-                    uint32_t valueStart = 0;
                     params[0][row][col] = stod(line);
                     col++;
                 }
@@ -316,6 +300,131 @@ string trim(string s, const char* ws)
 {
     return ltrim(rtrim(s, ws), ws);
 }
+// END helper functions
 
+
+/**
+ * Get the model parameters from the Chameleon CNN trained on the MNIST dataset. The parameters are specified by the files
+ * in the specified directory.
+ * @param model_file_dir directory to all the file specifying the weights of one convolutional layer and two fully connected layer.
+ * The files are expected to be plain txt files containing nothing than the values separated by col_delim and only for weights with one channel.
+ * @param number_of_kernel defines the number of kernels used in the convolutional layer. All kernel have size 5x5.
+ * For each kernel, another file specifying the parameters is in the given model_file_dir.
+ * Two further files can be found there specifying the fully connected layers' weights.
+ * @return a 4D vector where the first dimension combines all weights of a layer, so the first dimension will be of size 3.
+ * the second dimension specifies the values of a kernel.
+ * Only the convolutional layer uses several kernel, for the second and third layer, the second dimensions size will be one.
+ * The third dimension specifies the input channel.
+ * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
+ */
+double**** getChameleonParameters(const string& model_file_dir, uint32_t number_of_kernel){
+    double ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
+    string line;
+
+    // convolutional layer:
+    weights[0] = parseAllKernelFiles(model_file_dir, ch_conv_name, number_of_kernel, 1);
+
+    // fully connected layer:
+    string file_path = model_file_dir + "ws_dense0" + file_ending;
+    weights[1] = parse2DParams(file_path, 980, 100, false);
+
+    file_path = model_file_dir + "ws_dense1" + file_ending;
+    weights[2] = parse2DParams(file_path, 100, 10, false);
+
+    // bias
+    file_path = model_file_dir + "bs_conv0" + file_ending;
+    weights[3] = parse2DParams(file_path, 5, 1, true);
+
+    file_path = model_file_dir + "bs_dense0" + file_ending;
+    weights[4] = parse2DParams(file_path, 100, 1, true);
+
+    file_path = model_file_dir + "bs_dense1" + file_ending;
+    weights[5] = parse2DParams(file_path, 10, 1, true);
+
+    return weights;
+}
+
+
+/**
+ * Get the model parameters from the LeNet5 trained on the MNIST dataset. The parameters are specified by the files
+ * in the specified directory.
+ * @param model_file_dir directory to all the file specifying the weights of 2 convolutional layer and 2 fully connected layer.
+ * The files are expected to be plain txt files containing nothing than the values separated by col_delim.
+ * The first convolutional layer uses 6 kernel, the second one uses 16 kernel.
+ * @return a 4D vector where the first dimension combines all weights of a layer, so the first dimension will be of size 3.
+ * the second dimension specifies the values of a kernel.
+ * Only the convolutional layer uses several kernel, for the second and third layer, the second dimensions size will be one.
+ * The third dimension specifies the input channel.
+ * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
+ */
+double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
+    double ****weights;
+    string line;
+
+    if(self_trained){
+        cout << "parse params for LeNetNN" << endl;
+        weights = new double ***[10]; // 3 CL, 2 FCL, bias for each layer
+        // convolutional layer:
+        weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1);
+        cout << "CL 1 done, ";
+        weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20);
+        cout << "CL 2 done, ";
+        weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50);
+        cout << "CL 3 done" << endl;
+
+        // fully connected layer:
+        string file_path = model_file_dir + "fc0_weights" + file_ending;
+        weights[3] = parse2DParams(file_path, 800, 500, false);
+
+        file_path = model_file_dir + "fc2_weights" + file_ending;
+        weights[4] = parse2DParams(file_path, 500, 10, false);
+
+        // bias
+        file_path = model_file_dir + "conv0_bias" + file_ending;
+        weights[5] = parse2DParams(file_path, 20, 1, true);
+
+        file_path = model_file_dir + "conv1_bias" + file_ending;
+        weights[6] = parse2DParams(file_path, 50, 1, true);
+
+        file_path = model_file_dir + "conv2_bias" + file_ending;
+        weights[7] = parse2DParams(file_path, 800, 1, true);
+
+        file_path = model_file_dir + "fc0_bias" + file_ending;
+        weights[8] = parse2DParams(file_path, 800, 1, true);
+
+        file_path = model_file_dir + "fc1_bias" + file_ending;
+        weights[9] = parse2DParams(file_path, 500, 1, true);
+    }
+    else{
+        cout << "parse params for LeNet5" << endl;
+        weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
+        // convolutional layer:
+        weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 6, 1);
+        print2DArray("kernel 0", weights[0][0], 1, 6);
+        weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 1); //TODO should be 6 input channels
+        //weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name2, 120);
+
+        // fully connected layer:
+        string file_path = model_file_dir + "fc0_weights" + file_ending;
+        weights[2] = parse2DParams(file_path, 120, 84, false);
+
+        file_path = model_file_dir + "fc1_weights" + file_ending;
+        weights[3] = parse2DParams(file_path, 84, 10, false);
+
+        // bias
+        file_path = model_file_dir + "conv0_bias" + file_ending;
+        weights[4] = parse2DParams(file_path, 6, 1, true);
+
+        file_path = model_file_dir + "conv1_bias" + file_ending;
+        weights[5] = parse2DParams(file_path, 16, 1, true);
+
+        file_path = model_file_dir + "fc0_bias" + file_ending;
+        weights[6] = parse2DParams(file_path, 120, 1, true);
+
+        file_path = model_file_dir + "fc1_bias" + file_ending;
+        weights[7] = parse2DParams(file_path, 10, 1, true);
+    }
+    return weights;
+}
 
 #endif //CECILIA_MODEL_PARSER_H

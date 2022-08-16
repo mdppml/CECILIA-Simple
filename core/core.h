@@ -193,12 +193,12 @@ uint64_t* ADD(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
 }
 
 /**
- * Adds values of all vectors in a at equal position to calculate their sum (sum over column where each row is one vector).
+ * Adds values of all vectors in a at equal position in a row to calculate their sum (sum over column where each row is one vector).
  * @param proxy
  * @param a matrix containing several vectors of length size. Values of all vectors at same position shall be summed up.
  * @param n_vectors number of vectors in a
  * @param size length of each vector in a
- * @return
+ * @return vector of length size
  */
 uint64_t* ADD(Party* proxy, uint64_t **a, uint32_t n_vectors, uint32_t size) {
     uint64_t* res = new uint64_t [size];
@@ -455,7 +455,8 @@ uint8_t PCB(Party* proxy, uint64_t a, uint8_t *b, int L1) {
     return -1;
 }
 
-/** Check b>a
+/**
+ * Private Compare Boolean (?): Check b>a
  *
  * @param a reconstructed value
  * @param b boolean share
@@ -1231,6 +1232,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     if (proxy->getPRole() == HELPER) {
         int filled_size = 0;
         size_t partial_size = MAXMUL;
+
         while (filled_size < size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
@@ -1669,7 +1671,7 @@ uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) 
 uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
-        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        // form a single vector for each matrix such that all required multiplications can be performed in one go
         uint32_t size = a_row * a_col * b_col;
         uint64_t *concat_a = new uint64_t[size];
         uint64_t *concat_b = new uint64_t[size];
@@ -1790,7 +1792,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
 uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uint32_t a_col) {
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
-        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        // form a single vector for each matrix such that all required multiplications can be performed in one go
         uint32_t size = a_row * a_col;
         uint64_t *concat_a = new uint64_t[size];
         uint64_t *concat_b = new uint64_t[size];
@@ -1840,10 +1842,9 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
  * @return a two-dimensional matrix of size @p n_matrices by @p a_row
  */
 uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col) {
-
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
-        // form a single vector for each matrices such that all required multiplications can be performed in one go
+        // form a single vector for each matrix such that all required multiplications can be performed in one go
         uint32_t size = n_matrices * a_row * a_col;
         uint32_t size2 = a_row * a_col;
         uint64_t *concat_a = new uint64_t[size];
@@ -1855,7 +1856,7 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
             }
         }
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
-
+        cout << "recover vector" << endl;
         // recover the resulting vector
         uint64_t **res = new uint64_t*[n_matrices];
         uint32_t ind = 0;
@@ -1875,12 +1876,13 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
         delete[] concat_a;
         delete[] concat_b;
         delete[] tmp;
-
+        cout << "return from MATVECMUL" << endl;
         return res;
     }
     else if( p_role == HELPER) {
         // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
         MUL(proxy, NULL, NULL, a_row);
+        cout << "return from MATVECMUL" << endl;
         return NULL;
     }
     else {

@@ -120,6 +120,7 @@ int main(int argc, char* argv[]) {
                 break;
             case CNN_MRELU:
                 sz = helper->ReadInt();
+                cout << sz << endl;
                 RELU(helper, nullptr, sz);
                 break;
             case CNN_DRLU:
