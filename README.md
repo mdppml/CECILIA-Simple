@@ -86,6 +86,16 @@ c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h uti
 ./proxy_cnn 1 8888 "127.0.0.1" 7777 "127.0.0.1" 0
 ```
 
+## RKN
+
+Privacy preserving inference on a pre-trained RKN
+
+```bash
+./helper <ip of helper> <port of helper>
+./proxy_rkn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <random flag> <number of anchor points> <length of kmers> <lambda> <sigma> 
+./proxy_rkn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <random flag> <number of anchor points> <length of kmers> <lambda> <sigma> 
+```
+
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
