@@ -9,10 +9,11 @@
 #include <string>
 #include <fstream>   // to read file
 #include <iostream>  // for cout
+#include <utility>
 #include <vector>
 
 const char col_delim = ',';
-const char* white_space = &" \t\n\r\f\v" [ col_delim]; // any whitespace to be removed
+const char* white_space = &" \t\n\r\f\v" [col_delim]; // any whitespace to be removed
 
 const string file_ending = ".txt";
 // constants for CHAMELEON
@@ -27,9 +28,29 @@ const char row_start = '[', row_end = ']', name_end = ':';
 const string initializer_id = "L=", input_id = "I=", dim_id = "dim_value:";
 
 using namespace std;
-string trim(string s, const char* ws=white_space);
-double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, bool flatten);
-double*** parseAllKernelFiles(const string& file_dir, const string file_name_prefix, uint32_t number_of_kernels);
+
+/**
+ * the following 3 functions are derived from here: https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
+ */
+// trim from end of string (right)
+string rtrim(string s, const char* ws = white_space)
+{
+    s.erase(s.find_last_not_of(ws) + 1);
+    return s;
+}
+
+// trim from beginning of string (left)
+string ltrim(string s, const char* ws = white_space)
+{
+    s.erase(0, s.find_first_not_of(ws));
+    return s;
+}
+
+// trim from both ends of string (right then left) all empty spaces and delimiter
+string trim(string s, const char* ws = white_space)
+{
+    return ltrim(rtrim(std::move(s), ws), ws);
+}
 
 /**
  * Get the model parameters of the model specified in the file at model_file_path
@@ -46,7 +67,7 @@ double*** parseAllKernelFiles(const string& file_dir, const string file_name_pre
  * @return pointer to the 3D matrix holding the weights of all layer in 2D shape.
  */
 double*** getONNXParameters(const string& model_file_path, vector<int> &dimensions, uint32_t number_of_layer){
-    double ***weights = new double **[2*number_of_layer+1];
+    auto ***weights = new double **[2*number_of_layer+1];
     //read weights of each layer from model:
     fstream weights_file;
     weights_file.open(model_file_path, ios::in);
@@ -65,7 +86,7 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
                     kern++; row = -1; col = 0;
                     uint32_t nameEndPos = line.find(name_end);
                     string dims = line.substr(nameEndPos+1);
-                    int middle = dims.find(col_delim);
+                    int middle = static_cast<int>(dims.find(col_delim));
                     if (middle >= 0 && middle != string::npos){
                         // two-dimensional; in theory it could also be >2D but shouldn't be the case here.
                         dimensionality = 2;
@@ -81,10 +102,10 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
                 }
             }
             else if(line.find(input_id) == 0){
-                if(line.compare("I=1:") == 0){
+                if(line == "I=1:"){
                     while(getline(weights_file,line).good() && line.find(input_id) != 0){
                         //parse specification of this one input.
-                        int start = line.find(dim_id);
+                        int start = static_cast<int>(line.find(dim_id));
                         if(start != string::npos && (start + dim_id.length()) < line.length()){
                             string dim_value = line.substr(start + dim_id.length());
                             dimensions.insert(dimensions.end(), stoi(dim_value));
@@ -118,14 +139,14 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
                         line = trim(line);
 
                         // store values of this row in weights matrix
-                        valueEnd = line.find(col_delim);
+                        valueEnd = static_cast<int>(line.find(col_delim));
                         uint32_t valueStart = 0;
                         while (valueEnd != string::npos){
                             string value = line.substr(valueStart, valueEnd-valueStart);
                             weights[kern][row][col] = stod(value);
                             valueStart = valueEnd+1;
 
-                            valueEnd = line.find(col_delim, valueStart);
+                            valueEnd = static_cast<int>(line.find(col_delim, valueStart));
                             col++;
                         }
                         break;
@@ -144,7 +165,7 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
     return weights;
 }
 
-// Parsing Helper functions for LeNet and Chameleon:
+// START Parsing Helper functions for LeNet and Chameleon:
 /**
  * Parses all Kernel files which are at the given directory and of the following name pattern:
  * file_name_prefix + \<number of kernel\> + file_ending. \<number of kernel\> is a value in [0, number_of_kernels-1]
@@ -155,35 +176,34 @@ double*** getONNXParameters(const string& model_file_path, vector<int> &dimensio
  * the second dimension is the one of input channels which is currently always 1
  * the third dimension is the values of the kernel which are 25
  */
-double*** parseAllKernelFiles(const string& file_dir, const string file_name_prefix, uint32_t number_of_kernels, uint32_t i_channel){
-    double*** weights = new double **[number_of_kernels];
+double*** parseAllKernelFiles(const string& file_dir, const string& file_name_prefix, uint32_t number_of_kernels, uint32_t i_channel){
+    auto*** weights = new double **[number_of_kernels];
     string line;
     for (uint32_t k = 0; k<number_of_kernels; k++){
         weights[k] = new double *[i_channel]; // only one input channel
         // init file reading
         fstream cv_weights_file;
-        string file_path = file_dir + file_name_prefix + to_string(k) + file_ending;
+        string file_path = file_dir + file_name_prefix;
+        file_path += to_string(k) + file_ending;
+
         cv_weights_file.open(file_path, ios::in);
         if(cv_weights_file.is_open()){
             // actual parsing
             uint32_t position = 0;
-            int c = -1;
+            int c = 0;
+            weights[k][c] = new double [25];
             int valueEnd;
             while (getline(cv_weights_file, line).good()){
-                if(position == 0){
-                    c++;
-                    weights[k][c] = new double [25];
-                }
                 line = trim(line);
                 // store values of this row in weights matrix
-                valueEnd = line.find(col_delim);
+                valueEnd = static_cast<int>(line.find(col_delim));
                 uint32_t valueStart = 0;
                 while (valueEnd != string::npos){
                     string value = line.substr(valueStart, valueEnd-valueStart);
                     weights[k][c][position] = stod(value);
                     valueStart = valueEnd+1;
 
-                    valueEnd = line.find(col_delim, valueStart);
+                    valueEnd = static_cast<int>(line.find(col_delim, valueStart));
                     position++;
                 }
                 // last value not yet stored:
@@ -192,6 +212,8 @@ double*** parseAllKernelFiles(const string& file_dir, const string file_name_pre
                 if(position == 25){
                     // next channel
                     position = 0;
+                    c++;
+                    weights[k][c] = new double [25];
                 }
             }
             cv_weights_file.close();
@@ -210,7 +232,7 @@ double*** parseAllKernelFiles(const string& file_dir, const string file_name_pre
  * nullptr if rows or cols is smaller than the number of rows or number of parameters per row found in the file.
  */
 double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, bool flatten) {
-    double *** params = new double **[1];
+    auto *** params = new double **[1];
     if(flatten){
         params[0] = new double *[1];
     }
@@ -227,19 +249,20 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
         int valueEnd;
         while (getline(file_stream, line).good()){
             line = trim(line);
+            cout << line << endl;
             if(flatten){
                 if(col == 0){
                     params[0][0] = new double [rows*cols];
                 }
                 if(cols > 1){
-                    valueEnd = line.find(col_delim);
+                    valueEnd = static_cast<int>(line.find(col_delim));
                     uint32_t valueStart = 0;
                     while (valueEnd != string::npos){
                         string value = line.substr(valueStart, valueEnd-valueStart);
                         params[0][row][col] = stod(value);
                         valueStart = valueEnd+1;
 
-                        valueEnd = line.find(col_delim, valueStart);
+                        valueEnd = static_cast<int>(line.find(col_delim, valueStart));
                         col++;
                     }
                     // last value not yet stored:
@@ -254,19 +277,18 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
             else{
                 params[0][row] = new double [cols];
                 // store values of this row in weights matrix
-                valueEnd = line.find(col_delim);
+                valueEnd = static_cast<int>(line.find(col_delim));
                 uint32_t valueStart = 0;
                 while (valueEnd != string::npos){
                     string value = line.substr(valueStart, valueEnd-valueStart);
                     params[0][row][col] = stod(value);
                     valueStart = valueEnd+1;
 
-                    valueEnd = line.find(col_delim, valueStart);
+                    valueEnd = static_cast<int>(line.find(col_delim, valueStart));
                     col++;
                 }
                 // last value not yet stored:
                 params[0][row][col] = stod(line.substr(valueStart));
-
                 col = 0;
                 row++;
                 if(row > rows){
@@ -278,27 +300,6 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
         file_stream.close();
     }
     return params;
-}
-
-// the following is derived from here: https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
-// trim from end of string (right)
-string rtrim(string s, const char* ws = white_space)
-{
-    s.erase(s.find_last_not_of(ws) + 1);
-    return s;
-}
-
-// trim from beginning of string (left)
-string ltrim(string s, const char* ws = white_space)
-{
-    s.erase(0, s.find_first_not_of(ws));
-    return s;
-}
-
-// trim from both ends of string (right then left) all empty spaces and delimiter
-string trim(string s, const char* ws)
-{
-    return ltrim(rtrim(s, ws), ws);
 }
 // END helper functions
 
@@ -318,8 +319,7 @@ string trim(string s, const char* ws)
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
 double**** getChameleonParameters(const string& model_file_dir, uint32_t number_of_kernel){
-    double ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
-    string line;
+    auto ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
 
     // convolutional layer:
     weights[0] = parseAllKernelFiles(model_file_dir, ch_conv_name, number_of_kernel, 1);
@@ -363,52 +363,45 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
 
     if(self_trained){
         cout << "parse params for LeNetNN" << endl;
-        weights = new double ***[10]; // 3 CL, 2 FCL, bias for each layer
+        weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
         // convolutional layer:
         weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1);
-        cout << "CL 1 done, ";
+        cout << "parsing weights for CL 1 done! ";
         weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20);
-        cout << "CL 2 done, ";
-        weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50);
-        cout << "CL 3 done" << endl;
+        cout << "parsing weights for CL 2 done! ";
+        //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50);
 
         // fully connected layer:
-        string file_path = model_file_dir + "fc0_weights" + file_ending;
-        weights[3] = parse2DParams(file_path, 800, 500, false);
-
-        file_path = model_file_dir + "fc2_weights" + file_ending;
-        weights[4] = parse2DParams(file_path, 500, 10, false);
+        string file_path = model_file_dir + "fc0_weight" + file_ending;
+        weights[2] = parse2DParams(file_path, 500, 800, false);
+        file_path = model_file_dir + "fc1_weight" + file_ending;
+        weights[3] = parse2DParams(file_path, 10, 500, false);
 
         // bias
         file_path = model_file_dir + "conv0_bias" + file_ending;
-        weights[5] = parse2DParams(file_path, 20, 1, true);
+        weights[4] = parse2DParams(file_path, 20, 1, true);
 
         file_path = model_file_dir + "conv1_bias" + file_ending;
-        weights[6] = parse2DParams(file_path, 50, 1, true);
-
-        file_path = model_file_dir + "conv2_bias" + file_ending;
-        weights[7] = parse2DParams(file_path, 800, 1, true);
+        weights[5] = parse2DParams(file_path, 50, 1, true);
 
         file_path = model_file_dir + "fc0_bias" + file_ending;
-        weights[8] = parse2DParams(file_path, 800, 1, true);
+        weights[6] = parse2DParams(file_path, 800, 1, true);
 
         file_path = model_file_dir + "fc1_bias" + file_ending;
-        weights[9] = parse2DParams(file_path, 500, 1, true);
+        weights[7] = parse2DParams(file_path, 500, 1, true);
     }
-    else{
-        cout << "parse params for LeNet5" << endl;
+    else{ //this part is for the parameters obtained by matlab script
         weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
         // convolutional layer:
         weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 6, 1);
-        print2DArray("kernel 0", weights[0][0], 1, 6);
-        weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 1); //TODO should be 6 input channels
-        //weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name2, 120);
+        weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 1); // should be 6 input channels instead of 1...
+        //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 120);
 
         // fully connected layer:
-        string file_path = model_file_dir + "fc0_weights" + file_ending;
+        string file_path = model_file_dir + "fc0_weight" + file_ending;
         weights[2] = parse2DParams(file_path, 120, 84, false);
 
-        file_path = model_file_dir + "fc1_weights" + file_ending;
+        file_path = model_file_dir + "fc1_weight" + file_ending;
         weights[3] = parse2DParams(file_path, 84, 10, false);
 
         // bias

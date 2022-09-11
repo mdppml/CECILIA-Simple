@@ -19,7 +19,7 @@ using namespace std;
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
 constexpr int sz = 1000;
-constexpr int WSZ = 4;
+constexpr int WSZ = 10;
 
 void MUL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MUL";
@@ -439,11 +439,10 @@ void MRELU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MRELU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t size = 36;
+    uint64_t size = sz;
     uint32_t* params = new uint32_t[1];
     params[0] = size;
-    double *data = new double[36]{ -388.343, -527.582, 15495.7, -1059.36, -1865.63, -817.842, -622.102, -734.863, -1762.31, -1048.34, -295.554, -1361.46, -1551.74, -700.654, -939.806, -1967.38, 15800.1, -260.365, -1539.25, -422.697, -1086.19, -1119.65, -553.375, -1298.74, 14831, -1670.82, 16177.9, -843.397, -1249.25, 14663.5, -1406.12, -385.09, -933.092, -1605.56, -1883.78, 67.9065};
-    uint64_t* x = proxy->createShare(data, size); //random_1D_data(proxy, size), size);//
+    uint64_t* x = proxy->createShare(random_1D_data(proxy, size, 255.0), size);
     proxy->SendBytes(CNN_MRELU, params, 1);
     uint64_t* mrelu = RELU(proxy, x, size);
     uint64_t* rec_mrelu = REC(proxy, mrelu, size);
@@ -515,20 +514,21 @@ void MDRLU_Test(Party *proxy){
 
     proxy->SendBytes(CNN_MDRLU, params, 1);
     uint64_t* drelu = DRELU(proxy, x, size);
-    uint64_t* reconstructed_drelu = REC(proxy, drelu, size);
+    double* rec_drelu = convert2double(REC(proxy, drelu, size), size);
 
     // checking the result
     double* originalX = convert2double(REC(proxy, x, size), size);
-    uint64_t* correct_drelu = new uint64_t [size];
+    double* correct_drelu = new double [size];
     bool allCorrect = true;
-    uint64_t wrongIndex = -1;
     for(uint64_t i = 0; i<size; i++){
-        if (originalX[i] > 0)
+        if (originalX[i] > 0) {
             correct_drelu[i] = 1;
-        if(correct_drelu[i] != reconstructed_drelu[i]){
+        }
+        else{
+            correct_drelu[i] = 0;
+        }
+        if(abs(correct_drelu[i] - rec_drelu[i]) > 0.0001){
             allCorrect = false;
-            wrongIndex = i;
-            break;
         }
     }
     if(allCorrect){
@@ -536,9 +536,8 @@ void MDRLU_Test(Party *proxy){
     }
     else{
         cout<<"MDRLU works incorrectly" <<endl;
-        cout<< "First index of a wrong computation is " << wrongIndex << endl;
         print1DArray("Original Values:", originalX, size);
-        print1DArray("Computed DRELU:", reconstructed_drelu, size);
+        print1DArray("Computed DRELU:", rec_drelu, size);
         print1DArray("VS Correct DRELU:", correct_drelu, size);
     }
 
@@ -603,65 +602,47 @@ void PAD_Test(Party *proxy){
 void CL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling CL (convolutional layer)";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-
-    uint32_t row = 8;
-    uint32_t col = 8;
+                                                                                            // set params
+    uint32_t row = 6;
+    uint32_t col = 6;
     uint32_t i_channel = 1;
-
     uint32_t k_number = 1;
     uint32_t k_dim = 3;
     uint32_t stride = 1;
-    bool doMaxpooling = true;
-
+    uint32_t maxpool_window_dim = 0;
+                                                                                            // generate secret shares of random data
     uint64_t*** x = new uint64_t** [i_channel];
-    /*double **** model_param = getChameleonParameters("../../apps/cnn/model_files/Chameleon_CNN/", k_number);
-    mnist::MNIST_dataset<vector, vector<uint8_t>, uint8_t> dataset =
-            mnist::read_dataset<vector, vector, uint8_t, uint8_t>("../../apps/cnn/mnist/");
-    vector<vector<unsigned char>> training = dataset.test_images;
-    vector<unsigned char> label = dataset.test_labels;
-
-    for (uint32_t i = 0; i < i_channel; ++i) {
-        x[i] = new uint64_t *[row];
-        for (uint32_t r = 0; r < row; ++r) {
-            x[i][r] = new uint64_t [col];
-            for (uint32_t c = 0; c < col; ++c) {
-                double pixelValue = training.at(i).at(r*col + c);
-                x[i][r][c] = proxy->createShare(pixelValue);                 // store directly as secret shares
-            }
-        }
-    }*/
     for(uint64_t i = 0; i<i_channel; i++){
         x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
     }
     uint64_t*** kernel = new uint64_t **[k_number];
     for(uint32_t o = 0; o<k_number; o++){
-        kernel[o] = proxy->createShare(random_2D_data(proxy, i_channel, k_dim * k_dim, -5, 5), i_channel, k_dim * k_dim); // proxy->createShare(model_param[0][o], i_channel, k_dim * k_dim);
+        kernel[o] = proxy->createShare(random_2D_data(proxy, i_channel, k_dim * k_dim, -5, 5), i_channel, k_dim * k_dim);
         double** rec_kernel = convert2double(REC(proxy, kernel[o], i_channel, k_dim * k_dim), i_channel, k_dim * k_dim);
         print2DArray("recon kernel: ", rec_kernel, i_channel, k_dim * k_dim);
     }
-    uint64_t *bias = proxy->createShare(random_1D_data(proxy, k_number), k_number); // proxy->createShare(model_param[3][0][0], k_number);
-
+    uint64_t *bias = proxy->createShare(random_1D_data(proxy, k_number), k_number);
+    double* rec_bias = convert2double(REC(proxy, bias, k_number), k_number);
+    print1DArray("recon bias: ", rec_bias, k_number);
+    delete[] bias;
+                                                                                            // send params
     uint32_t params[7];
     params[0] = i_channel;
     params[1] = row;
     params[2] = col;
-    params[3] = k_dim; // kernel size
-    params[4] = k_number; // kernel number is also output channel
+    params[3] = k_dim;      // kernel size
+    params[4] = k_number;   // kernel number = output channel
     params[5] = stride;
-    params[6] = doMaxpooling;
+    params[6] = maxpool_window_dim;
     proxy->SendBytes(CNN_CL, params, 7);
-    print2DArray("First channel of x", convert2double(REC(proxy, x[0], row, col), row, col), row, col);
 
-    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, doMaxpooling, bias);
+    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, maxpool_window_dim, bias);
     uint64_t conv_size = floor((row - k_dim + 1) / stride);
-    uint64_t lastpos = row - k_dim + 1; // this is equal to conv_size if stride == 1
+    uint64_t lastpos = row - k_dim + 1;
     uint64_t out_size = conv_size;
-    if(doMaxpooling){
-        out_size = conv_size/2;
+    if(maxpool_window_dim > 0){
+        out_size = conv_size/maxpool_window_dim;
     }
-    double* rec_bias = convert2double(REC(proxy, bias, k_number), k_number);
-    print1DArray("recon bias: ", rec_bias, k_number);
-    delete[] bias;
 
     // checking the result
     double*** conv_unreduced = new double **[k_number]; // no reduction with MAX
@@ -672,7 +653,7 @@ void CL_Test(Party *proxy){
         correct_conv[kern] = new double *[out_size];
         for(uint32_t cr = 0; cr < lastpos; cr+=stride){
             conv_unreduced[kern][cr / stride] = new double [conv_size];   // init row of conv result
-            if(!doMaxpooling){
+            if(maxpool_window_dim <= 0){
                 correct_conv[kern][cr / stride] = new double [out_size];
             }
             for(uint32_t cc = 0; cc < lastpos; cc+=stride){
@@ -691,7 +672,7 @@ void CL_Test(Party *proxy){
                 }
                 relu += rec_bias[kern];
                 conv_unreduced[kern][cr / stride][cc / stride] = relu; // does not matter if added here or after maxpool
-                if(!doMaxpooling){
+                if(maxpool_window_dim <= 0){
                     correct_conv[kern][cr / stride][cc / stride] = relu;
                     if(abs(relu - convert2double(REC(proxy, conv[kern][cr / stride][cc / stride]))) > 0.0001) {
                         allCorrect = false;
@@ -699,7 +680,7 @@ void CL_Test(Party *proxy){
                 }
             }
         }
-        if(doMaxpooling){
+        if(maxpool_window_dim > 0){
             // MAXPOOL reduction for window size 2x2
             for(uint32_t mr = 0; mr < out_size; mr++){
                 correct_conv[kern][mr] = new double [out_size];
@@ -738,14 +719,14 @@ void FCL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
     // init
-    uint32_t row = 5;
-    uint32_t col = 5;
+    uint32_t row = 2;
+    uint32_t col = 2;
     uint32_t i_channel = 1;
     uint32_t i_nodes = row*col*i_channel;
-    uint32_t o_nodes = 10;
+    uint32_t o_nodes = 2;
 
     uint64_t* x = proxy->createShare(random_1D_data(proxy, i_nodes, 0.0, 255.0), i_nodes);
-    uint64_t** weights = proxy->createShare(random_2D_data(proxy, i_nodes, o_nodes, -5.0, 5.0), i_nodes, o_nodes);
+    uint64_t** weights = proxy->createShare(random_2D_data(proxy, o_nodes, i_nodes, -5.0, 5.0), o_nodes, i_nodes);
     uint64_t *bias = proxy->createShare(random_1D_data(proxy, o_nodes), o_nodes);
 
     // send params
@@ -760,21 +741,28 @@ void FCL_Test(Party *proxy){
     // checking the result
     bool allCorrect = true;
     double *rec_input = convert2double(REC(proxy, x, i_nodes), i_nodes);
-    double **rec_weights = convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes);
+    print1DArray("reconstructed input: ", rec_input, i_nodes);
+    double **rec_weights = convert2double(REC(proxy, weights, o_nodes, i_nodes), o_nodes, i_nodes);
+    print2DArray("reconstructed weights: ", rec_weights, o_nodes, i_nodes);
     double* rec_bias = convert2double(REC(proxy, bias, o_nodes), o_nodes);
+    print1DArray("reconstructed bias: ", rec_bias, o_nodes);
 
     double * original_res = new double [o_nodes];
     for(uint64_t o = 0; o<o_nodes; o++){
         double value = 0;
-        for (int i = 0; i < i_nodes; ++i) {
-            value += rec_input[i] * rec_weights[i][o];
+        for (int i = 0; i < i_nodes; i++) {
+            cout << "add " << rec_input[i] << " * " << rec_weights[o][i] << endl;
+            value += rec_input[i] * rec_weights[o][i]; //weights would be tansposed in FCL
+            cout << "subresult = " << value << endl;
         }
         //ReLU activation
         if(value < 0){
             value = 0;
         }
-        original_res[o] = value + bias[o];
-        if (value - reconstructed_res[o] > 0.0001){
+        cout << "relu: " << value << endl;
+        original_res[o] = value + rec_bias[o];
+        cout << "added bias: " << original_res[o] << endl;
+        if (original_res[o] - reconstructed_res[o] > 0.0001){
             allCorrect = false;
         }
     }
@@ -2080,20 +2068,20 @@ int main(int argc, char* argv[]) {
     MAX_Test(proxy);
     MMAX_Test(proxy);
 
-    RST_Test(proxy);*/
-    RELU_Test(proxy);
-    MRELU_Test(proxy);/*
+    RST_Test(proxy);
+    RELU_Test(proxy);*/
+    MRELU_Test(proxy);
 
     DRLU_Test(proxy);
     MDRLU_Test(proxy);//TODO
     //DIV_Test(proxy);
-
-    INC_Test(proxy);
-    FLT_Test(proxy);
-    FCL_Test(proxy); //TODO
-    PAD_Test(proxy);*/
-    //CL_Test(proxy);
 /*
+    INC_Test(proxy);
+    FLT_Test(proxy);*/
+    FCL_Test(proxy);
+   /* PAD_Test(proxy);
+    CL_Test(proxy);
+
     EXP_Test(proxy);
     MEXP_Test(proxy);
 
