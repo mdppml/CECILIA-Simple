@@ -154,11 +154,8 @@ int main(int argc, char* argv[]) {
         bias[layer] = proxy->createShare(model_weights[layer + layer_number][0][0], bias_dimensions[layer]);
         //print1DArray("BIAS: ", convert2double(REC(proxy, bias[layer], bias_dimensions[layer]), bias_dimensions[layer]), bias_dimensions[layer]);
         delete[] model_weights[layer + layer_number][0][0];
-        cout << "freed first, " << endl;
         delete[] model_weights[layer + layer_number][0];
-        cout << "second and " << endl;
         delete[] model_weights[layer + layer_number];
-        cout << "third" << endl;
     }
     k_number = bias_dimensions[0];
     uint64_t ***kernel = new uint64_t**[k_number]; // weights of all kernel for first CL
@@ -177,9 +174,8 @@ int main(int argc, char* argv[]) {
     for (uint32_t image = 0; image < i_number; ++image) {
         cout << "START INFERENCE PIPELINE" << endl;
         k_number = bias_dimensions[0];
-        cout << "reset params..." << endl;
         resetParams();
-        uint64_t *** input = new uint64_t **[i_channel];
+        auto *** input = new uint64_t **[i_channel];
         input[0] = data[image]; // currently only 1 channel for input supported
 
         // PERFORMING CONVOLUTION
@@ -206,8 +202,10 @@ int main(int argc, char* argv[]) {
                 nodes_out = bias_dimensions[curr_layer];
                 // FULLY CONNECTED LAYER
                 weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
-                delete[] model_weights[curr_layer][0];
-                delete[] model_weights[curr_layer];
+                if(image == i_number-1) {
+                    delete[] model_weights[curr_layer][0];
+                    delete[] model_weights[curr_layer];
+                }
                 uint64_t *flattened = FLT(conv, i_height, i_width, i_channel);
                 prev_layer_res = FCL(proxy, flattened, nodes_in, weights, nodes_out, bias[curr_layer]);
 
@@ -223,9 +221,13 @@ int main(int argc, char* argv[]) {
                 kernel = new uint64_t**[k_number];
                 for (uint32_t i = 0; i < k_number; i++) {
                     kernel[i] = proxy->createShare(model_weights[curr_layer][i], i_channel, k_dim*k_dim);
-                    delete[] model_weights[curr_layer][i];
+                    if(image == i_number-1) {
+                        delete[] model_weights[curr_layer][i];
+                    }
                 }
-                delete[] model_weights[curr_layer];
+                if(image == i_number-1) {
+                    delete[] model_weights[curr_layer];
+                }
                 cout << "call CL2 (LeNet_NN)" << endl;
                 conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, maxpool_window_dim, bias[curr_layer]);
                 i_channel = k_number;
@@ -241,8 +243,10 @@ int main(int argc, char* argv[]) {
                 cout << "create shares..." << nodes_in << " x " << nodes_out << endl;
                 weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
                 cout << "done: delete. " << endl;
-                delete[] model_weights[curr_layer][0];
-                delete[] model_weights[curr_layer];
+                if(image == i_number-1) {
+                    delete[] model_weights[curr_layer][0];
+                    delete[] model_weights[curr_layer];
+                }
                 uint64_t * flattened = FLT(conv, i_height, i_width, i_channel);
                 prev_layer_res = FCL(proxy, flattened, nodes_in, weights, nodes_out, bias[curr_layer]);
                 cout << "finished FCL1 (LeNet_NN)" << endl;
@@ -252,39 +256,39 @@ int main(int argc, char* argv[]) {
             }
             case 2:{
                 //TODO single cell
+                nodes_in = i_height*i_width*i_channel;
             }
         }
         // last FULLY CONNECTED LAYER
         nodes_out = 10;
         curr_layer++;
         weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
-        delete[] model_weights[curr_layer][0];
-        delete[] model_weights[curr_layer];
+        if(image == i_number-1) {
+            delete[] model_weights[curr_layer][0];
+            delete[] model_weights[curr_layer];
+        }
 
         uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
-        double maxNode = convert2double(REC(proxy,MAX(proxy, output, nodes_out)));
-        uint64_t argmax = 99;
-        for(uint32_t pos = 0; pos<nodes_out; pos++){
-            //cout << maxNode << ", " << convert2double(REC(proxy, output[pos])) << ", diff: " << maxNode - convert2double(REC(proxy, output[pos])) << endl;
-            if(abs(maxNode - convert2double(REC(proxy, output[pos]))) < 0.00001){
-                //cout << "ARGMAX(output) = " << pos << endl;
-                argmax = pos;
+        switch (nn_mode) {                              // from here on network architectures differ
+            case 0:{ // Chameleon
+                prediction[image] = ARGMAX(proxy, output, nodes_out);
+                if (prediction[image] == label[image]){
+                    correct++;
+                }
+                else{
+                    incorrect++;
+                }
+                break;
+            }
+            case 1: { // SecureNN
+                //TODO ASM(output[i]) = RELU(output[i])/RELU(output, nodes_out))
+                break;
+            }
+            case 2:{
+
             }
         }
-        prediction[image] = argmax;
-        //TODO if MINIONN: do ASM(output[i]) = RELU(output[i])/RELU(output, nodes_out))
-        //cout << "Recognized pos " << argmax << ": " << endl;
-        //cout << "Recognized number " << maxNode << ": " << endl;
-        //print1DArray("output", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
-       // cout << "LABEL = " << to_string(label[image]) << endl;
-        if (argmax == label[image]){
-            correct++;
-        }
-        else{
-            incorrect++;
-        }
     }
-    //TODO calc accuracy instead of comparing with training label
     cout << "accuracy: " << correct/i_number << endl;
     proxy->PrintBytes();
     return 0;

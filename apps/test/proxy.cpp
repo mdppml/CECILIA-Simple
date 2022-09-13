@@ -385,6 +385,44 @@ void MMAX_Test(Party *proxy){
     }
 }
 
+void ARGMAX_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling ARGMAX";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    uint32_t mRows = WSZ*15;
+    uint32_t mCols = WSZ*15;
+    uint64_t mSize = mCols*mRows;
+    uint32_t* params = new uint32_t[1];
+    params[0] = mSize;
+
+    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
+
+    proxy->SendBytes(CNN_ARGMAX, params, 1);
+    uint64_t argmax = ARGMAX(proxy, shareOfMatrix, mSize);
+
+    // checking the result
+    double computed_max = -1;
+    double computed_argmax = -1;
+    for(uint32_t position = 0; position < mSize; position++){
+        double matrixVal = convert2double(REC(proxy, shareOfMatrix[position]));
+        if (matrixVal > computed_max){
+            computed_max = matrixVal;
+            computed_argmax = position;
+        }
+    }
+
+    double pp_result = convert2double(REC(proxy, argmax));
+    if(computed_argmax == pp_result){
+        cout<<"ARGMAX works correctly"<<endl;
+    }
+    else{
+        cout<<"ARGMAX works incorrectly" <<endl;
+        cout<< "computed: " << pp_result << " should be: " << computed_argmax << endl;
+    }
+
+}
+
+
 void RST_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RST";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -726,7 +764,7 @@ void FCL_Test(Party *proxy){
     uint32_t o_nodes = 2;
 
     uint64_t* x = proxy->createShare(random_1D_data(proxy, i_nodes, 0.0, 255.0), i_nodes);
-    uint64_t** weights = proxy->createShare(random_2D_data(proxy, o_nodes, i_nodes, -5.0, 5.0), o_nodes, i_nodes);
+    uint64_t** weights = proxy->createShare(random_2D_data(proxy, i_nodes, o_nodes, -5.0, 5.0), i_nodes, o_nodes);
     uint64_t *bias = proxy->createShare(random_1D_data(proxy, o_nodes), o_nodes);
 
     // send params
@@ -742,8 +780,8 @@ void FCL_Test(Party *proxy){
     bool allCorrect = true;
     double *rec_input = convert2double(REC(proxy, x, i_nodes), i_nodes);
     print1DArray("reconstructed input: ", rec_input, i_nodes);
-    double **rec_weights = convert2double(REC(proxy, weights, o_nodes, i_nodes), o_nodes, i_nodes);
-    print2DArray("reconstructed weights: ", rec_weights, o_nodes, i_nodes);
+    double **rec_weights = convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes);
+    print2DArray("reconstructed weights: ", rec_weights, i_nodes, o_nodes);
     double* rec_bias = convert2double(REC(proxy, bias, o_nodes), o_nodes);
     print1DArray("reconstructed bias: ", rec_bias, o_nodes);
 
@@ -751,17 +789,13 @@ void FCL_Test(Party *proxy){
     for(uint64_t o = 0; o<o_nodes; o++){
         double value = 0;
         for (int i = 0; i < i_nodes; i++) {
-            cout << "add " << rec_input[i] << " * " << rec_weights[o][i] << endl;
             value += rec_input[i] * rec_weights[o][i]; //weights would be tansposed in FCL
-            cout << "subresult = " << value << endl;
         }
         //ReLU activation
         if(value < 0){
             value = 0;
         }
-        cout << "relu: " << value << endl;
         original_res[o] = value + rec_bias[o];
-        cout << "added bias: " << original_res[o] << endl;
         if (original_res[o] - reconstructed_res[o] > 0.0001){
             allCorrect = false;
         }
@@ -2069,10 +2103,11 @@ int main(int argc, char* argv[]) {
     MMAX_Test(proxy);
 
     RST_Test(proxy);
-    RELU_Test(proxy);*/
+    RELU_Test(proxy);
     MRELU_Test(proxy);
 
-    DRLU_Test(proxy);
+    DRLU_Test(proxy);*/
+    ARGMAX_Test(proxy);
     MDRLU_Test(proxy);//TODO
     //DIV_Test(proxy);
 /*

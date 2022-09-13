@@ -52,6 +52,17 @@ string trim(string s, const char* ws = white_space)
     return ltrim(rtrim(std::move(s), ws), ws);
 }
 
+double ** transpose(double** matrix, uint32_t rows, uint32_t cols){
+    double ** res = new double *[cols];
+    for (int c = 0; c < cols; ++c) {
+        res[c] = new double [rows];
+        for(int r = 0; r<rows; r++) {
+            res[c][r] = matrix[r][c];
+        }
+    }
+    return res;
+}
+
 /**
  * Get the model parameters of the model specified in the file at model_file_path
  * @param model_file_path path to the file specifying the weights of the layer.
@@ -249,7 +260,6 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
         int valueEnd;
         while (getline(file_stream, line).good()){
             line = trim(line);
-            cout << line << endl;
             if(flatten){
                 if(col == 0){
                     params[0][0] = new double [rows*cols];
@@ -366,16 +376,16 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
         weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
         // convolutional layer:
         weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1);
-        cout << "parsing weights for CL 1 done! ";
         weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20);
-        cout << "parsing weights for CL 2 done! ";
         //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50);
 
         // fully connected layer:
         string file_path = model_file_dir + "fc0_weight" + file_ending;
         weights[2] = parse2DParams(file_path, 500, 800, false);
+        weights[2][0] = transpose(weights[2][0], 500, 800);
         file_path = model_file_dir + "fc1_weight" + file_ending;
         weights[3] = parse2DParams(file_path, 10, 500, false);
+        weights[3][0] = transpose(weights[3][0], 10, 500);
 
         // bias
         file_path = model_file_dir + "conv0_bias" + file_ending;

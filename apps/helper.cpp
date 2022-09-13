@@ -115,6 +115,10 @@ int main(int argc, char* argv[]) {
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;
                 }
                 break;
+            case CNN_ARGMAX:
+                sz = helper->ReadInt();
+                ARGMAX(helper,nullptr, sz);
+                break;
             case CNN_RELU:
                 RELU(helper, 0);
                 break;
