@@ -125,7 +125,7 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
 //            }
 //        }
 //    }
-
+    delete[] gram_matrix;
     return invsqrt_data;
 }
 

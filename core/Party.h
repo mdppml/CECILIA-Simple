@@ -165,7 +165,7 @@ public:
                 share[i] = v[i] - generateCommonRandom();
             }
         }
-
+        delete[] v;
         return share;
     }
 
@@ -183,6 +183,7 @@ public:
                 }
             }
         }
+        delete[] v;
         return share;
     }
 
