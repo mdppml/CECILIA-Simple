@@ -141,8 +141,9 @@ int main(int argc, char* argv[]) {
                 params[4] = helper->ReadInt();
                 params[5] = helper->ReadInt();
                 params[6] = helper->ReadInt();
+                params[7] = helper->ReadInt();
                 CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5], params[6],
-                   nullptr);
+                   nullptr, params[7]);
                 break;
             case CNN_FCL:
                 params[0] = helper->ReadInt();

@@ -990,14 +990,16 @@ uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t
  * @param maxpool_window_dim defines the window size of maxpooling operation, which will be realized after Relu activation.
  * A maxpool_window_dim <= 0 inficates that no maxpooling shall be performed after Relu activation.
  * @param bias vector of length output_channel. For each kernel there is one bias value which is added to every value of the according output_channel.
+ * @param last_conv defines if this convolutional layer will be the last one of the cnn.
+ * If so, the output will be the flattened matrix (as required for fully connected layer), so that output[0][0] = flattened matrix.
  * @return Output of the input convoluted by the given kernels.
- *         Shape of output will be:  c x h x w with
+ *         Shape of output will be:  c x h x w if last_conv == false
+ *         otherwise the shape of the output will be 1 x 1 x c*h*w with
  *         c = output_channel
  *         h = floor((i_height - k_dim + 1)/stride) if doMaxpooling is false; otherwise h = floor((i_height - k_dim + 1)/(2*stride))
  *         w = floor((i_weight - k_dim + 1)/stride) if doMaxpooling is false; otherwise w = floor((i_weight - k_dim + 1)/(2*stride))
  */
-uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, uint32_t maxpool_window_dim, const uint64_t* bias){
-    cout << "CL..." << endl;
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, uint32_t maxpool_window_dim, const uint64_t* bias, bool last_conv){
     uint32_t k_size = k_dim * k_dim;
     auto conv_width = static_cast<uint32_t>(floor((i_width - k_dim + 1) / stride));
     auto conv_height = static_cast<uint32_t>(floor((i_height - k_dim + 1) / stride));
@@ -1035,21 +1037,33 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
             if (maxpool_window_dim > 0){
                 // Maxpool:
                 conv_activated = MAX(proxy, conv_activated, conv_width, conv_height, maxpool_window_dim);
-                // TODO print1DArray("MAX result", convert2double(REC(proxy,conv_activated, conv_len/2), conv_len/2), conv_len/2);
             }
-            // bring result in matrix shape
-            conv_layer[k] = new uint64_t *[out_height];
-            for (uint32_t row = 0; row < out_height; row++) {
-                conv_layer[k][row] = new uint64_t[out_width];
-                for (uint32_t col = 0; col < out_width; col++) {
-                    conv_layer[k][row][col] = conv_activated[row * out_width + col] + bias[k];
+            if(last_conv){
+                if(k == 0){
+                    conv_layer = new uint64_t **[1];
+                    conv_layer[0] = new uint64_t*[1];
+                    conv_layer[0][0] = new uint64_t[output_channel*out_width*out_height];
+                }
+                for (uint32_t row = 0; row < out_height; row++) {
+                    for (uint32_t col = 0; col < out_width; col++) {
+                        conv_layer[0][0][k*out_width*out_height + row*out_width + col] = conv_activated[row * out_width + col] + bias[k];
+                    }
+                }
+            }
+            else{
+                // bring result in matrix shape
+                conv_layer[k] = new uint64_t *[out_height];
+                for (uint32_t row = 0; row < out_height; row++) {
+                    conv_layer[k][row] = new uint64_t[out_width];
+                    for (uint32_t col = 0; col < out_width; col++) {
+                        conv_layer[k][row][col] = conv_activated[row * out_width + col] + bias[k];
+                    }
                 }
             }
             delete[] conv_activated;
             //print2DArray("kernels conv result ", convert2double(REC(proxy, conv_layer[k], out_height, out_width), out_height, out_width), out_height, out_width);
         }
         delete [] stretched_input;
-        cout << "close CL." << endl;
         return conv_layer;
     }
     else if (proxy->getPRole() == HELPER){

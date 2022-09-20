@@ -1902,7 +1902,7 @@ uint64_t MDI(Party* proxy, uint64_t a){
             uint64_t ringProducts [exchangingBit];
             // start with 1 because 0 does not have an inverse value.
             for (uint64_t x = 1; x <= exchangingBit; x++) {
-                uint64_t modInv = x*step + x; //TODO include secret share of 0 ?
+                uint64_t modInv = x*step + x;
                 ringProducts[x - 1] = (a * modInv) & RING_N; // MOC(proxy, t); ?
             }
             cout << "stored all ring products..." << endl;
@@ -1938,7 +1938,7 @@ uint64_t MDI(Party* proxy, uint64_t a){
             uint64_t m;
             for(uint64_t i = 1; i < exchangingBit; i++){
                 // reconstructed product of a was: exchangeBit * step + i+1
-                ringProducts_recon[i] = (convert2Long(&ptr1) + convert2Long(&ptr2)); //TODO how to decide if to divide by K for reconstruction or not? I think here not /K
+                ringProducts_recon[i] = (convert2Long(&ptr1) + convert2Long(&ptr2));
                 for(uint64_t j = 0; j < i; j++){
                     if(((ringProducts_recon[j] + ringProducts_recon[i]) & RING_N) == 1){
                         //mod inverse of a is found: i+1 + j+1

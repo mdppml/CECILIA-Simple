@@ -322,9 +322,9 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
  * @param number_of_kernel defines the number of kernels used in the convolutional layer. All kernel have size 5x5.
  * For each kernel, another file specifying the parameters is in the given model_file_dir.
  * Two further files can be found there specifying the fully connected layers' weights.
- * @return a 4D vector where the first dimension combines all weights of a layer, so the first dimension will be of size 3.
+ * @return a 4D vector where the first dimension combines all weights of a layer or all biases, so the first dimension will be of size 6 (for three layer).
  * the second dimension specifies the values of a kernel.
- * Only the convolutional layer uses several kernel, for the second and third layer, the second dimensions size will be one.
+ * Only the convolutional layer uses several kernel but for the second and third layer, the second dimensions size will be one.
  * The third dimension specifies the input channel.
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
@@ -361,19 +361,18 @@ double**** getChameleonParameters(const string& model_file_dir, uint32_t number_
  * @param model_file_dir directory to all the file specifying the weights of 2 convolutional layer and 2 fully connected layer.
  * The files are expected to be plain txt files containing nothing than the values separated by col_delim.
  * The first convolutional layer uses 6 kernel, the second one uses 16 kernel.
- * @return a 4D vector where the first dimension combines all weights of a layer, so the first dimension will be of size 3.
+ * @return a 4D vector where the first dimension combines all weights of a layer or all biases, so the first dimension will be of size 8 (for four layer).
  * the second dimension specifies the values of a kernel.
  * Only the convolutional layer uses several kernel, for the second and third layer, the second dimensions size will be one.
  * The third dimension specifies the input channel.
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
 double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
-    double ****weights;
+    double ****weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
     string line;
 
     if(self_trained){
         cout << "parse params for LeNetNN" << endl;
-        weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
         // convolutional layer:
         weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1);
         weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20);
@@ -401,7 +400,6 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
         weights[7] = parse2DParams(file_path, 500, 1, true);
     }
     else{ //this part is for the parameters obtained by matlab script
-        weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
         // convolutional layer:
         weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 6, 1);
         weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 1); // should be 6 input channels instead of 1...

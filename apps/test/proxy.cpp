@@ -672,9 +672,10 @@ void CL_Test(Party *proxy){
     params[4] = k_number;   // kernel number = output channel
     params[5] = stride;
     params[6] = maxpool_window_dim;
-    proxy->SendBytes(CNN_CL, params, 7);
+    params[7] = false;
+    proxy->SendBytes(CNN_CL, params, 8);
 
-    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, maxpool_window_dim, bias);
+    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, maxpool_window_dim, bias, false);
     uint64_t conv_size = floor((row - k_dim + 1) / stride);
     uint64_t lastpos = row - k_dim + 1;
     uint64_t out_size = conv_size;
