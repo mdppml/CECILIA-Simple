@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     auto *helper = new Party(HELPER,port,address);
     bool keep_looping = true;
     uint32_t sz, n_gms, size1, size2;
-    uint64_t params [7];
+    uint64_t params [8];
     op operation;
     while (keep_looping){
         operation = static_cast<op>(helper->ReadByte());
