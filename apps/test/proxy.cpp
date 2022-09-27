@@ -9,7 +9,7 @@
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
 #include "../cnn/model_parser.h"
-#include "../cnn/mnist/mnist_reader.hpp"
+#include "../cnn/mnist_data/mnist_reader.hpp"
 #include <bitset>
 
 
@@ -338,39 +338,38 @@ void MMAX_Test(Party *proxy){
     int precision = 3;
 
     // INIT PARAMETER
-    uint32_t mmaxParams[3];
+    uint32_t mmaxParams[4];
     mmaxParams[0] = WSZ*3; // matrix Rows
     mmaxParams[1] = WSZ*3; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
-    mmaxParams[2] = WSZ; // window dim
+    mmaxParams[2] = WSZ; // window rows
+    mmaxParams[3] = WSZ; // window cols
 
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
-
     // PERFORMING MMAX
-    proxy->SendBytes(CNN_MMAX, mmaxParams, 3);
-    uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[2]);
+    proxy->SendBytes(CNN_MMAX, mmaxParams, 4);
+    uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[2], mmaxParams[3]);
 
     // TESTING
     uint32_t window_length = mmaxParams[2] * mmaxParams[3];
     uint32_t number_of_windows = mSize / window_length;
     uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
-
     bool flag = true;
     uint64_t resorted [mSize];
-    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[3], mmaxParams[3], resorted);
+    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[3], mmaxParams[2], resorted);
     double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
     double computed_max[number_of_windows];
 
     for(uint32_t win = 0; win < number_of_windows; win++){
-        for(uint32_t win_element = 0; win_element < window_length; win_element++){
+        computed_max[win] = d_matrix[window_length*win];
+        for(uint32_t win_element = 1; win_element < window_length; win_element++){
             double matrixVal = d_matrix[window_length*win + win_element];
             if (matrixVal > computed_max[win]){
                 computed_max[win] = matrixVal;
             }
         }
-        if (computed_max[win] != convert2double(reconstructed_max[win])){
+        if (abs(computed_max[win] - convert2double(reconstructed_max[win]) > 0.001) ){
             flag = false;
-            break;
         }
     }
 
@@ -379,7 +378,9 @@ void MMAX_Test(Party *proxy){
     }
     else{
         cout<<"Vectorized MAX works incorrectly"<<endl;
-        print1DMatrixByWindows("Matrix: ", d_matrix, mmaxParams[0], mmaxParams[1], mmaxParams[2], mmaxParams[3]);
+        if(mmaxParams[0]*mmaxParams[1] < 200){ //otherwise too many values
+            print1DMatrixByWindows("resorted Matrix: ", d_matrix, mmaxParams[0], mmaxParams[1], 1, mmaxParams[2]*mmaxParams[3]);
+        }
         print1DMatrixByWindows("computed max values (test): ", computed_max, 1, number_of_windows, 1, 1);
         print1DMatrixByWindows("VS result from method: ", convert2double(reconstructed_max, number_of_windows), 1, number_of_windows, 1, 1);
     }
@@ -2099,23 +2100,23 @@ int main(int argc, char* argv[]) {
 
 //    MUX_Test(proxy);
 //    MMUX_Test(proxy);
-
+*/
     MAX_Test(proxy);
-    MMAX_Test(proxy);
+    MMAX_Test(proxy);/*
 
     RST_Test(proxy);
     RELU_Test(proxy);
     MRELU_Test(proxy);
 
-    DRLU_Test(proxy);*/
-    ARGMAX_Test(proxy);
-    MDRLU_Test(proxy);//TODO
+    DRLU_Test(proxy);
+    ARGMAX_Test(proxy);*/
+    //MDRLU_Test(proxy);//TODO
     //DIV_Test(proxy);
 /*
     INC_Test(proxy);
-    FLT_Test(proxy);*/
+    FLT_Test(proxy);
     FCL_Test(proxy);
-   /* PAD_Test(proxy);
+    PAD_Test(proxy);
     CL_Test(proxy);
 
     EXP_Test(proxy);

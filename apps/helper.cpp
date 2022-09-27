@@ -102,14 +102,15 @@ int main(int argc, char* argv[]) {
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
                 params[2] = helper->ReadInt();
+                params[3] = helper->ReadInt();
                 if (
                         params[0] > 0
                         and params[1] > 0
                         and params[2] > 0
                         and params[2] <= params[0]
-                        and params[2] <= params[1]
+                        and params[3] <= params[1]
                     ){
-                    MAX(helper, nullptr, params[0], params[1], params[2]);
+                    MAX(helper, nullptr, params[0], params[1], params[2], params[3]);
                 }
                 else{
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;

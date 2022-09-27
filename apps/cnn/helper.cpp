@@ -44,7 +44,7 @@ void initParams(uint32_t mode) {
             // Multi-cell data
             trained_for_MNIST = false;
             k_number = 8;
-            i_channel = 64; // number of samples
+            i_channel = 1; // number of samples
             i_width = 35;   // number of markers
             i_height = 2000;// number of cells
             k_dim = 35; // 1x35
@@ -73,10 +73,6 @@ void resetParams() {
     if(padding > 0){
         i_height += 2*padding;
         i_width += 2*padding;
-    }
-    if(padding > 0) {
-        i_height += 2 * padding;
-        i_width += 2 * padding;
     }
 }
 
@@ -123,6 +119,7 @@ int main(int argc, char* argv[]) {
         // CNN INFERENCE PIPELINE
         switch (nn_mode) {
             case 0: {
+                cout << "call CL for CHAMELEON" << endl;
                 CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, maxpool_window_dim,
                           nullptr, true);
                 updateParamsAfterCL();
@@ -133,12 +130,10 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case 1: {
-                cout << i_channel << " " << i_height << " " << i_width << " (c x h x w) " << k_dim << " x " << k_number << " s= " << stride << " " << maxpool_window_dim << endl;
                 CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, maxpool_window_dim,
                    nullptr, false);
                 updateParamsAfterCL();
                 k_number = 50;
-                cout << i_channel << " " << i_height << " " << i_width << " (c x h x w) " << k_dim << " x " << k_number << " s= " << stride << " " << maxpool_window_dim << endl;
                 CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, maxpool_window_dim,
                    nullptr, true);
                 updateParamsAfterCL();
@@ -152,11 +147,12 @@ int main(int argc, char* argv[]) {
             }
             case 2:{
                 for (int k = 0; k < k_number; ++k) {
-                    MATVECMUL(helper, nullptr, nullptr, 1, i_height, i_width);
+                    MATVECMUL(helper, nullptr, nullptr, 0, i_height*i_width, 0);
                 }
                 //TODO max with asymmetric size
                 updateParamsAfterCL();
                 updateParamsForFCL(2, true);
+                break;
             }
             default: {
                 cout << "no neural network mode is matching the supported one." << endl;
