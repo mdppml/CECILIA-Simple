@@ -10,6 +10,8 @@ Make sure to clone the repository using the "--recurse-submodules" or "--recurse
 
 If you already have a local version of this repository without submodules, use the command "git submodule update --init --recursive" to initialise the submodules.
 
+The benchmark bash script requires [toxiproxy](https://github.com/Shopify/toxiproxy/releases/latest). Drop the toxiproxy-server and toxiproxy-cli executables into the same directory as the script.
+
 ## Compiling
 
 ### AUROC
