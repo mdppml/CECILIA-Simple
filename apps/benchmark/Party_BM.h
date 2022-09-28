@@ -270,7 +270,7 @@ public:
     }
 
     void max_per_window() {
-        MAX(this, _flattened_matrix, _matrix_y, _matrix_x, _window_size);
+        MAX(this, _flattened_matrix, _matrix_y, _matrix_x, _window_size, _window_size);
     }
 
     void argmax() {
