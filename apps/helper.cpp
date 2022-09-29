@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     auto *helper = new Party(HELPER,port,address);
     bool keep_looping = true;
     uint32_t sz, n_gms, size1, size2;
-    uint64_t params [8];
+    uint64_t params [9];
     op operation;
     while (keep_looping){
         operation = static_cast<op>(helper->ReadByte());
@@ -143,8 +143,9 @@ int main(int argc, char* argv[]) {
                 params[5] = helper->ReadInt();
                 params[6] = helper->ReadInt();
                 params[7] = helper->ReadInt();
+                params[8] = helper->ReadInt();
                 CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5], params[6],
-                   nullptr, params[7]);
+                   params[7], nullptr, params[8]);
                 break;
             case CNN_FCL:
                 params[0] = helper->ReadInt();

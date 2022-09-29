@@ -18,8 +18,8 @@ uint64_t layer_number;
 uint32_t i_number, i_channel, i_width, i_height;
 uint32_t k_number, k_dim;
 uint32_t stride, padding;
-uint32_t divisor;
-uint32_t maxpool_window_dim;
+uint32_t h_divisor, w_divisor;
+uint32_t max_win_width, max_win_height;
 uint32_t curr_layer;
 bool trained_for_MNIST;
 
@@ -34,13 +34,13 @@ void initParams(uint32_t mode) {
     k_dim = 5;
     stride = 1;
     padding = 0;
-    maxpool_window_dim = 2;
+    max_win_width = 2, max_win_height = 2;
     switch (mode) {
         case 0:{ //CHAMELEON
             layer_number = 3;
             stride = 2;
             padding = 2;
-            maxpool_window_dim = 0;
+            max_win_width = 0, max_win_height = 0;
             // i_width and i_height are adjusted after padding is performed; all other parameters are not modified.
             break;
         }
@@ -57,13 +57,18 @@ void initParams(uint32_t mode) {
             i_width = 35;   // number of markers
             i_height = 2000;// number of cells
             k_dim = 35; // 1x35
-            maxpool_window_dim = 2000; // 2000x1
+            max_win_height = 2000;
+            max_win_width = 1;
             break;
         }
     }
-    divisor = stride;
-    if(maxpool_window_dim > 0){
-        divisor *= maxpool_window_dim;
+    h_divisor = stride;
+    if(max_win_height > 0){
+        h_divisor *= max_win_height;
+    }
+    w_divisor = stride;
+    if(max_win_width > 0){
+        w_divisor *= max_win_width;
     }
 }
 
@@ -100,8 +105,8 @@ void updateParamsForFCL(uint32_t* bias_dimensions, bool firstFCL){
 void updateParamsAfterCL(){
     cout << "preparing params after CL..." << endl;
     if(trained_for_MNIST) {
-        i_height = (i_height - k_dim + 1) / divisor;
-        i_width = (i_width - k_dim + 1) / divisor;
+        i_height = (i_height - k_dim + 1) / h_divisor;
+        i_width = (i_width - k_dim + 1) / w_divisor;
     }
     else{
         i_height = i_channel;
@@ -250,7 +255,7 @@ int main(int argc, char* argv[]) {
         uint64_t **weights;
         switch (nn_mode) {                              // from here on network architectures differ
             case 0:{ // Chameleon
-                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, maxpool_window_dim, bias[curr_layer], true);
+                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], true);
                 updateParamsAfterCL();
                 updateParamsForFCL(bias_dimensions, true);
                 // FULLY CONNECTED LAYER
@@ -264,7 +269,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case 1: { // SecureNN
-                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, maxpool_window_dim, bias[curr_layer], false);
+                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], false);
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
@@ -278,7 +283,7 @@ int main(int argc, char* argv[]) {
                 if(image == i_number-1) {
                     delete[] model_weights[curr_layer];
                 }
-                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, maxpool_window_dim, bias[curr_layer], true);
+                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], true);
                 updateParamsAfterCL();
 
                 // fully connected layer:
@@ -298,12 +303,9 @@ int main(int argc, char* argv[]) {
                 conv = new uint64_t **[k_number];
                 for (int k = 0; k < k_number; ++k) {
                     conv[k] = MATVECMUL(proxy, input, kernel[k], 1, i_height, i_width);
-                    cout << "CL for CellCNN done, maxpool not yet." << endl;
                     conv[k][0][0] = MAX(proxy, conv[k][0], i_height);
-                    cout << "max value = " << convert2double(REC(proxy, conv[k][0][0])) << endl;
                 }
                 updateParamsAfterCL();
-                cout << "dimensions: i_c = " << i_channel << ", i_h = " << i_height << ", i_w = " << i_width << endl;
 
                 prev_layer_res = FLT(conv, i_height, i_width, i_channel);
                 updateParamsForFCL(bias_dimensions, true);
@@ -311,14 +313,12 @@ int main(int argc, char* argv[]) {
         }
         delete[] conv;
         // last FULLY CONNECTED LAYER
-        cout << "prepare kernel for last FCL" << endl;
         weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
         if(image == i_number-1) {
             delete[] model_weights[curr_layer][0];
             delete[] model_weights[curr_layer];
         }
 
-        cout << "last FCL" << endl;
         uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
         switch (nn_mode) {                              // from here on network architectures differ
             case 0:{ // Chameleon (treated same as SecureNN)

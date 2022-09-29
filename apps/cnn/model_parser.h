@@ -394,7 +394,6 @@ double**** getChameleonParameters(const string& model_file_dir, uint32_t number_
     return weights;
 }
 
-
 /**
  * Get the model parameters from the LeNet5 trained on the MNIST dataset. The parameters are specified by the files
  * in the specified directory.

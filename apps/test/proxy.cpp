@@ -301,8 +301,8 @@ void MAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t mRows = WSZ*15;
-    uint32_t mCols = WSZ*15;
+    uint32_t mRows = WSZ*17;
+    uint32_t mCols = WSZ*17;
     uint64_t mSize = mCols*mRows;
     uint32_t* params = new uint32_t[1];
     params[0] = mSize;
@@ -339,10 +339,10 @@ void MMAX_Test(Party *proxy){
 
     // INIT PARAMETER
     uint32_t mmaxParams[4];
-    mmaxParams[0] = WSZ*3; // matrix Rows
-    mmaxParams[1] = WSZ*3; // matrix Columns
+    mmaxParams[0] = WSZ*5; // matrix Rows
+    mmaxParams[1] = WSZ*5; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
-    mmaxParams[2] = WSZ; // window rows
+    mmaxParams[2] = WSZ/2; // window rows
     mmaxParams[3] = WSZ; // window cols
 
     uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
@@ -648,7 +648,8 @@ void CL_Test(Party *proxy){
     uint32_t k_number = 1;
     uint32_t k_dim = 3;
     uint32_t stride = 1;
-    uint32_t maxpool_window_dim = 0;
+    uint32_t max_win_height = 0;
+    uint32_t max_win_width = 0;
                                                                                             // generate secret shares of random data
     uint64_t*** x = new uint64_t** [i_channel];
     for(uint64_t i = 0; i<i_channel; i++){
@@ -672,16 +673,22 @@ void CL_Test(Party *proxy){
     params[3] = k_dim;      // kernel size
     params[4] = k_number;   // kernel number = output channel
     params[5] = stride;
-    params[6] = maxpool_window_dim;
+    params[6] = max_win_height;
+    params[6] = max_win_width;
     params[7] = false;
-    proxy->SendBytes(CNN_CL, params, 8);
+    proxy->SendBytes(CNN_CL, params, 9);
 
-    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, maxpool_window_dim, bias, false);
-    uint64_t conv_size = floor((row - k_dim + 1) / stride);
+    uint64_t*** conv = CL(proxy, x, i_channel, row, col, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias, false);
+    uint64_t conv_width = floor((col - k_dim + 1) / stride);
+    uint64_t conv_height = floor((row - k_dim + 1) / stride);
     uint64_t lastpos = row - k_dim + 1;
-    uint64_t out_size = conv_size;
-    if(maxpool_window_dim > 0){
-        out_size = conv_size/maxpool_window_dim;
+    uint64_t out_width = conv_width;
+    if(max_win_width > 0){
+        out_width = conv_width/max_win_width;
+    }
+    uint64_t out_height = conv_height;
+    if(max_win_height > 0){
+        out_height = conv_height/max_win_height;
     }
 
     // checking the result
@@ -689,12 +696,12 @@ void CL_Test(Party *proxy){
     double*** correct_conv = new double **[k_number];
     bool allCorrect = true;
     for(uint32_t kern = 0; kern < k_number; kern++){    // for each output channel
-        conv_unreduced[kern] = new double *[conv_size];                // init kernels conv result
-        correct_conv[kern] = new double *[out_size];
+        conv_unreduced[kern] = new double *[conv_height];                // init kernels conv result
+        correct_conv[kern] = new double *[out_height];
         for(uint32_t cr = 0; cr < lastpos; cr+=stride){
-            conv_unreduced[kern][cr / stride] = new double [conv_size];   // init row of conv result
-            if(maxpool_window_dim <= 0){
-                correct_conv[kern][cr / stride] = new double [out_size];
+            conv_unreduced[kern][cr / stride] = new double [conv_width];   // init row of conv result
+            if(max_win_height > 0){
+                correct_conv[kern][cr / stride] = new double [out_width];
             }
             for(uint32_t cc = 0; cc < lastpos; cc+=stride){
                 double dot_product = 0;
@@ -712,7 +719,7 @@ void CL_Test(Party *proxy){
                 }
                 relu += rec_bias[kern];
                 conv_unreduced[kern][cr / stride][cc / stride] = relu; // does not matter if added here or after maxpool
-                if(maxpool_window_dim <= 0){
+                if(max_win_width <= 0 and max_win_height <= 0){
                     correct_conv[kern][cr / stride][cc / stride] = relu;
                     if(abs(relu - convert2double(REC(proxy, conv[kern][cr / stride][cc / stride]))) > 0.0001) {
                         allCorrect = false;
@@ -720,11 +727,11 @@ void CL_Test(Party *proxy){
                 }
             }
         }
-        if(maxpool_window_dim > 0){
+        if(max_win_width > 0 and max_win_height > 0){
             // MAXPOOL reduction for window size 2x2
-            for(uint32_t mr = 0; mr < out_size; mr++){
-                correct_conv[kern][mr] = new double [out_size];
-                for(uint32_t mc = 0; mc < out_size; mc++){
+            for(uint32_t mr = 0; mr < out_height; mr++){
+                correct_conv[kern][mr] = new double [out_height];
+                for(uint32_t mc = 0; mc < out_width; mc++){
                     uint32_t conv_r = mr * 2, conv_c = mc * 2;
                     double a = std::max(conv_unreduced[kern][conv_r][conv_c], conv_unreduced[kern][conv_r][conv_c+1]);
                     double b = std::max(conv_unreduced[kern][conv_r+1][conv_c], conv_unreduced[kern][conv_r+1][conv_c+1]);
@@ -746,8 +753,8 @@ void CL_Test(Party *proxy){
         print1DArray("kernel 0", convert2double(REC(proxy, kernel[0][0], k_dim*k_dim), k_dim*k_dim), k_dim*k_dim);
         for (uint64_t k = 0; k<k_number; k++){
             cout << "Channel " << k << endl;
-            print2DArray("Channel of computed convolution", convert2double(REC(proxy, conv[k], out_size, out_size), out_size, out_size), out_size, out_size);
-            print2DArray("Channel of correct convolution", correct_conv[k], out_size, out_size);
+            print2DArray("Channel of computed convolution", convert2double(REC(proxy, conv[k], out_height, out_width), out_height, out_width), out_height, out_width);
+            print2DArray("Channel of correct convolution", correct_conv[k], out_height, out_width);
         }
     }
 
@@ -2102,14 +2109,15 @@ int main(int argc, char* argv[]) {
 //    MMUX_Test(proxy);
 */
     MAX_Test(proxy);
-    MMAX_Test(proxy);/*
+    MMAX_Test(proxy);
+    ARGMAX_Test(proxy);/*
 
     RST_Test(proxy);
     RELU_Test(proxy);
     MRELU_Test(proxy);
 
     DRLU_Test(proxy);
-    ARGMAX_Test(proxy);*/
+    */
     //MDRLU_Test(proxy);//TODO
     //DIV_Test(proxy);
 /*

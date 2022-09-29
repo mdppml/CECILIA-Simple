@@ -79,20 +79,21 @@ void RST(const uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_co
  * @param size - size of matrix
  * @return The index of the maximum element in matrix.
  */
-uint64_t ARGMAX(Party* proxy, uint64_t *matrix, uint32_t size){
+uint64_t ARGMAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
     /** MAIN IDEA:
      * As the MAX is performed, a second matrix of same length is created containing the indices only.
      * However values are selected from matrix, is also done for the indices-matrix.
      */
     int L1 = L_BIT - 1;
-    uint32_t cmpVectorSize = size; //size of resulting vector after cmp, MUX.
+    uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX.
     bool isResidueStored = false;
-    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t *maxElements = matrix;
+    bool isSecondHalfFilled = false;
+    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+        uint64_t *maxElements = mShare;
         // generate matrix with indices
-        auto *args = new uint64_t [size];
-        uint64_t * tmp = convert2uint64(random_1D_data(proxy, size), size);
-        for (uint32_t i = 0; i < size; ++i) {
+        auto *args = new uint64_t [matrix_size];
+        uint64_t * tmp = convert2uint64(random_1D_data(proxy, matrix_size), matrix_size);
+        for (uint32_t i = 0; i < matrix_size; ++i) {
             if(proxy->getPRole() == P1){
                 double index = i;
                 args[i] = convert2uint64(index) - tmp[i];
@@ -101,7 +102,7 @@ uint64_t ARGMAX(Party* proxy, uint64_t *matrix, uint32_t size){
                 args[i] = tmp[i];
             }
         }
-        auto maxHalfSizes = static_cast<uint32_t>(ceil(size / 2)); // ceil because residue might be added.
+        auto maxHalfSizes = static_cast<uint32_t>(ceil(matrix_size / 2)); // ceil because residue might be added.
         uint64_t elements1 [maxHalfSizes];
         uint64_t elements2 [maxHalfSizes];
         uint64_t args1 [maxHalfSizes];
@@ -111,23 +112,27 @@ uint64_t ARGMAX(Party* proxy, uint64_t *matrix, uint32_t size){
         while (cmpVectorSize > 1) {
             auto halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
 
-            memcpy(elements1, maxElements, halfSize * sizeof(maxElements[0]));
-            memcpy(elements2, &maxElements[halfSize], halfSize * sizeof(maxElements[0]));
-            memcpy(args1, args, halfSize * sizeof(maxElements[0]));
-            memcpy(args2, &args[halfSize], halfSize * sizeof(maxElements[0]));
             if (cmpVectorSize & 0x1) {                          //there is a residue remaining
                 if (isResidueStored) {                          //second residue found --> add stored and current residue to one half each.
                     halfSize++;                                 //each half of window increases size by 1 because of residues
-                    *(elements1 + halfSize) = residue[0];
-                    *(elements2 + halfSize) = *(maxElements + cmpVectorSize - 1); //last element of cmpVector
-                    *(args1 + halfSize) = residue[1];
-                    *(args2 + halfSize) = *(args + cmpVectorSize - 1);
+                    memcpy(elements2, &maxElements[halfSize], (halfSize-1)*sizeof(maxElements[0]));
+                    elements2[halfSize-1] = residue[0];
+                    memcpy(args2, &args[halfSize], (halfSize-1)*sizeof(maxElements[0]));
+                    args2[halfSize-1] = residue[1];
+                    isSecondHalfFilled = true;
                 } else {                                        //no residue stored up to now:
                     isResidueStored = true;
-                    residue[0] = *(maxElements + cmpVectorSize - 1); // store last element in residue
-                    residue[1] = *(args + cmpVectorSize - 1);
+                    residue[0] = maxElements[cmpVectorSize-1]; // store last element in residue
+                    residue[1] = args[cmpVectorSize-1];
                 }
             }
+            memcpy(elements1, maxElements, halfSize * sizeof(maxElements[0]));
+            memcpy(args1, args, halfSize * sizeof(maxElements[0]));
+            if(!isSecondHalfFilled){
+                memcpy(elements2, &maxElements[halfSize], halfSize * sizeof(maxElements[0]));
+                memcpy(args2, &args[halfSize], halfSize * sizeof(maxElements[0]));
+            }
+
             if (halfSize > 0) {                                 // maximums not yet found
                 //compare: a-b =c and then MSB(c) =d
                 uint64_t *c = SUB(elements1, elements2, halfSize);
@@ -141,6 +146,7 @@ uint64_t ARGMAX(Party* proxy, uint64_t *matrix, uint32_t size){
             }
             //prepare next round:
             cmpVectorSize = halfSize;
+            isSecondHalfFilled = false;
         }
         delete [] maxElements;
         uint64_t argmax = args[0];                          // should only contain one element at the end.
@@ -176,7 +182,6 @@ uint64_t ARGMAX(Party* proxy, uint64_t *matrix, uint32_t size){
     return -1;
 }
 
-
 /**
  * Selects the maximum element from the given matrix in secret shared form.
  * @param mShare - secret share of the matrix from which the maximal element shall be computed.
@@ -191,6 +196,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
      */
     uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX.
     bool isResidueStored = false;
+    bool isSecondHalfFilled = false;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t *maxElements = mShare;
         auto maxHalfSizes = static_cast<uint32_t>(ceil(matrix_size / 2)); // ceil because residue might be added.
@@ -201,18 +207,22 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
         while (cmpVectorSize > 1) {
             auto halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
 
-            memcpy(firstHalf, maxElements, halfSize*sizeof(maxElements[0]));
-            memcpy(secondHalf, &maxElements[halfSize], halfSize*sizeof(maxElements[0]));
             if (cmpVectorSize & 0x1) {                          //there is a residue remaining
                 if (isResidueStored) {                          //second residue found --> add stored and current residue to one half each.
                     halfSize++;                                 //each half of window increases size by 1 because of residues
-                    *(firstHalf + halfSize) = residue;
-                    *(secondHalf + halfSize) = *(firstHalf + cmpVectorSize - 1); //last element of cmpVector
+                    memcpy(secondHalf, &maxElements[halfSize], (halfSize-1)*sizeof(maxElements[0]));
+                    secondHalf[halfSize-1] = residue;
+                    isSecondHalfFilled = true;
                 } else {                                        //no residue stored up to now:
                     isResidueStored = true;
-                    residue = *(firstHalf + cmpVectorSize - 1); // store last element in residue
+                    residue = maxElements[cmpVectorSize-1]; // store last element in residue
                 }
             }
+            memcpy(firstHalf, maxElements, halfSize*sizeof(maxElements[0]));
+            if(!isSecondHalfFilled){
+                memcpy(secondHalf, &maxElements[halfSize], halfSize*sizeof(maxElements[0]));
+            }
+
             if (halfSize > 0) {                                 // maximums not yet found
                 //compare: a-b =c and then MSB(c) =d
                 uint64_t *c = SUB(firstHalf, secondHalf, halfSize);
@@ -225,7 +235,9 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             }
             //prepare next round:
             cmpVectorSize = halfSize;
+            isSecondHalfFilled = false;
         }
+
         uint64_t max = maxElements[0];                          // should only contain one element at the end.
         delete [] maxElements;
         return max;
@@ -306,19 +318,23 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
                         if(i == 0){
                             isResidueInBuffer = false;                    //after processing all windows, buffer is remembered to be empty; don't set isResidueStored directly otherwise residues in one loop iteration are treated differently
                             halfSize++;
-                            currWindowMiddle = currWindowStart + halfSize; //halfSize was too small in line 423
+                            currWindowMiddle++; //halfSize was too small in line 423
                             comparisons += numberOfWins;
                         }
-                        *(currWindowMiddle + halfSize - 1) = residue[i];
+                        //fill secondHalf directly, because inserting with pointer is not possible without loss
+                        memcpy(&secondHalf[i * halfSize], currWindowMiddle, (halfSize-1)*sizeof(resorted[0]));
+                        secondHalf[i * halfSize + halfSize - 1] = residue[i];
                     }
                     else {                                          //no residue stored up to now:
                         isResidueInBuffer = true;                   //don't set isResidueStored directly, as then residues in one loop iteration would be treated differently
-                        residue[i] = *(currWindowMiddle + halfSize - 1);
+                        residue[i] = *(currWindowStart + cmpWindowVectorSize - 1);
                     }
                 }
-                uint64_t vHalfIndex = i * halfSize;         // index at which values of window i are to be stored.
-                memcpy(&firstHalf[vHalfIndex], currWindowStart, halfSize*sizeof(resorted[0]));
-                memcpy(&secondHalf[vHalfIndex], currWindowMiddle, halfSize*sizeof(resorted[0]));
+                memcpy(&firstHalf[i * halfSize], currWindowStart, halfSize*sizeof(resorted[0]));
+                if(isResidueInBuffer or !isResidueStored){
+                    //otherwise, memcpy was already called for secondHalf
+                    memcpy(&secondHalf[i * halfSize], currWindowMiddle, halfSize*sizeof(resorted[0]));
+                }
             }
             if (comparisons > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
@@ -968,6 +984,11 @@ uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t
  * For each kernel there will be one output channel in the result, where the value at the according location is
  * the sum of the single multiplications between input and kernel of same channel number.
  * @param stride step size of each kernel to shift per iteration; must be > 0
+ * @param max_win_height defines window heigth of maxpool, which will be realized after Relu activation.
+ * A max_win_height <= 0 indicates that no maxpool shall be performed after Relu activation.
+ * @param max_win_width defines window width of maxpool, which will be realized after Relu activation.
+ * A max_win_width <= 0 indicates that no maxpool shall be performed after Relu activation.
+ * In order for maxpool to be performed it must hold: (max_win_width > 0) and (max_win_height > 0)
  * @param maxpool_window_dim defines the window size of maxpooling operation, which will be realized after Relu activation.
  * A maxpool_window_dim <= 0 inficates that no maxpooling shall be performed after Relu activation.
  * @param bias vector of length output_channel. For each kernel there is one bias value which is added to every value of the according output_channel.
@@ -981,11 +1002,12 @@ uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t
  *         w = floor((i_weight - k_dim + 1)/stride) if doMaxpooling is false; otherwise w = floor((i_weight - k_dim + 1)/(2*stride))
  *         return vector must be deleted if not needed anymore.
  */
-uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, uint32_t maxpool_window_dim, uint64_t* bias, bool last_conv = false){
+uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, uint32_t max_win_height, uint32_t max_win_width, uint64_t* bias, bool last_conv = false){
     uint32_t k_size = k_dim * k_dim;
     auto conv_width = static_cast<uint32_t>(floor((i_width - k_dim + 1) / stride));
     auto conv_height = static_cast<uint32_t>(floor((i_height - k_dim + 1) / stride));
     uint32_t conv_len = conv_width * conv_height;
+    bool doMaxpooling = ((max_win_width > 0) && (max_win_height > 0));
     // stretch the input for vectorized MATVECMUL
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         //print1DArray("bias in CL: ", convert2double(REC(proxy, bias, output_channel), output_channel), output_channel);
@@ -993,9 +1015,9 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         //print2DArray("INC ", convert2double(REC(proxy,stretched_input[0], conv_len, k_size), conv_len, k_size), conv_len, k_size);
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
-        if (maxpool_window_dim > 0) {
-            out_height /= maxpool_window_dim;
-            out_width /= maxpool_window_dim;
+        if (doMaxpooling) {
+            out_height /= max_win_height;
+            out_width /= max_win_width;
         }
         // convolution:
         auto ***conv_layer = new uint64_t **[output_channel];
@@ -1015,9 +1037,9 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
             delete[] conv_result;
             //print1DArray("ReLU result", convert2double(REC(proxy,conv_activated, conv_len), conv_len), conv_len);
             delete[] summed_channel_conv;
-            if (maxpool_window_dim > 0){
+            if (doMaxpooling){
                 // Maxpool:
-                conv_activated = MAX(proxy, conv_activated, conv_width, conv_height, maxpool_window_dim, maxpool_window_dim);
+                conv_activated = MAX(proxy, conv_activated, conv_height, conv_width, max_win_height, max_win_width);
             }
             if(last_conv){
                 if(k == 0){
@@ -1060,9 +1082,9 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
             // ACTIVATION:
             // ReLU
             RELU(proxy, nullptr, conv_len);
-            if(maxpool_window_dim > 0){
+            if(doMaxpooling){
                 // Maxpool:
-                MAX(proxy, nullptr, conv_width,  conv_height, maxpool_window_dim, maxpool_window_dim);
+                MAX(proxy, nullptr, conv_height, conv_width, max_win_height, max_win_width);
             }
         }
         return nullptr;
