@@ -22,7 +22,7 @@ add_executable(proxy_cnn apps/cnn/proxy.cpp core/Party.h core/core.h core/cnn.h 
 
 add_executable(proxy_test apps/test/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
 
-add_executable(benchmark apps/benchmark/main.cpp)
+#add_executable(benchmark apps/benchmark/main.cpp)
 
 add_executable(proxy_rkn apps/rkn/proxy.cpp core/Party.h core/rkn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h ${ENC_FILES})
 

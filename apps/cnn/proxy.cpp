@@ -10,7 +10,7 @@
 
 using namespace std;
 const string MODEL_DIR = "../../apps/cnn/model_files/";
-const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b4_n10/",
+const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b128_n15/",
 CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
 const string MNIST_DATA = "../../apps/cnn/mnist_data/";
 
@@ -103,7 +103,6 @@ void updateParamsForFCL(uint32_t* bias_dimensions, bool firstFCL){
 }
 
 void updateParamsAfterCL(){
-    cout << "preparing params after CL..." << endl;
     if(trained_for_MNIST) {
         i_height = (i_height - k_dim + 1) / h_divisor;
         i_width = (i_width - k_dim + 1) / w_divisor;
@@ -114,7 +113,6 @@ void updateParamsAfterCL(){
     }
     i_channel = k_number;
     curr_layer++;
-    cout << "all prepared." << endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -129,22 +127,6 @@ int main(int argc, char* argv[]) {
     uint16_t hport = atoi(argv[4]);
     string haddress(argv[5]);
     uint32_t nn_mode = atoi(argv[6]);
-
-    //ensure ports are not 0 for helper or client
-    cout << "Setting ports for helper/client..." << endl;
-    if (cport != 0) {
-        assert(cport < 1 << (sizeof(uint16_t) * 8));
-    }
-    if (hport != 0) {
-        assert(hport < 1 << (sizeof(uint16_t) * 8));
-    }
-
-    Party *proxy;
-    cout << "Creating Proxy..." << endl;
-    if (role==0)
-        proxy = new Party(P1,hport, haddress, cport, caddress);
-    else
-        proxy = new Party(P2,hport, haddress, cport, caddress);
 
     // parse model parameters
     initParams(nn_mode);
@@ -192,7 +174,7 @@ int main(int argc, char* argv[]) {
     }
     else{
         //TODO read multi cell data
-        double* random_label = random_1D_data(proxy, i_number, 10.0);
+        /*double* random_label = random_1D_data(proxy, i_number, 10.0);
         for (int i = 0; i < i_number; ++i) {
             test_label.push_back(random_label[i]);
         }
@@ -203,8 +185,24 @@ int main(int argc, char* argv[]) {
                 values.push_back(random_values[i][j]);
             }
             test_set.push_back(values);
-        }
+        }*/
     }
+
+    //ensure ports are not 0 for helper or client
+    cout << "Setting ports for helper/client..." << endl;
+    if (cport != 0) {
+        assert(cport < 1 << (sizeof(uint16_t) * 8));
+    }
+    if (hport != 0) {
+        assert(hport < 1 << (sizeof(uint16_t) * 8));
+    }
+
+    Party *proxy;
+    cout << "Creating Proxy..." << endl;
+    if (role==0)
+        proxy = new Party(P1,hport, haddress, cport, caddress);
+    else
+        proxy = new Party(P2,hport, haddress, cport, caddress);
 
     auto*** data = new uint64_t** [test_set.size()];
     for (uint32_t i = 0; i < i_number; ++i) {
@@ -217,11 +215,12 @@ int main(int argc, char* argv[]) {
             }
         }
         if(padding > 0){
-            data[i] = PAD(data[i], i_height, i_width, 0, padding);
+            uint64_t padding_value = proxy->createShare(0);
+            data[i] = PAD(data[i], i_height, i_width, padding_value, padding);
         }
     }
     cout << "Creating secret shares: " << endl;
-    // secret shares of model parameter
+    // secret shares: bias
     auto **bias = new uint64_t *[layer_number];
     for (int layer = 0; layer < layer_number; ++layer) {
         //cout << " - Bias for layer " << layer << " of length " << bias_dimensions[layer] << endl;
@@ -230,13 +229,21 @@ int main(int argc, char* argv[]) {
         delete[] model_weights[layer + layer_number][0];
         delete[] model_weights[layer + layer_number];
     }
+
+    // secret shares: kernel
     k_number = bias_dimensions[0];
-    auto ***kernel = new uint64_t**[k_number]; // weights of all kernel for first CL
+    auto ***kernel = new uint64_t**[i_channel]; // weights of all kernel for first CL
+    for (int i = 0; i < i_channel; ++i) {
+        kernel[i] = new uint64_t *[k_number];
+    }
     uint32_t k_size = nn_mode == 2 ? k_dim : k_dim*k_dim;
-    for (uint32_t i = 0; i < k_number; i++) {
-        kernel[i] = proxy->createShare(model_weights[0][i], i_channel, k_size);
-        delete[] model_weights[0][i][0]; // if more than one channel: delete for each channel
-        delete[] model_weights[0][i];
+    for (uint32_t k = 0; k < k_number; k++) {
+        uint64_t ** kernel_weights = proxy->createShare(model_weights[0][k], i_channel, k_size);
+        for (int i = 0; i < i_channel; ++i) {
+            kernel[i][k] = kernel_weights[i];
+        }
+        delete[] model_weights[0][k][0];
+        delete[] model_weights[0][k];       // if more than one channel: delete for each channel
     }
     delete[] model_weights[0];
 
@@ -346,6 +353,12 @@ int main(int argc, char* argv[]) {
     delete[] data[0];
     delete[] data;
     cout << "accuracy: " << printf("%.3f", correct/i_number) << " (" << correct << "/" << i_number << ")" << endl;
+    print1DArray("Prediction: ", prediction, i_number);
+    string s_correct = "";
+    for (int i = 0; i < i_number; ++i)
+        s_correct += to_string(test_label[i]) + "\t";
+
+    cout << "Correct label: " << endl << s_correct << endl;
     proxy->PrintBytes();
     return 0;
 }

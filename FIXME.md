@@ -17,10 +17,6 @@ Document the problems to think about at a later state here. If particular file(s
 ##### utils
 -> Creating separate files for addVal2..., convert... and other functions in flib.h ?
 
-### Current Limitations
-##### cnn.cpp in core/test
--> MMAX can handle only symmetric matrices for resorting by now (calculation of how many columns to process is not for all cases)
-
 
 ### Installation for ONNX file reading: 
 ###### see https://github.com/protocolbuffers/protobuf/blob/main/src/README.md
@@ -30,11 +26,11 @@ sudo apt-get install python3-pip python3-dev libprotobuf-dev protobuf-compiler
 export CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON"
 git clone --recursive https://github.com/onnx/onnx.git
 cd onnx
-# prefer lite proto
+#### prefer lite proto
 set CMAKE_ARGS=-DONNX_USE_LITE_PROTO=ON
 pip install -e .
 
-# if it does not work: 
+#### if it does not work: 
 pip install onnx
 
 

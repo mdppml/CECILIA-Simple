@@ -316,6 +316,25 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
     }
     return params;
 }
+/**
+ * Switches dimension 0 and 1 of a given 3D matrix.
+ * @param matrix of shape @p n_matrices x @p height x @p width
+ * @param n_matrices number of 2D matrices in matrix
+ * @param height number of rows in each 2D matrix
+ * @param width number of cols in each 2D matrix
+ * @return a matrix with dimensions 0 and 1 of @p matrix switched so that the output shape is
+ * @p height x @p n_matrices x @p width
+ */
+double *** switchDimensions0and1(double*** matrix, int n_matrices, int height, int width){
+    double *** switchedMatrix = new double **[height];
+    for (int row = 0; row < height; ++row) {
+        switchedMatrix[row] = new double *[n_matrices];
+        for (int n = 0; n < n_matrices; ++n) {
+            switchedMatrix[row][n] = matrix[n][row];
+        }
+    }
+    return switchedMatrix;
+}
 // END helper functions
 
 
@@ -328,9 +347,9 @@ double*** parse2DParams(const string& file_path, uint32_t rows, uint32_t cols, b
  * For each kernel, another file specifying the parameters is in the given model_file_dir, furthermore, one for the bias values.
  * Two further files can be found there specifying the fully connected layers' weights and bias.
  * @return a 4D vector where the first dimension combines all weights of a layer or all biases, so the first dimension will be of size 4.
- * the second dimension specifies the values of a kernel.
- * Only the convolutional layer uses several kernel but for the second and third layer, the second dimensions size will be one.
- * The third dimension specifies the input channel.
+ * the second dimension specifies the the input channel. For bias this is always 1
+ * The third dimension specifies values of a kernel. Only the convolutional layer uses several kernel but for second and
+ * third layer, the third dimensions size will be 1.
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
 double**** getCellCnnParameters(const string& model_file_dir, uint32_t number_of_kernel){
@@ -363,16 +382,17 @@ double**** getCellCnnParameters(const string& model_file_dir, uint32_t number_of
  * For each kernel, another file specifying the parameters is in the given model_file_dir.
  * Two further files can be found there specifying the fully connected layers' weights.
  * @return a 4D vector where the first dimension combines all weights of a layer or all biases, so the first dimension will be of size 6 (for three layer).
- * the second dimension specifies the values of a kernel.
- * Only the convolutional layer uses several kernel but for the second and third layer, the second dimensions size will be one.
- * The third dimension specifies the input channel.
+ * the second dimension specifies the the input channel. For bias this is always 1
+ * The third dimension specifies values of a kernel. Only the convolutional layer uses several kernel but for second and
+ * third layer, the third dimensions size will be 1.
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
 double**** getChameleonParameters(const string& model_file_dir, uint32_t number_of_kernel){
     auto ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
 
     // convolutional layer:
-    weights[0] = parseAllKernelFiles(model_file_dir, ch_conv_name, number_of_kernel, 1, 25);
+    double*** parsedParams = parseAllKernelFiles(model_file_dir, ch_conv_name, number_of_kernel, 1, 25);
+    weights[0] = switchDimensions0and1(parsedParams, number_of_kernel, 1, 25);
 
     // fully connected layer:
     string file_path = model_file_dir + "ws_dense0" + file_ending;
@@ -401,9 +421,9 @@ double**** getChameleonParameters(const string& model_file_dir, uint32_t number_
  * The files are expected to be plain txt files containing nothing than the values separated by col_delim.
  * The first convolutional layer uses 6 kernel, the second one uses 16 kernel.
  * @return a 4D vector where the first dimension combines all weights of a layer or all biases, so the first dimension will be of size 8 (for four layer).
- * the second dimension specifies the values of a kernel.
- * Only the convolutional layer uses several kernel, for the second and third layer, the second dimensions size will be one.
- * The third dimension specifies the input channel.
+ * the second dimension specifies the the input channel. For bias this is always 1
+ * The third dimension specifies values of a kernel. Only the convolutional layer uses several kernel but for second and
+ * third layer, the third dimensions size will be 1.
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
 double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
@@ -413,8 +433,14 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
     if(self_trained){
         cout << "parse params for LeNetNN" << endl;
         // convolutional layer:
-        weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1, 25);
-        weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20, 25);
+        double*** parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1, 25);
+        for (int k = 0; k < 3; ++k) {
+            print2DArray("first row parsed weights", parsedParams[k], 1, 25);
+        }
+        weights[0] = switchDimensions0and1(parsedParams, 20, 1, 25);
+        print2DArray("first row resorted weights", weights[0][0], 3, 25);
+        parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20, 25);
+        weights[1] = switchDimensions0and1(parsedParams, 50, 20, 25);
         //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50);
 
         // fully connected layer:
@@ -440,8 +466,11 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
     }
     else{ //this part is for the parameters obtained by matlab script
         // convolutional layer:
-        weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, 6, 1, 25);
-        weights[1] = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 1, 25); // should be 6 input channels instead of 1...
+
+        double*** parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name0, 6, 1, 25);
+        weights[0] = switchDimensions0and1(parsedParams, 6, 1, 25);
+        parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 6, 25);
+        weights[1] = switchDimensions0and1(parsedParams, 16, 6, 25);
         //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 120);
 
         // fully connected layer:
