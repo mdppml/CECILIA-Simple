@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 # make sure that enough positional arguments were provided:
-if [[ ${#POSITIONAL_ARGS[@]} -lt 7 ]]
+if [[ ${#POSITIONAL_ARGS[@]} -lt 6 ]]
 then
   echo "Positional arguments were not provided. Call this tool with -h to see which ones are required."
   exit 1
