@@ -211,6 +211,32 @@ uint64_t* ADD(Party* proxy, uint64_t **a, uint32_t n_vectors, uint32_t size) {
     return res;
 }
 
+
+/**
+ * Adds values of all matrices in a at equal position to calculate their sum (sum over all matrices in a).
+ * @param proxy
+ * @param a 3-dmatrix containing several 2-d matrices in dimension rows x cols. Values of all matrices at same position shall be summed up.
+ * @param n_matrices number of matrices in a
+ * @param rows height of each matrix in a
+ * @param cols width of each matrix in a
+ * @return 2-d matrix of shape rows x cols with the summed up values.
+ */
+uint64_t** ADD(Party* proxy, uint64_t ***a, uint32_t n_matrices, uint32_t rows, uint32_t cols) {
+    uint64_t** res = new uint64_t *[rows];
+    //uint64_t copy_size = rows*sizeof(a[0][0][0]);
+    for(int r = 0; r<rows; r++){
+        //memcpy(res[r], &a[0][r], copy_size); //init row with values of according row of first matrix
+        res[r] = new uint64_t [cols];
+        for(int c = 0; c<cols; c++){
+            res[r][c] = 0;
+            for (int m = 0; m < n_matrices; ++m) {
+                res[r][c] += a[m][r][c];
+            }
+        }
+    }
+    return res;
+}
+
 /**
  * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
  * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
@@ -1733,7 +1759,6 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
         uint32_t size2 = a_row * a_col * b_col;
         uint64_t *concat_a = new uint64_t[size];
         uint64_t *concat_b = new uint64_t[size];
-
         for(uint32_t n = 0; n < n_matrices; n++) {
             for (uint32_t i = 0; i < size2; i++) {
                 concat_a[size2 * n + i] = a[n][i / (a_col * b_col)][i % a_col];

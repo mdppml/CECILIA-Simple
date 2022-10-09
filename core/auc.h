@@ -76,6 +76,7 @@ uint64_t* AUCMSB(Party* proxy, uint64_t *x, uint32_t sz) {
         return NULL;
 
     }
+    return nullptr;
 }
 
 uint64_t* MRound(Party* proxy, uint64_t *a, uint32_t sz) {
@@ -113,6 +114,7 @@ uint64_t* MRound(Party* proxy, uint64_t *a, uint32_t sz) {
         Send(proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
         return NULL;
     }
+    return nullptr;
 }
 
 uint64_t* MDIVISION(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) {
@@ -203,6 +205,7 @@ uint64_t* MDIVISION(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) {
         delete[]c;
         return z;
     }
+    return nullptr;
 }
 
 
@@ -286,6 +289,7 @@ uint64_t DIVISION(Party* proxy, uint64_t a, uint64_t b) {
         uint64_t z = convert2Long(&ptr);
         return z;
     }
+    return -1;
 }
 
 #endif //PPAUC_AUC_H
