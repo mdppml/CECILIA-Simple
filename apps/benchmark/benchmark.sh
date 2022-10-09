@@ -76,10 +76,12 @@ if [[ "$LATENCY" ]] || [[ "$BANDWIDTH" ]]
 then
   PORT_P2P1=26381
   PORT_PHELPER=26379
+  # find toxiproxy executables:
   TOXI_SERVER_ARRAY=(toxiproxy-server*)
   TOXI_SERVER=${TOXI_SERVER_ARRAY[0]}
   TOXI_CLI_ARRAY=(toxiproxy-cli*)
   TOXI_CLI=${TOXI_CLI_ARRAY[0]}
+  # initialise toxiproxy:
   "./$TOXI_SERVER" &>toxi.log &
   sleep 1
   "./$TOXI_CLI" create \
@@ -114,9 +116,9 @@ then
   fi
 fi
 # run benchmarks:
-cmake-build-debug/benchmark HELPER $PORT_HELPERP 127.0.0.1 0 0 $ARGS &
+../../cmake-build-debug/benchmark HELPER $PORT_HELPERP 127.0.0.1 0 0 $ARGS &
 sleep 2
-cmake-build-debug/benchmark P1 $PORT_PHELPER 127.0.0.1 $PORT_P1P2 127.0.0.1 $ARGS &
+../../cmake-build-debug/benchmark P1 $PORT_PHELPER 127.0.0.1 $PORT_P1P2 127.0.0.1 $ARGS &
 sleep 2
-cmake-build-debug/benchmark P2 $PORT_PHELPER 127.0.0.1 $PORT_P2P1 127.0.0.1 $ARGS
+../../cmake-build-debug/benchmark P2 $PORT_PHELPER 127.0.0.1 $PORT_P2P1 127.0.0.1 $ARGS
 
