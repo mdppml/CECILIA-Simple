@@ -117,61 +117,59 @@ uint64_t ARGMAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
      * As the MAX is performed, a second matrix of same length is created containing the indices only.
      * However values are selected from matrix, is also done for the indices-matrix.
      */
-    int L1 = L_BIT - 1;
     uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, MUX.
     bool isResidueStored = false;
     bool isSecondHalfFilled = false;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t *maxElements = mShare;
+        uint64_t *maxElements = new uint64_t [2*matrix_size];
         // generate matrix with indices
-        auto *args = new uint64_t [matrix_size];
         uint64_t * tmp = convert2uint64(random_1D_data(proxy, matrix_size), matrix_size);
-        for (uint32_t i = 0; i < matrix_size; ++i) {
+        for (int i = 0; i < matrix_size; ++i) {
+            maxElements[i] = mShare[i];
             if(proxy->getPRole() == P1){
-                double index = i;
-                args[i] = convert2uint64(index) - tmp[i];
+                maxElements[i + matrix_size] = convert2uint64(i) - tmp[i];
             }
             else{
-                args[i] = tmp[i];
+                maxElements[i + matrix_size] = tmp[i];
             }
         }
-        auto maxHalfSizes = static_cast<uint32_t>(ceil(matrix_size / 2)); // ceil because residue might be added.
+        auto maxHalfSizes = matrix_size;
         uint64_t elements1 [maxHalfSizes];
         uint64_t elements2 [maxHalfSizes];
-        uint64_t args1 [maxHalfSizes];
-        uint64_t args2 [maxHalfSizes];
         uint64_t residue[2]; //there is at most one residual element and its index
 
         while (cmpVectorSize > 1) {
             auto halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
             if (cmpVectorSize & 0x1) {                          //there is a residue remaining
                 if (isResidueStored) {                          //second residue found --> add stored and current residue to one half each.
+                    isResidueStored = false;
                     halfSize++;                                 //each half of window increases size by 1 because of residues
                     memcpy(elements2, maxElements+halfSize, (halfSize-1)*8);
                     elements2[halfSize-1] = residue[0];
-                    memcpy(args2, args+halfSize, (halfSize-1)*8);
-                    args2[halfSize-1] = residue[1];
+                    memcpy(elements2 + halfSize, maxElements + cmpVectorSize + halfSize, (halfSize-1)*8);
+                    elements2[cmpVectorSize] = residue[1];
                     isSecondHalfFilled = true;
                 } else {                                        //no residue stored up to now:
                     isResidueStored = true;
                     residue[0] = maxElements[cmpVectorSize-1]; // store last element in residue
-                    residue[1] = args[cmpVectorSize-1];
+                    residue[1] = maxElements[2*cmpVectorSize-1];
                 }
             }
             memcpy(elements1, maxElements, halfSize * 8);
-            memcpy(args1, args, halfSize * 8);
+            memcpy(elements1 + halfSize, maxElements + cmpVectorSize, halfSize*8);
             if(!isSecondHalfFilled){
                 memcpy(elements2, maxElements+halfSize, halfSize * 8);
-                memcpy(args2, args+halfSize, halfSize * 8);
+                memcpy(elements2 + halfSize, maxElements + cmpVectorSize + halfSize, halfSize*8);
             }
             if (halfSize > 0) {                                 // maximums not yet found
                 //compare: a-b =c and then MSB(c) =d
                 uint64_t *c = SUB(elements1, elements2, halfSize);
                 uint64_t *d = MSB(proxy, c, halfSize);
-
+                uint64_t selection_vector[2*halfSize];
+                memcpy(selection_vector, d, halfSize * 8);
+                memcpy(selection_vector+halfSize, d, halfSize * 8);
                 //MUX:
-                maxElements = MUX(proxy, elements1, elements2, d, halfSize);
-                args = MUX(proxy, args1, args2, d, halfSize);
+                maxElements = MUX(proxy, elements1, elements2, selection_vector, 2*halfSize);
                 delete[] c;
                 delete[] d;
             }
@@ -179,9 +177,14 @@ uint64_t ARGMAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             cmpVectorSize = halfSize;
             isSecondHalfFilled = false;
         }
+        if (isResidueStored) {
+            uint64_t c = maxElements[0] - residue[0];
+            uint64_t d = MSB(proxy, c);
+            maxElements[1] = MUX(proxy, maxElements[1], residue[1], d);
+        }
+
+        uint64_t argmax = maxElements[1];                          // should only contain one element at the end; indices are after values
         delete [] maxElements;
-        uint64_t argmax = args[0];                          // should only contain one element at the end.
-        delete [] args;
         return argmax;
     }
     else if ( proxy->getPRole() == HELPER) {
@@ -191,6 +194,7 @@ uint64_t ARGMAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
             auto halfSize = static_cast<uint32_t>(floor(cmpVectorSize / 2));
             if (cmpVectorSize % 2 == 1) {                   //there is a residue remaining
                 if (isResidueStored) {                            //second residue found --> add stored and current residue each to one half.
+                    isResidueStored = false;
                     halfSize++;                                //each half of window increases size by 1 because of residues
                 } else {                                       //no residue stored up to now:
                     isResidueStored = true;
@@ -202,11 +206,15 @@ uint64_t ARGMAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
                 MSB(proxy, nullptr, halfSize);
 
                 //MUX:
-                MUX(proxy, nullptr, nullptr, nullptr, halfSize);
-                MUX(proxy, nullptr, nullptr, nullptr, halfSize);
+                MUX(proxy, nullptr, nullptr, nullptr, 2*halfSize);
+                //MUX(proxy, nullptr, nullptr, nullptr, halfSize);
             }
             //prepare next round:
             cmpVectorSize = halfSize;
+        }
+        if (isResidueStored) {
+            MSB(proxy, 0);
+            MUX(proxy, 0, 0, 0);
         }
         return 0;
     }
@@ -1161,7 +1169,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  * Implements functionality of a fully connected layer (FCL) with ReLU as activation function.
  * @param proxy
  * @param input the input vector of length in_size to be fully connected to the output nodes.
- * @param in_size length of the input vector (when previous layer is a convolutional layer, use the Flattening method FLT before)
+ * @param in_size length of the input vector (when input is in more dimensional shape, use the Flattening method FLT before)
  * @param weights to be used must be of shape in_size x node_number as provided by Chameleon files
  * @param node_number number of output nodes of this layer
  * @param bias vector of length node_number. For each output node there is one bias value which is added.
@@ -1169,12 +1177,19 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  * activated with ReLu and the according bias added. It will be of length node_number.
  * return vector must be deleted if not needed anymore.
  */
-uint64_t* FCL(Party* proxy, uint64_t* input, uint32_t in_size, uint64_t** weights, uint32_t node_number, uint64_t* bias){
+uint64_t* FCL(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, int node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
+
+        //print2DArray("MATVECMUL input weights", convert2double(REC(proxy, weights, node_number, in_size), node_number, in_size), node_number, in_size);
+        //print1DArray("MATVECMUL input vector", convert2double(REC(proxy, input, in_size), in_size), in_size);
         uint64_t *output = MATVECMUL(proxy, weights, input, node_number, in_size);
 
+        //print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
         uint64_t* relu = RELU(proxy, output, node_number);
+        //print1DArray("RELU output", convert2double(REC(proxy, relu, node_number), node_number), node_number);
         output = ADD(proxy, relu, bias, node_number);
+        //print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
+        //print1DArray("activated with bias", convert2double(REC(proxy, relu, node_number), node_number), node_number);
         delete[] relu;
         return output;
     }

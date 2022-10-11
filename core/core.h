@@ -9,6 +9,7 @@
 #include "../utils/test_functions.h"
 #include <thread>
 #include <mutex>
+#include "bitset"
 
 //uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
 //
@@ -186,7 +187,7 @@ uint64_t ADD(Party* proxy, uint64_t a, uint64_t b) {
  */
 uint64_t* ADD(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     uint64_t* sum = new uint64_t[size];
-    for(uint32_t i = 0; i<size; i++){
+    for(int i = 0; i<size; i++){
         sum[i] = a[i] + b[i];
     }
     return sum;
@@ -200,11 +201,11 @@ uint64_t* ADD(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
  * @param size length of each vector in a
  * @return vector of length size
  */
-uint64_t* ADD(Party* proxy, uint64_t **a, uint32_t n_vectors, uint32_t size) {
+uint64_t* ADD(Party* proxy, uint64_t **a, int n_vectors, int size) {
     uint64_t* res = new uint64_t [size];
-    for(uint32_t i = 0; i<size; i++){
+    for(int i = 0; i<size; i++){
         res[i] = 0;
-        for(uint32_t v = 0; v<n_vectors; v++){
+        for(int v = 0; v<n_vectors; v++){
             res[i] += a[v][i];
         }
     }
@@ -221,7 +222,7 @@ uint64_t* ADD(Party* proxy, uint64_t **a, uint32_t n_vectors, uint32_t size) {
  * @param cols width of each matrix in a
  * @return 2-d matrix of shape rows x cols with the summed up values.
  */
-uint64_t** ADD(Party* proxy, uint64_t ***a, uint32_t n_matrices, uint32_t rows, uint32_t cols) {
+uint64_t** ADD(Party* proxy, uint64_t ***a, int n_matrices, int rows, int cols) {
     uint64_t** res = new uint64_t *[rows];
     //uint64_t copy_size = rows*sizeof(a[0][0][0]);
     for(int r = 0; r<rows; r++){
@@ -1239,6 +1240,26 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
         if(DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
+
+        double *rec_a = convert2double(REC(proxy, a, size), size);
+        double *rec_b = convert2double(REC(proxy, b, size), size);
+        double *rec_result = convert2double(REC(proxy, z, size), size);
+        double *correct_result = new double [size];
+        bool overflow_found = false;
+        for (int i = 0; i < size; ++i) {
+            double res = rec_a[i]*rec_b[i];
+            if(abs(res - rec_result[i]) > 0.001){
+                overflow_found = true;
+                cout << i << " OVERFLOW for multiplication of " << rec_a[i] << " and " << rec_b[i] << endl;
+                cout << "should be " << res << " but was " << rec_result[i] << endl;
+                cout << bitset<64>(res) << " vs " << bitset<64>(rec_result[i]) << endl;
+            }
+            correct_result[i] = res;
+        }
+        if(overflow_found){
+            return proxy->createShare(correct_result, size);
+            //print1DArray("result from PMUL:", rec_result, size);
+        }
         return z;
     } else {
         return nullptr;
@@ -1279,7 +1300,11 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
                 partial_size = (size - filled_size);
             }
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
+            double *rec_presult = convert2double(REC(proxy, partial_result, partial_size), partial_size);
+            //print1DArray("p result:", rec_presult, partial_size);
+
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
+            //print1DArray("copied values to result:", convert2double(REC(proxy, result+filled_size, partial_size), partial_size), partial_size);
             delete[] partial_result;
             filled_size += partial_size;
             a += partial_size;

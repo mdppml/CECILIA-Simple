@@ -30,7 +30,7 @@ void initParams(uint32_t mode) {
     curr_layer = 0;
     //MNIST data
     trained_for_MNIST = true;
-    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
+    i_number = 1, i_channel = 1, i_width = 28, i_height = 28;
     k_dim = 5;
     stride = 1;
     padding = 0;
@@ -232,18 +232,13 @@ int main(int argc, char* argv[]) {
 
     // secret shares: kernel
     k_number = bias_dimensions[0];
+    uint32_t k_size = nn_mode == 2 ? k_dim : k_dim*k_dim;
     auto ***kernel = new uint64_t**[i_channel]; // weights of all kernel for first CL
     for (int i = 0; i < i_channel; ++i) {
         kernel[i] = new uint64_t *[k_number];
-    }
-    uint32_t k_size = nn_mode == 2 ? k_dim : k_dim*k_dim;
-    for (uint32_t k = 0; k < k_number; k++) {
-        uint64_t ** kernel_weights = proxy->createShare(model_weights[0][k], i_channel, k_size);
-        for (int i = 0; i < i_channel; ++i) {
-            kernel[i][k] = kernel_weights[i];
-        }
-        delete[] model_weights[0][k][0];
-        delete[] model_weights[0][k];       // if more than one channel: delete for each channel
+        kernel[i] = proxy->createShare(model_weights[0][i], k_number, k_size);
+        delete[] model_weights[0][i][0];
+        delete[] model_weights[0][i];
     }
     delete[] model_weights[0];
 
@@ -256,7 +251,7 @@ int main(int argc, char* argv[]) {
         resetParams();
         auto *** input = new uint64_t **[i_channel];
         input[0] = data[image]; // currently only 1 channel for input supported
-
+        print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
         uint64_t*** conv;
         uint64_t* prev_layer_res;
         uint64_t **weights;
@@ -264,6 +259,7 @@ int main(int argc, char* argv[]) {
             case 0:{ // Chameleon
                 conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], true);
                 updateParamsAfterCL();
+
                 updateParamsForFCL(bias_dimensions, true);
                 // FULLY CONNECTED LAYER
                 weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
@@ -281,8 +277,8 @@ int main(int argc, char* argv[]) {
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
                 kernel = new uint64_t**[k_number];
-                for (uint32_t i = 0; i < k_number; i++) {
-                    kernel[i] = proxy->createShare(model_weights[curr_layer][i], i_channel, k_dim*k_dim);
+                for (uint32_t i = 0; i < i_channel; i++) {
+                    kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim*k_dim);
                     if(image == i_number-1) {
                         delete[] model_weights[curr_layer][i];
                     }
@@ -326,13 +322,15 @@ int main(int argc, char* argv[]) {
             delete[] model_weights[curr_layer];
         }
 
+        //print1DArray("input to last FCL", convert2double(REC(proxy, prev_layer_res, nodes_in), nodes_in), nodes_in);
+        //print2DArray("weights", convert2double(REC(proxy, weights, nodes_out, nodes_in), nodes_out, nodes_in), nodes_out, nodes_in);
         uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
         switch (nn_mode) {                              // from here on network architectures differ
             case 0:{ // Chameleon (treated same as SecureNN)
             }
             case 1: { // SecureNN
                 prediction[image] = convert2double(REC(proxy, ARGMAX(proxy, output, nodes_out)));
-                //print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
+                print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
                 cout << ": predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
                 break;
             }

@@ -431,17 +431,13 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
     string line;
 
     if(self_trained){
-        cout << "parse params for LeNetNN" << endl;
         // convolutional layer:
         double*** parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1, 25);
-        for (int k = 0; k < 3; ++k) {
-            print2DArray("first row parsed weights", parsedParams[k], 1, 25);
-        }
         weights[0] = switchDimensions0and1(parsedParams, 20, 1, 25);
-        print2DArray("first row resorted weights", weights[0][0], 3, 25);
+
         parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20, 25);
         weights[1] = switchDimensions0and1(parsedParams, 50, 20, 25);
-        //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50);
+        //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50); //TODO is this needed?
 
         // fully connected layer:
         string file_path = model_file_dir + "fc0_weight" + file_ending;

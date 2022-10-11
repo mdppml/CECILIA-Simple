@@ -24,7 +24,7 @@ uint32_t nodes_in;
 void initParams(uint32_t mode) {
     //MNIST data
     trained_for_MNIST = true;
-    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
+    i_number = 100, i_channel = 1, i_width = 28, i_height = 28;
     k_dim = 5, k_number = 20;
     stride = 1;
     padding = 0;
