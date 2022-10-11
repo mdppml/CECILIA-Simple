@@ -65,6 +65,7 @@ public:
         _vector = createShare(
                 vector,
                 _vector_length);
+        delete[] vector;
         _number = _vector[0];
         double** vector_of_vectors = random_2D_data(this, _count, _vector_length, 0, 255);
         _vector_of_vectors = createShare(
@@ -72,20 +73,32 @@ public:
                 _count,
                 _vector_length
             );
+        delete[] vector_of_vectors;
         _vector_of_matrices = new uint64_t ** [_count];
+        double** matrix = random_2D_data(this, _matrix_y, _matrix_x, 0, 255);
         for (int i = 0; i < _count; i++) {
             _vector_of_matrices[i] = createShare(
-                    random_2D_data(this, _matrix_y, _matrix_x, 0, 255),
+                    matrix,
                     _matrix_y,
                     _matrix_x
                 );
         }
+        delete[] matrix;
+        _matrix_MATMATMUL = new uint64_t ** [_count];
+        matrix = random_2D_data(this, _matrix_x, _matrix_y, 0, 255);
+        for (int i = 0; i < _count; i++) {
+            _matrix_MATMATMUL[i] = createShare(
+                    matrix,
+                    _matrix_x,
+                    _matrix_y
+            );
+        }
+        delete[] matrix;
         _vector_of_gram_matrices = new uint64_t ** [_count];
         for (int i = 0; i < _count; i++) {
             _vector_of_gram_matrices[i] = randomOrthogonalMatrix(this, matrix_x);
         }
         _flattened_vector_of_vectors_size = _vector_length * _count;
-        delete[] vector;
         vector = random_1D_data(this, _flattened_vector_of_vectors_size, 255, false);
         _flattened_vector_of_vectors = createShare(
                 vector,
@@ -97,16 +110,15 @@ public:
                 vector,
                 _flattened_matrix_size
             );
-        double** matrix = random_2D_data(this, _count, matrix_y, 0, 255);
+        delete[] vector;
+        matrix = random_2D_data(this, _count, matrix_x, 0, 255);
         _matrix_MATVECMUL = createShare(
                 matrix,
                 _count,
                 matrix_x
             );
-        _double_matrix = random_2D_data(this, _matrix_y, _matrix_x, 0, 255);
-        delete[] vector;
-        delete[] vector_of_vectors;
         delete[] matrix;
+        _double_matrix = random_2D_data(this, _matrix_y, _matrix_x, 0, 255);
     }
 
     /** This constructor is exclusively used for the helper.
@@ -145,6 +157,7 @@ public:
         _matrix_MATVECMUL = nullptr;
         _flattened_matrix = nullptr;
         _double_matrix = nullptr;
+        _matrix_MATMATMUL = nullptr;
     }
 
     ~Party_BM() {
@@ -153,6 +166,7 @@ public:
         delete[] _vector_of_matrices;
         delete[] _flattened_vector_of_vectors;
         delete[] _vector_of_gram_matrices;
+        delete[] _matrix_MATMATMUL;
     }
 
     tuple<double, double> benchmark(const string& function) {
@@ -244,11 +258,20 @@ public:
     }
 
     void matrix_matrix_multiplication() {
-        MATMATMUL(this, _vector_of_matrices, _vector_of_matrices, _count, _matrix_y, _matrix_x, _matrix_x);
+        if (this->getPRole() == HELPER) {
+            MATMATMUL(this, nullptr, nullptr, _count * _matrix_y * _matrix_x * _matrix_y, 0, 0);
+        } else {
+            MATMATMUL(this, _vector_of_matrices, _matrix_MATMATMUL, _count, _matrix_y, _matrix_x, _matrix_y);
+        }
+
     }
 
     void matrix_vector_multiplication() {
-        MATVECMUL(this, _vector_of_matrices, _matrix_MATVECMUL, _count, _matrix_y, _matrix_x);
+        if (this->getPRole() == HELPER) {
+            MATVECMUL(this, nullptr, nullptr, 0, _matrix_y * _count * _matrix_x, 0);
+        } else {
+            MATVECMUL(this, _vector_of_matrices, _matrix_MATVECMUL, _count, _matrix_y, _matrix_x);
+        }
     }
 
     void reconstruct() {
@@ -318,7 +341,7 @@ private:
         map["MATMATMUL"] = &Party_BM::matrix_matrix_multiplication;
         map["MATVECMUL"] = &Party_BM::matrix_vector_multiplication;
         map["REC"] = &Party_BM::reconstruct;
-        //map["MDI"] = &Party_BM::modular_inverse;
+        map["MDI"] = &Party_BM::modular_inverse;
         map["MRound"] = &Party_BM::round;
         map["RELU"] = &Party_BM::relu;
         map["DRELU"] = &Party_BM::derivative_relu;
@@ -336,7 +359,7 @@ private:
     uint64_t _number;
     uint64_t *_vector, *_flattened_vector_of_vectors, *_flattened_matrix;
     uint64_t **_vector_of_vectors, **_matrix_MATVECMUL;
-    uint64_t ***_vector_of_matrices, ***_vector_of_gram_matrices;
+    uint64_t ***_vector_of_matrices, ***_matrix_MATMATMUL, ***_vector_of_gram_matrices;
     double** _double_matrix;
 };
 
