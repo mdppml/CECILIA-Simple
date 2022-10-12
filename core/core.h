@@ -274,6 +274,8 @@ uint64_t MUX(Party* proxy, uint64_t x, uint64_t y, uint64_t b) {
         //x = x + s ;
         //y = y + s;
         uint64_t m1 = (b * (x - y)) - (r3*(x-y)) - (r3*r4) - (r2*b);
+
+
         //m1 = m1 >> FRAC;
         uint64_t m2 = b + r1;
         uint64_t m3 = x - y + r4;
@@ -786,7 +788,9 @@ uint64_t MSB(Party *proxy, uint64_t x) {
     return -1;
 }
 
-uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
+// MSB with 5 communication rounds.
+// dont delete this.
+/*uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t* d_k = new uint64_t[sz];
         uint64_t *m = new uint64_t[sz];
@@ -874,9 +878,10 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
         return NULL;
     }
     return NULL;
-}
+}*/
 
-uint64_t *MSBv2(Party* proxy, uint64_t *x, uint32_t sz) {
+// MSB has 4 communication round. MOC and PC are hardcoded in MSB to reduce the number of communication rounds of MSB calls.
+uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint8_t f = proxy->generateCommonRandomByte() & 0x1;
         uint64_t *z_1 = new uint64_t[sz];
@@ -1005,6 +1010,8 @@ uint64_t *MSBv2(Party* proxy, uint64_t *x, uint32_t sz) {
             uint64_t val1 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
             uint64_t val2 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
             jk += 16;
+            val1 = convert2uint64((double)val1);
+            val2 = convert2uint64((double)val2);
             uint64_t vs_1 = proxy->generateRandom();
             uint64_t vs_2 = (val1 - vs_1);
             addVal2CharArray(vs_1, &ptr_out);
