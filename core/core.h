@@ -786,97 +786,8 @@ uint64_t MSB(Party *proxy, uint64_t x) {
     return -1;
 }
 
+// MSB has 4 communication round. MOC and PC are hardcoded in MSB to reduce the number of communication rounds of MSB calls.
 uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t* d_k = new uint64_t[sz];
-        uint64_t *m = new uint64_t[sz];
-        for (int i = 0; i < sz; i++) {
-            d_k[i] = x[i] & N1_MASK;
-        }
-        uint64_t* d = MOC(proxy, d_k,sz);
-        delete [] d_k;
-        for (int i = 0; i < sz; i++) {
-            m[i] = x[i] - d[i];
-        }
-        unsigned char *ptr = proxy->getBuffer1();
-
-        ptr = proxy->getBuffer1();
-        uint64_t *added_random = new uint64_t[sz];
-        for (int i = 0; i < sz; i++) {
-
-            added_random[i] = (proxy->generateCommonRandom()%2);
-            if ( proxy->getPRole() == P1) {
-                if (added_random[i] == 0) {
-                    addVal2CharArray(m[i], &ptr);
-                    addVal2CharArray(m[i] + N1, &ptr);
-                }else{
-                    addVal2CharArray(m[i] + N1, &ptr);
-                    addVal2CharArray(m[i], &ptr);
-                }
-            }
-            else {
-                addVal2CharArray(m[i], &ptr);
-                addVal2CharArray(m[i], &ptr);
-            }
-        }
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8 * 2);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8 * 2);
-        ptr = proxy->getBuffer1();
-
-        for (int i = 0; i < sz; i++) {
-            if (added_random[i] == 0){
-                m[i] = convert2Long(&ptr);
-                ptr += 8;
-            }else{
-                ptr += 8;
-                m[i] = convert2Long(&ptr);
-            }
-        }
-
-        delete[] added_random;
-        return m;
-
-    } else if ( proxy->getPRole() == HELPER) {
-
-        unsigned char *ptr_out = proxy->getBuffer1();
-        unsigned char *ptr_out2 = proxy->getBuffer2();
-        uint64_t* d = MOC(proxy,0,sz);
-
-        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz * 8 * 2);
-        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8 * 2);
-        thr1.join();
-        thr2.join();
-
-        unsigned char *ptr = proxy->getBuffer1();
-        ptr_out = proxy->getBuffer1();
-
-        unsigned char *ptr2 = proxy->getBuffer2();
-        ptr_out2 = proxy->getBuffer2();
-
-        for (uint32_t i = 0; i < sz; i++) {
-            uint64_t v1 = convert2Long(&ptr2) + convert2Long(&ptr);
-            uint64_t v2 = convert2Long(&ptr2) + convert2Long(&ptr);
-            v1 = convert2uint64((double)(v1/N1));
-            v2 = convert2uint64((double)(v2/N1));
-            uint64_t s1 = proxy->generateRandom();
-            uint64_t s2 = v1 - s1;
-            addVal2CharArray(s1, &ptr_out);
-            addVal2CharArray(s2, &ptr_out2);
-            s1 = proxy->generateRandom();
-            s2 = v2 - s1;
-            addVal2CharArray(s1, &ptr_out);
-            addVal2CharArray(s2, &ptr_out2);
-        }
-        thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * 8 * 2);
-        thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8 * 2);
-        thr1.join();
-        thr2.join();
-        return NULL;
-    }
-    return NULL;
-}
-
-uint64_t *MSBv2(Party* proxy, uint64_t *x, uint32_t sz) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint8_t f = proxy->generateCommonRandomByte() & 0x1;
         uint64_t *z_1 = new uint64_t[sz];
@@ -1005,6 +916,8 @@ uint64_t *MSBv2(Party* proxy, uint64_t *x, uint32_t sz) {
             uint64_t val1 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
             uint64_t val2 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
             jk += 16;
+            val1 = convert2uint64((double)val1);
+            val2 = convert2uint64((double)val2);
             uint64_t vs_1 = proxy->generateRandom();
             uint64_t vs_2 = (val1 - vs_1);
             addVal2CharArray(vs_1, &ptr_out);
@@ -1025,6 +938,24 @@ uint64_t *MSBv2(Party* proxy, uint64_t *x, uint32_t sz) {
         return 0;
     }
     return 0;
+}
+
+uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
+    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+        uint64_t* diff = new uint64_t[sz];
+        for (int i = 0; i < sz; i++) {
+            diff[i] = x[i] - y[i];
+        }
+        uint64_t* m = MSB(proxy, diff,sz);
+        for (int i = 0; i < sz; i++) {
+            m[i] =  (proxy->getPRole()<<FRAC) - m[i];
+        }
+        return m;
+    }else if ( proxy->getPRole() == HELPER) {
+        uint64_t* m = MSB(proxy, 0,sz);
+        return NULL;
+    }
+    return NULL;
 }
 
 uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
