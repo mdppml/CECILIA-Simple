@@ -1,4 +1,4 @@
-# PPAURORA
+# CECILIA
 
 PPAURORA is a C++ project for the private computation of AUROC and AUPRC using secure three-party computation.
 
