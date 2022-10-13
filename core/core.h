@@ -1122,12 +1122,6 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
         e_f[0] = a - mt[0];
         e_f[1] = b - mt[1];
 
-//        uint64_t e_shr = a - mt[0];
-//        uint64_t f_shr = b - mt[1];
-
-//        uint64_t e = Reconstruct(e_shr);
-//        uint64_t f = Reconstruct(f_shr);
-
         uint64_t* rec_e_f = REC(proxy,e_f, 2);
 
 //        uint64_t z = proxy->getPRole() * e * f + f * mt[0] + e * mt[1] + mt[2];
@@ -1241,25 +1235,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         if(DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
 
-        double *rec_a = convert2double(REC(proxy, a, size), size);
-        double *rec_b = convert2double(REC(proxy, b, size), size);
-        double *rec_result = convert2double(REC(proxy, z, size), size);
-        double *correct_result = new double [size];
-        bool overflow_found = false;
-        for (int i = 0; i < size; ++i) {
-            double res = rec_a[i]*rec_b[i];
-            if(abs(res - rec_result[i]) > 0.001){
-                overflow_found = true;
-                cout << i << " OVERFLOW for multiplication of " << rec_a[i] << " and " << rec_b[i] << endl;
-                cout << "should be " << res << " but was " << rec_result[i] << endl;
-                cout << bitset<64>(res) << " vs " << bitset<64>(rec_result[i]) << endl;
-            }
-            correct_result[i] = res;
-        }
-        if(overflow_found){
-            return proxy->createShare(correct_result, size);
-            //print1DArray("result from PMUL:", rec_result, size);
-        }
+
         return z;
     } else {
         return nullptr;
@@ -1292,6 +1268,9 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         /*if(DEBUG_FLAG >= 2)
             printValue("MNF_MUL size", (double)size);*/
 
+        uint64_t *rec_a = REC(proxy, a, size);
+        uint64_t *rec_b = REC(proxy, b, size);
+
         uint64_t *result = new uint64_t[size];
         int filled_size = 0;
         size_t partial_size = MAXMUL;
@@ -1302,7 +1281,22 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
             double *rec_presult = convert2double(REC(proxy, partial_result, partial_size), partial_size);
             //print1DArray("p result:", rec_presult, partial_size);
-
+            double *correct_result = new double [size];
+            bool overflow_found = false;
+            for (int i = 0; i < size; ++i) {
+                double res = convert2double(rec_a[i])*convert2double(rec_b[i]);
+                if(abs(res - rec_presult[i]) > 0.001){
+                    overflow_found = true;
+                    cout << i << " OVERFLOW for multiplication of " << convert2double(rec_a[i]) << " and " << convert2double(rec_b[i]) << endl;
+                    cout << bitset<64>(rec_a[i]) << " vs " << bitset<64>(rec_b[i]) << endl;
+                    cout << "should be " << res << " but was " << rec_presult[i] << endl;
+                }
+                correct_result[i] = res;
+            }
+            if(overflow_found){
+                return proxy->createShare(correct_result, size);
+                //print1DArray("result from PMUL:", rec_result, size);
+            }
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
             //print1DArray("copied values to result:", convert2double(REC(proxy, result+filled_size, partial_size), partial_size), partial_size);
             delete[] partial_result;

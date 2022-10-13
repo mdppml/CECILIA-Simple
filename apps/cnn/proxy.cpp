@@ -9,10 +9,11 @@
 #include "mnist_data/mnist_reader.hpp"
 
 using namespace std;
-const string MODEL_DIR = "../../apps/cnn/model_files/";
-const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b128_n15/",
+const string MODEL_DIR = "../apps/cnn/model_files/";
+const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b128_n5/",
 CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
-const string MNIST_DATA = "../../apps/cnn/mnist_data/";
+const string MNIST_DATA = "../apps/cnn/mnist_data/";
+const double PIXEL_MAX = 255;
 
 uint64_t layer_number;
 uint32_t i_number, i_channel, i_width, i_height;
@@ -30,7 +31,7 @@ void initParams(uint32_t mode) {
     curr_layer = 0;
     //MNIST data
     trained_for_MNIST = true;
-    i_number = 1, i_channel = 1, i_width = 28, i_height = 28;
+    i_number = 2, i_channel = 1, i_width = 28, i_height = 28;
     k_dim = 5;
     stride = 1;
     padding = 0;
@@ -211,7 +212,7 @@ int main(int argc, char* argv[]) {
             data[i][r] = new uint64_t [i_width];
             for (uint32_t c = 0; c < i_width; ++c) {
                 double pixelValue = test_set.at(i).at(r * i_width + c);
-                data[i][r][c] = proxy->createShare(pixelValue);                 // store directly as secret shares
+                data[i][r][c] = proxy->createShare(2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
             }
         }
         if(padding > 0){
@@ -273,6 +274,7 @@ int main(int argc, char* argv[]) {
             }
             case 1: { // SecureNN
                 conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], false);
+                print2DArray("weights conv0: ", convert2double(REC(proxy, conv[0], 12, 12), 12, 12), 12, 12);
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];

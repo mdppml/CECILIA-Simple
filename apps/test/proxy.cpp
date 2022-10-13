@@ -25,17 +25,18 @@ bool MUL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
-    double yd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+    double xd = 0.588;// MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+    double yd = 2.00432585; //MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
     uint64_t x = proxy->createShare(xd);
     uint64_t y = proxy->createShare(yd);
     proxy->SendBytes(CORE_MUL);
     uint64_t r = MUL(proxy,x, y);
     // checking the result
-    xd = convert2double(REC(proxy,x));
-    yd = convert2double(REC(proxy,y));
+   // xd = convert2double(REC(proxy,x));
+  //  yd = convert2double(REC(proxy,y));
     double rd = convert2double(REC(proxy,r));
     double rcd = (xd*yd);
+    cout << "diff: " << rd - rcd << endl;
     if ((int)(rd - rcd) == 0)
         cout<<"MUL works correctly"<<endl;
     else {
@@ -717,12 +718,12 @@ void CL_Test(Party *proxy){
                         dot_product += v * weight;
                     }
                 }
+                dot_product += rec_bias[kern];
                 // Activation: RELU
                 double relu = 0.0;
                 if (dot_product > 0) {
                     relu = dot_product;
                 }
-                relu += rec_bias[kern]; // does not matter if added here or after maxpool
                 correct_conv[kern][cr / stride][cc / stride] = relu;
                 if (max_height <= 1 and max_width <= 1) {
                     // no maxpooling --> check if correct
@@ -2244,6 +2245,184 @@ void MEMCPY_TEST(Party *proxy) {
     }
 }
 
+bool NETWORK_TEST(Party *proxy) {
+    cout<<setfill ('*')<<setw(50)<<"Calling LeNet Test";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    const int length = 28;
+    double image[length][length] = {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,0,0,0,116,125,171,255,255,150,93,0,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,0,0,169,253,253,253,253,253,253,218,30,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,0,169,253,253,253,213,142,176,253,253,122,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,52,250,253,210,32,12,0,6,206,253,140,0,0,0,0,0,0,0,0,0,0},
+                    {0,0,0,0,0,0,0,77,251,210,25,0,0,0,122,248,253,65,0,0,0,0,0,0,0,0,0,0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 31,  18,  0,   0,   0,   0,   209, 253, 253, 65,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   117, 247, 253, 198, 10,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   76,  247, 253, 231, 63,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   128, 253, 253, 144, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   176, 246, 253, 159, 12,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   25,  234, 253, 233, 35,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   198, 253, 253, 141, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   78,  248, 253, 189, 12,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 19,  200, 253, 253, 141, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 134, 253, 253, 173, 12,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 248, 253, 253, 25,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 248, 253, 253, 43,  20,  20,  20,  20,  5,   0,   5,   20,  20,  37,  150, 150, 150, 147, 10,  0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 248, 253, 253, 253, 253, 253, 253, 253, 168, 143, 166, 253, 253, 253, 253, 253, 253, 253, 123, 0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 174, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 253, 249, 247, 247, 169, 117, 117, 57,  0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   118, 123, 123, 123, 166, 253, 253, 253, 155, 123, 123, 41,  0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
+                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,0,0,0}};
+
+    uint64_t ***secret = new uint64_t **[0];
+    secret[0] = new uint64_t * [length];
+    for (int i = 0; i < length; ++i) {
+        secret[0][i] = proxy->createShare(image[i], length);
+    }
+
+    double kernel [5][5] = {{-0.09602198,-0.066380806,0.004841719,-0.13074008,-0.21051669},
+                      {-0.15994059,0.061118018,0.19219273,0.06320523,0.15816787},
+                      {0.0129997665,0.19746655,-0.00050751516,-0.17033894,-0.070527315},
+                      {0.054051124,-0.20655234,-0.1440479,-0.21508642,0.21944945},
+                      {0.16889668,-0.062005207,0.14000067,0.19843176,0.11537137}};
+    uint64_t ***sec_kernel = new uint64_t **[0];
+    sec_kernel[0] = new uint64_t *[0];
+    sec_kernel[0][0] = new uint64_t [25];
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 5; ++j) {
+            sec_kernel[0][0][i*5 + j] = proxy->createShare(kernel[i][j]);
+        }
+    }
+
+    double bias = 0.1175425;
+    uint64_t *sec_bias = new uint64_t [0];
+    sec_bias[0] = proxy->createShare(bias);
+
+    uint64_t max_width = floor((length - 5 + 1) / 2);
+    uint64_t max_height = floor((length - 5 + 1) / 2);
+
+    // send params
+    uint32_t params[9];
+    params[0] = 1;
+    params[1] = length;
+    params[2] = length;
+    params[3] = 5;      // kernel size
+    params[4] = 1;   // kernel number = output channel
+    params[5] = 1;
+    params[6] = 2;
+    params[7] = 2;
+    params[8] = false;
+    proxy->SendBytes(CNN_CL, params, 9);
+
+    print2DArray("image: ", convert2double(REC(proxy, secret[0], length, length), length, length), length, length);
+    uint64_t ***weights_secure = CL(proxy, secret, 1, length, length, sec_kernel, 5, 1, 1, 2, 2, sec_bias, false);
+    // checking the result
+    double **recon_res = convert2double(REC(proxy, weights_secure[0], max_height, max_width), max_height, max_width);
+
+    uint64_t conv_size = length - 5 + 1;
+    double **correct_res = new double *[conv_size];
+    bool allCorrect = true;
+    for (uint32_t cr = 0; cr < conv_size; cr++) {
+        correct_res[cr] = new double[conv_size];   // init row of conv result
+        for (uint32_t cc = 0; cc < conv_size; cc++) {
+            double dot_product = 0;
+            for (uint32_t kr = 0; kr < 5; kr++) {
+                for (int kc = 0; kc < 5; ++kc) {
+                    double v = image[cr + kr][cc + kc];
+                    double weight = kernel[kr][kc];
+                    dot_product += v * weight;
+                }
+            }
+            dot_product += bias;
+            // Activation: RELU
+            double relu = 0.0;
+            if (dot_product > 0) {
+                relu = dot_product;
+            }
+            correct_res[cr][cc] = relu;
+        }
+    }
+    //print2DArray("activated conv", correct_res, conv_size, conv_size);
+    //MAXPOOLING
+    double **pooled_conv = new double *[max_height];
+
+    for (int r = 0; r < (conv_size - 2 + 1); r += 2) {
+            pooled_conv[r / 2] = new double[max_width];
+            for (int c = 0; c < (conv_size - 2 + 1); c += 2) {
+                //find max of window:
+                double max = correct_res[r][c]; // first value in window
+                for (int max_r = 0; max_r < 2; ++max_r) {
+                    for (int max_c = 0; max_c < 2; ++max_c) {
+                        double next_value = correct_res[r + max_r][c + max_c];
+                        if (next_value > max) {
+                            max = next_value;
+                        }
+                    }
+                }
+                pooled_conv[r / 2][c / 2] = max;
+                if (abs(max - recon_res[r/2][c/2]) > 0.1) {
+                    cout << r/2 << " " << c/2 << ": " << max << " (computed: " << recon_res[r / 2][c / 2] << ")" << endl;
+                    allCorrect = false;
+                }
+            }
+        }
+
+    if(allCorrect){
+        cout<<"networks first conv works correctly"<<endl;
+    }
+    else{
+        cout<<"conv works incorrectly" <<endl;
+        print2DArray("Computed first conv: ", recon_res, max_height,max_width);
+        print2DArray("Correct first conv: ", pooled_conv, max_height, max_width);
+    }
+    return allCorrect;
+}
+
+bool TRANSPOSE_TEST(Party *proxy){
+    const int size = 10;
+    double image[size][size] = {{0,0,0,0,0,0,0,0,0,0},
+                                    {0,0,0,0,0,0,0,0,0,0},
+                                    {0,0,0,0,0,0,0,0,0,0},
+                                    {0,0,0,0,0,0,0,0,0,0},
+                                    {0,0,0,0,0,0,0,0,0,169},
+                                    {0,0,0,0,0,0,0,0,169,253},
+                                    {0,0,0,0,0,0,0,52,250,253},
+                                    {0,0,0,0,0,0,0,77,251,210},
+                                    {0, 0, 0, 0, 0, 0, 0, 0, 31,  18},
+                                    {0, 0, 0, 0, 0, 0, 0, 0, 0,   0}};
+    cout << "created image" << endl;
+    uint64_t ***secret = new uint64_t **[0];
+    secret[0] = new uint64_t * [size];
+    for (int i = 0; i < size; ++i) {
+        secret[0][i] = proxy->createShare(image[i], size);
+    }
+    uint64_t ***increased = INC(secret, 1, size, size, 5, 1);
+    double **rec_inc = convert2double(REC(proxy, increased[0], 36, 25), 36, 25);
+    print2DArray("original increased: ", rec_inc, 36, 25);
+    uint64_t ***transposed = transpose(increased, 1, 36, 25);
+    uint64_t **rec_y = REC(proxy, transposed[0], 25, 36);
+    double **rec_x = convert2double(rec_y, 25, 36);
+
+    bool correct = true;
+    print2DArray("reconstructed transposed: ", rec_x, 25, 36);
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            if (abs(rec_inc[i][j] - rec_x[j][i]) > 0){
+                cout << "x = " << rec_inc[i][j] << " was transposed to y = " << rec_x[j][i] << endl;
+                correct = false;
+            }
+        }
+    }
+
+    return correct;
+
+}
+
 // Main function to run the experiments
 int main(int argc, char* argv[]) {
     uint8_t role = atoi(argv[1]);
@@ -2300,12 +2479,11 @@ int main(int argc, char* argv[]) {
 
     DP_Test(proxy);
     MDP_Test(proxy);*/
-    bool all_correct0 = true, all_correct1 = true, all_correct2 = true;
+    bool all_correct0 = true;
     int counter = 0;
-    while(all_correct1 and all_correct2 and counter < 100){
-        all_correct0 = MMUL_Test(proxy);
-        all_correct1 = MATMATMUL_Test(proxy);
-        all_correct2 = MATVECMUL_Test(proxy);
+    while(all_correct0 and counter < 100){
+        all_correct0 = MATMATMUL_Test(proxy); // NETWORK_TEST(proxy);
+        counter++;
     }
 //    MMATMATMUL_Test(proxy);
 

@@ -29,17 +29,13 @@ uint64_t* SUB(const uint64_t *a, const uint64_t *b, uint32_t length){
 
 
 uint64_t** transpose(uint64_t** matrix, uint32_t rows, uint32_t cols){
-    cout << "___________transposing_______: " << rows << " " << cols << endl;
     uint64_t ** transposed = new uint64_t *[cols];
     for (int c = 0; c < cols; ++c) {
-        cout << "c: " << c << endl;
         transposed[c] = new uint64_t [rows];
         for (int r = 0; r < rows; ++r) {
-            cout << r << endl;
             transposed[c][r] = matrix[r][c];
         }
     }
-    cout << "___________done_______" << endl;
     return transposed;
 }
 
@@ -1039,8 +1035,6 @@ uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t
  * @param max_win_width defines window width of maxpool, which will be realized after Relu activation.
  * A max_win_width <= 0 indicates that no maxpool shall be performed after Relu activation.
  * In order for maxpool to be performed it must hold: (max_win_width > 0) and (max_win_height > 0)
- * @param maxpool_window_dim defines the window size of maxpooling operation, which will be realized after Relu activation.
- * A maxpool_window_dim <= 0 inficates that no maxpooling shall be performed after Relu activation.
  * @param bias vector of length output_channel. For each kernel there is one bias value which is added to every value of the according output_channel.
  * @param last_conv defines if this convolutional layer will be the last one of the cnn.
  * If so, the output will be the flattened matrix (as required for fully connected layer), so that output[0][0] = flattened matrix.
@@ -1062,8 +1056,11 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     // stretch the input for vectorized MATVECMUL
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
+        //print2DArray("stretched input (first rows) ", convert2double(REC(proxy, stretched_input[0], 10, k_size), 10, k_size), 10, k_size);
         // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
+        print2DArray("kernel", convert2double(REC(proxy, kernel[0], output_channel, k_size), output_channel, k_size), output_channel, k_size);
+        //print2DArray("image from line 10: ", convert2double(REC(proxy, stretched_input[0] + 10, 10, k_size), 10, k_size), 10, k_size);
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
         uint64_t** summed_channel_conv;
         if(i_channel == 1){
@@ -1072,13 +1069,12 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         else{
             summed_channel_conv = ADD(proxy, conv_result, i_channel, output_channel, conv_len);
         }
-        //print2DArray("summed result", convert2double(REC(proxy, summed_channel_conv, output_channel, conv_len), output_channel, conv_len), output_channel, conv_len);
-        //uint64_t ** tmp = transpose(summed_channel_conv, conv_len, output_channel);
+        print1DArray("conv output first kernel", convert2double(REC(proxy, summed_channel_conv[0], conv_len), conv_len), conv_len);
         uint64_t conv_reshaped[conv_len*output_channel];
         for (int k = 0; k < output_channel; ++k) {
             //memcpy(conv_reshaped + k*conv_len, summed_channel_conv + k, conv_len*8); //number of bytes == length * 8 because 64 bits == 8 bytes
             for (int i = 0; i < conv_len; ++i) {
-                conv_reshaped[k*conv_len + i] = summed_channel_conv[k][i];
+                conv_reshaped[k*conv_len + i] = summed_channel_conv[k][i] + bias[k];
             }
         }
         for (int i = 0; i < i_channel; ++i) {
@@ -1108,6 +1104,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
 
         // ACTIVATION:
         uint64_t* conv_activated = RELU(proxy, conv_reshaped, conv_len*output_channel);
+        cout << "RELU done" << endl;
         //print1DMatrixByWindows("ReLU result", convert2double(REC(proxy,conv_activated, output_channel*conv_len), output_channel*conv_len), output_channel*conv_height, conv_width, max_win_height, max_win_width);
         //print1DArray("RELU without wins", convert2double(REC(proxy,conv_activated, output_channel*conv_len), output_channel*conv_len), output_channel*conv_len);
         if (doMaxpooling){
@@ -1133,7 +1130,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                 }
                 for (uint32_t row = 0; row < out_height; row++) {
                     for (uint32_t col = 0; col < out_width; col++) {
-                        conv_layer[0][0][k*out_len + row*out_width + col] = conv_activated[k*out_len + row * out_width + col] + bias[k];
+                        conv_layer[0][0][k*out_len + row*out_width + col] = conv_activated[k*out_len + row * out_width + col];
                     }
                 }
             }
@@ -1143,7 +1140,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                 for (uint32_t row = 0; row < out_height; row++) {
                     conv_layer[k][row] = new uint64_t[out_width];
                     for (uint32_t col = 0; col < out_width; col++) {
-                        conv_layer[k][row][col] = conv_activated[k*out_len + row * out_width + col] + bias[k];
+                        conv_layer[k][row][col] = conv_activated[k*out_len + row * out_width + col];
                     }
                 }
             }

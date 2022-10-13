@@ -83,9 +83,9 @@ c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h uti
 - model = model to be used: [0, 1, 2] with 0 - Chameleon, 1 - MiniONN (MiniONNs model parameter are not consistent), 2 - LeNet5, other value or none - a 4-layer CNN with random weights
 
 ```bash
-./helper_cnn "127.0.0.1" 7777 ß
-./proxy_cnn 0 8888 "127.0.0.1" 7777 "127.0.0.1" 0
-./proxy_cnn 1 8888 "127.0.0.1" 7777 "127.0.0.1" 0
+./helper_cnn 127.0.0.1 7777 0
+./proxy_cnn 0 8888 127.0.0.1 7777 127.0.0.1 0
+./proxy_cnn 1 8888 127.0.0.1 7777 127.0.0.1 0
 ```
 
 ## RKN
