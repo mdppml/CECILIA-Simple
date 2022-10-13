@@ -233,11 +233,6 @@ public:
         MSB(this, _vector, _count);
     }
 
-    void most_significant_bit2() {
-        MSB(this, _vector, _count);
-        //MSBv2(this, _vector, _count);
-    }
-
     void most_significant_bit_auc() {
         AUCMSB(this, _vector, _count);
     }
@@ -333,7 +328,6 @@ private:
         map["MDIVISION"] = &Party_BM::division_auc;
         map["MUX"] = &Party_BM::mmux;
         map["MSB"] = &Party_BM::most_significant_bit;
-        map["MSBv2"] = &Party_BM::most_significant_bit2;
         map["AUCMSB"] = &Party_BM::most_significant_bit_auc;
         map["MOC"] = &Party_BM::modular_conversion;
         map["CMP"] = &Party_BM::compare;
