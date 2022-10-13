@@ -234,7 +234,8 @@ public:
     }
 
     void most_significant_bit2() {
-        MSBv2(this, _vector, _count);
+        MSB(this, _vector, _count);
+        //MSBv2(this, _vector, _count);
     }
 
     void most_significant_bit_auc() {

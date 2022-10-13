@@ -154,8 +154,8 @@ void MMSB_Test(Party *proxy){
         x[i] = proxy->generateRandom();
     }
     proxy->SendBytes(CORE_MMSB,params, 1);
-//    uint64_t *r = MSB(proxy,x,sz);
-    uint64_t *r = MSBv2(proxy,x,sz);
+    uint64_t *r = MSB(proxy,x,sz);
+    //uint64_t *r = MSBv2(proxy,x,sz);
     // checking the result
     uint64_t *x_reconstructed = REC(proxy,x,sz);
     uint64_t *r_reconstructed = REC(proxy,r,sz);
