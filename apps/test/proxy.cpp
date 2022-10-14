@@ -19,7 +19,7 @@ using namespace std;
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
 constexpr int sz = 1000;
-constexpr int WSZ = 10;
+constexpr int WSZ = 3;
 
 void MUL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MUL";
@@ -339,50 +339,58 @@ void MMAX_Test(Party *proxy){
 
     // INIT PARAMETER
     uint32_t mmaxParams[4];
-    mmaxParams[0] = WSZ*3; // matrix Rows
-    mmaxParams[1] = WSZ*3; // matrix Columns
+    mmaxParams[0] = WSZ*2; // matrix Rows
+    mmaxParams[1] = WSZ*2; // matrix Columns
     uint64_t mSize = mmaxParams[1] * mmaxParams[0];
     mmaxParams[2] = WSZ; // window rows
     mmaxParams[3] = WSZ; // window cols
 
-    uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
-    // PERFORMING MMAX
-    proxy->SendBytes(CNN_MMAX, mmaxParams, 4);
-    uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[2], mmaxParams[3]);
-
-    // TESTING
-    uint32_t window_length = mmaxParams[2] * mmaxParams[3];
-    uint32_t number_of_windows = mSize / window_length;
-    uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
     bool flag = true;
-    uint64_t resorted [mSize];
-    RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[3], mmaxParams[2], resorted);
-    double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
-    double computed_max[number_of_windows];
+    while(flag) {
+        uint64_t *shareOfMatrix = proxy->createShare(random_1D_data(proxy, mSize), mSize);
+        // PERFORMING MMAX
+        proxy->SendBytes(CNN_MMAX, mmaxParams, 4);
+        uint64_t *max = MAX(proxy, shareOfMatrix, mmaxParams[0], mmaxParams[1], mmaxParams[2], mmaxParams[3], true);
 
-    for(uint32_t win = 0; win < number_of_windows; win++){
-        computed_max[win] = d_matrix[window_length*win];
-        for(uint32_t win_element = 1; win_element < window_length; win_element++){
-            double matrixVal = d_matrix[window_length*win + win_element];
-            if (matrixVal > computed_max[win]){
-                computed_max[win] = matrixVal;
+        // TESTING
+        uint32_t window_length = mmaxParams[2] * mmaxParams[3];
+        uint32_t number_of_windows = mSize / window_length;
+        uint64_t* reconstructed_max = REC(proxy, max, number_of_windows);
+//        bool flag = true;
+        uint64_t resorted [mSize];
+        RST(shareOfMatrix, mmaxParams[1], mmaxParams[0], mmaxParams[3], mmaxParams[2], resorted);
+        double *d_matrix = convert2double(REC(proxy, resorted, mSize), mSize);
+        double computed_max[number_of_windows];
+
+        for(uint32_t win = 0; win < number_of_windows; win++){
+            computed_max[win] = d_matrix[window_length*win];
+            for(uint32_t win_element = 1; win_element < window_length; win_element++){
+                double matrixVal = d_matrix[window_length*win + win_element];
+                if (matrixVal > computed_max[win]){
+                    computed_max[win] = matrixVal;
+                }
+            }
+            if (abs(computed_max[win] - convert2double(reconstructed_max[win]) > 0.001) ){
+                flag = false;
             }
         }
-        if (abs(computed_max[win] - convert2double(reconstructed_max[win]) > 0.001) ){
-            flag = false;
-        }
-    }
 
-    if(flag){
-        cout<<"Vectorized MAX works correctly"<<endl;
-    }
-    else{
-        cout<<"Vectorized MAX works incorrectly"<<endl;
-        if(mmaxParams[0]*mmaxParams[1] < 200){ //otherwise too many values
-            print1DMatrixByWindows("resorted Matrix: ", d_matrix, mmaxParams[0], mmaxParams[1], 1, mmaxParams[2]*mmaxParams[3]);
+        if(flag){
+            cout<<"Vectorized MAX works correctly"<<endl;
+            if(mmaxParams[0]*mmaxParams[1] < 200){ //otherwise too many values
+                print1DMatrixByWindows("resorted Matrix: ", d_matrix, number_of_windows, window_length, 1, window_length);
+            }
+            print1DMatrixByWindows("computed max values (test): ", computed_max, 1, number_of_windows, 1, 1);
+            print1DMatrixByWindows("VS result from method: ", convert2double(reconstructed_max, number_of_windows), 1, number_of_windows, 1, 1);
         }
-        print1DMatrixByWindows("computed max values (test): ", computed_max, 1, number_of_windows, 1, 1);
-        print1DMatrixByWindows("VS result from method: ", convert2double(reconstructed_max, number_of_windows), 1, number_of_windows, 1, 1);
+        else{
+            cout<<"Vectorized MAX works incorrectly"<<endl;
+            if(mmaxParams[0]*mmaxParams[1] < 200){ //otherwise too many values
+                print1DMatrixByWindows("resorted Matrix: ", d_matrix, number_of_windows, window_length, 1, window_length);
+            }
+            print1DMatrixByWindows("computed max values (test): ", computed_max, 1, number_of_windows, 1, 1);
+            print1DMatrixByWindows("VS result from method: ", convert2double(reconstructed_max, number_of_windows), 1, number_of_windows, 1, 1);
+        }
     }
 }
 
@@ -1390,31 +1398,48 @@ void MMATVECMUL_Test(Party *proxy) {
 //
 //}
 
+double fRand(double fMin, double fMax)
+{
+    double f = (double)rand() / RAND_MAX;
+    return fMin + f * (fMax - fMin);
+}
+
 void DIV_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint64_t x = proxy->createShare(3);
-    uint64_t y = proxy->createShare(10);
+
+//    int y_int = (rand() % 10 + 1) / 3.0;
+//    int result = (rand() % 10 + 1) / 4.0;
+//    uint64_t y = proxy->createShare(y_int);
+//    uint64_t x = proxy->createShare(y_int * result + (rand() % 10));
+    double x_d = fRand(0, 100);
+    double y_d = fRand(0, 1);
+    uint64_t y = proxy->createShare(y_d);
+    uint64_t x = proxy->createShare(x_d);
 
     proxy->SendBytes(CORE_DIV);
-    uint64_t div = DIV(proxy, x, y);
-    double reconstructed_div = convert2double(REC(proxy, div));
+    uint64_t div = DIVv2(proxy, x, y);
+    uint64_t rec_dev = REC(proxy, div);
+    double reconstructed_div = convert2double(rec_dev);
 
     // checking the result
     double originalX = convert2double(REC(proxy, x));
     double originalY = convert2double(REC(proxy, y));
-    cout << "X: " << originalX << " Y: " << originalY << endl;
     double computed_div = originalX / originalY;
 
-
-    if(computed_div == reconstructed_div){
+    cout << " =========================================== " << endl;
+    cout << "X: " << originalX << " Y: " << originalY << endl;
+    if(abs(computed_div - reconstructed_div) < 0.0001){
         cout<<"DIV works correctly"<<endl;
+        cout<< "computed: " << reconstructed_div << " -- ground truth: " << computed_div << endl;
     }
     else{
         cout<<"DIV works incorrectly" <<endl;
-        cout<< "computed: " << reconstructed_div << " (" << bitset<L_BIT>(reconstructed_div) << ") but should be: " << computed_div << " (" << bitset<L_BIT>(computed_div) << ")" << endl;
+        cout<< "computed: " << reconstructed_div << " -- but should be: " << computed_div << endl;
     }
+    cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
+    cout << " =========================================== " << endl;
 
 }
 
@@ -2084,50 +2109,52 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2,hport, haddress, cport, caddress);
 
-    /*
-    ADD_Test(proxy);
-    MUL_Test(proxy);
-    MMUL_Test(proxy);
+    srand((unsigned) time(NULL));
+
+//    ADD_Test(proxy);
+//    MUL_Test(proxy);
+//    MMUL_Test(proxy);
 
 //    MOC_Test(proxy);
 //    MMOC_Test(proxy);
 
-    MSB_Test(proxy);
-    MMSB_Test(proxy);
+//    MSB_Test(proxy);
+//    MMSB_Test(proxy);
 
 //    CMP_Test(proxy);
 //    MCMP_Test(proxy);
 
 //    MUX_Test(proxy);
 //    MMUX_Test(proxy);
-*/
-    MAX_Test(proxy);
-    MMAX_Test(proxy);/*
 
-    RST_Test(proxy);
-    RELU_Test(proxy);
-    MRELU_Test(proxy);
+//    MAX_Test(proxy);
+//    MMAX_Test(proxy);
 
-    DRLU_Test(proxy);
-    ARGMAX_Test(proxy);*/
-    //MDRLU_Test(proxy);//TODO
-    //DIV_Test(proxy);
-/*
-    INC_Test(proxy);
-    FLT_Test(proxy);
-    FCL_Test(proxy);
-    PAD_Test(proxy);
-    CL_Test(proxy);
+//    RST_Test(proxy);
+//    RELU_Test(proxy);
+//    MRELU_Test(proxy);
 
-    EXP_Test(proxy);
-    MEXP_Test(proxy);
+//    DRLU_Test(proxy);
+//    ARGMAX_Test(proxy);
+//    MDRLU_Test(proxy); //TODO
+    for(int i = 0; i < 20; i++)
+        DIV_Test(proxy);
+//
+//    INC_Test(proxy);
+//    FLT_Test(proxy);
+//    FCL_Test(proxy);
+//    PAD_Test(proxy);
+//    CL_Test(proxy);
 
-    DP_Test(proxy);
-    MDP_Test(proxy);
-    MATMATMUL_Test(proxy);
-    MMATMATMUL_Test(proxy);
+//    EXP_Test(proxy);
+//    MEXP_Test(proxy);
 
-    MATVECMUL_Test(proxy);*/
+//    DP_Test(proxy);
+//    MDP_Test(proxy);
+//    MATMATMUL_Test(proxy);
+//    MMATMATMUL_Test(proxy);
+
+//    MATVECMUL_Test(proxy);
 
 //    INVSQRT_Test(proxy);
 //    MINVSQRT_Test(proxy);

@@ -139,9 +139,11 @@ uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
                 addVal2CharArray(a[i][j], &ptr);
             }
         }
-        Send(proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), n_row * n_col * 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         for (int i = 0; i < n_row; i++) {
             for(int j = 0; j < n_col; j++) {
                 b[i][j] = convert2Long(&ptr);
@@ -155,9 +157,11 @@ uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
                 addVal2CharArray(a[i][j], &ptr);
             }
         }
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
+        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), n_row * n_col * 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         for (int i = 0; i < n_row; i++) {
             b[i] = new uint64_t[n_col];
             for( int j = 0; j < n_col; j++) {

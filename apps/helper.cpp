@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
                         and params[2] <= params[0]
                         and params[3] <= params[1]
                     ){
-                    MAX(helper, nullptr, params[0], params[1], params[2], params[3]);
+                    MAX(helper, nullptr, params[0], params[1], params[2], params[3], true);
                 }
                 else{
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
                 RKN_ITERATION(helper, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
                 break;
             case CORE_DIV:
-                DIV(helper, 0, 0);
+                DIVv2(helper, 0, 0);
                 break;
             case AUC_MSB:
                 sz = helper->ReadInt();
