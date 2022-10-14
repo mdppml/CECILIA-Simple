@@ -1413,8 +1413,8 @@ void DIV_Test(Party *proxy){
 //    int result = (rand() % 10 + 1) / 4.0;
 //    uint64_t y = proxy->createShare(y_int);
 //    uint64_t x = proxy->createShare(y_int * result + (rand() % 10));
-    double x_d = fRand(0, 100);
-    double y_d = fRand(0, 1);
+    double x_d = fRand(-100, 100);
+    double y_d = fRand(-100, 100);
     uint64_t y = proxy->createShare(y_d);
     uint64_t x = proxy->createShare(x_d);
 

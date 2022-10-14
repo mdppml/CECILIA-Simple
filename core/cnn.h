@@ -1112,9 +1112,20 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
     return -1;
 }
 
-uint64_t DIVv2(Party* proxy, uint64_t a, uint64_t b, bool second_call = true) {
+uint64_t DIVv2(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
     //compare with Algorithm 8 Division by SecureNN
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+
+        uint64_t *signs;
+        if(first_call) {
+            uint64_t inp1[2] = {a, b};
+            signs = MSB(proxy, inp1, 2);
+            uint64_t inp2[2] = {(uint64_t) 0 - a, (uint64_t) 0 - b};
+            uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2);
+            a = abs_vals[0];
+            b = abs_vals[1];
+        }
+
         // obtain every bit of the dividend
         uint64_t *msb_bits_of_a = new uint64_t[L_BIT];
         uint64_t tmp = a;
@@ -1145,11 +1156,20 @@ uint64_t DIVv2(Party* proxy, uint64_t a, uint64_t b, bool second_call = true) {
 //            cout << "current remainder: " << convert2double(REC(proxy, R)) << " - " << bitset<L_BIT>(REC(proxy, R)) << endl;
         }
         cout << "----------------------------------------------------------------" << endl;
-        if(second_call) {
-            return (Q << FRAC) + DIVv2(proxy, R << FRAC, b, false);
+        if(first_call) {
+            Q = (Q << FRAC) + DIVv2(proxy, R << FRAC, b, false);
+            uint64_t sign_sum = signs[0] + signs[1];
+            uint64_t c = MSB(proxy, sign_sum << (L_BIT - FRAC - 1));
+            Q = MUX(proxy, Q, (uint64_t) 0 - Q, c);
         }
         return Q;
-    } else if (proxy->getPRole() == HELPER) {
+    }
+    else if (proxy->getPRole() == HELPER) {
+        if(first_call) {
+            MSB(proxy, 0, 2);
+            MUX(proxy, 0, 0, 0, 2);
+        }
+
         MSB(proxy, 0, L_BIT);
 
         for (int16_t i = L_BIT - 1; i >= 0; i--) {
@@ -1157,8 +1177,11 @@ uint64_t DIVv2(Party* proxy, uint64_t a, uint64_t b, bool second_call = true) {
             CMP(proxy, 0, 0);
             MUL(proxy, 0, 0, 2);
         }
-        if(second_call) {
-            return DIVv2(proxy, 0, 0, false);
+
+        if(first_call) {
+            DIVv2(proxy, 0, 0, false);
+            MSB(proxy, 0);
+            MUX(proxy, 0, 0, 0);
         }
         return 0;
     }
