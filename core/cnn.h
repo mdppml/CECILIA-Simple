@@ -445,7 +445,7 @@ uint64_t RELU(Party* proxy, uint64_t x){
 
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t commonValues[2];
-        for (unsigned long & commonValue : commonValues) {
+        for (uint64_t & commonValue : commonValues) {
             commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
         }
         // create even random shares
@@ -572,7 +572,7 @@ uint64_t* RELU(Party* proxy, const uint64_t* x, uint64_t size){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t commonValues[2*size];
-        for (unsigned long & commonValue : commonValues) {
+        for (uint64_t & commonValue : commonValues) {
             commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
         }
         auto* e = new uint64_t [2*size]; // 2 shares per value to compute Relu for
