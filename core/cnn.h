@@ -1056,12 +1056,14 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     // stretch the input for vectorized MATVECMUL
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
-        //print2DArray("stretched input (first rows) ", convert2double(REC(proxy, stretched_input[0], 10, k_size), 10, k_size), 10, k_size);
+        print2DArray("stretched input (first rows) ", convert2double(REC(proxy, stretched_input[0], 10, k_size), 10, k_size), 10, k_size);
         // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
         print2DArray("kernel", convert2double(REC(proxy, kernel[0], output_channel, k_size), output_channel, k_size), output_channel, k_size);
         //print2DArray("image from line 10: ", convert2double(REC(proxy, stretched_input[0] + 10, 10, k_size), 10, k_size), 10, k_size);
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
+        print2DArray("matmatmul result: ", convert2double(REC(proxy, conv_result[0], output_channel, conv_len), output_channel, conv_len), output_channel, conv_len);
+
         uint64_t** summed_channel_conv;
         if(i_channel == 1){
             summed_channel_conv = conv_result[0];

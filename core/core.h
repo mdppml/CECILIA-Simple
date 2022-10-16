@@ -1181,7 +1181,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
 
         /*if(DEBUG_FLAG >= 2)
             printValue("MNF_MUL size", (double)size);*/
-
+        cout << "reconstruct input" << endl;
         uint64_t *rec_a = REC(proxy, a, size);
         uint64_t *rec_b = REC(proxy, b, size);
 
@@ -1192,9 +1192,10 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
             }
+            cout << "call PMUL" << endl;
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
             double *rec_presult = convert2double(REC(proxy, partial_result, partial_size), partial_size);
-            //print1DArray("p result:", rec_presult, partial_size);
+            print1DArray("p result:", rec_presult, partial_size);
             double *correct_result = new double [size];
             bool overflow_found = false;
             for (int i = 0; i < size; ++i) {
@@ -1212,7 +1213,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
                 //print1DArray("result from PMUL:", rec_result, size);
             }
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
-            //print1DArray("copied values to result:", convert2double(REC(proxy, result+filled_size, partial_size), partial_size), partial_size);
+            print1DArray("copied values to result:", convert2double(REC(proxy, result+filled_size, partial_size), partial_size), partial_size);
             delete[] partial_result;
             filled_size += partial_size;
             a += partial_size;
@@ -1685,6 +1686,8 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
  * @return a matrix of size @p n_matrices by @p a_row by @p b_col
  */
 uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+    print2DArray("kernel", convert2double(REC(proxy, a[0], a_row, a_col), a_row, a_col), a_row, a_col);
+    print2DArray("image from line 10: ", convert2double(REC(proxy, b[0] + 10, 10, b_col), 10, b_col), 10, b_col);
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrix such that all required multiplications can be performed in one go
@@ -1698,9 +1701,10 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
             }
         }
-
+        print1DArray("a concatenated", convert2double(REC(proxy, concat_a, size), size), size);
+        print1DArray("b concatenated", convert2double(REC(proxy, concat_b, size), size), size);
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
-
+        cout << "returned from MUL" << endl;
         // recover the resulting matrix
         uint64_t ***res = new uint64_t **[n_matrices];
         uint32_t ind = 0;
@@ -1719,7 +1723,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 }
             }
         }
-
+        cout << "resorted back to matrix shape" << endl;
         delete[] concat_a;
         delete[] concat_b;
         delete[] tmp;

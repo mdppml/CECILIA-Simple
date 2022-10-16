@@ -305,8 +305,8 @@ void MAX_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MAX";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
-    uint32_t mRows = WSZ*17;
-    uint32_t mCols = WSZ*17;
+    uint32_t mRows = WSZ*WSZ;
+    uint32_t mCols = WSZ*WSZ;
     uint64_t mSize = mCols*mRows;
     uint32_t* params = new uint32_t[1];
     params[0] = mSize;
@@ -2279,7 +2279,7 @@ bool NETWORK_TEST(Party *proxy) {
                     {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0},
                     {0, 0, 0, 0, 0, 0, 0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,0,0,0}};
 
-    uint64_t ***secret = new uint64_t **[0];
+    uint64_t ***secret = new uint64_t **[1];
     secret[0] = new uint64_t * [length];
     for (int i = 0; i < length; ++i) {
         secret[0][i] = proxy->createShare(image[i], length);
@@ -2290,12 +2290,14 @@ bool NETWORK_TEST(Party *proxy) {
                       {0.0129997665,0.19746655,-0.00050751516,-0.17033894,-0.070527315},
                       {0.054051124,-0.20655234,-0.1440479,-0.21508642,0.21944945},
                       {0.16889668,-0.062005207,0.14000067,0.19843176,0.11537137}};
-    uint64_t ***sec_kernel = new uint64_t **[0];
-    sec_kernel[0] = new uint64_t *[0];
+    uint64_t ***sec_kernel = new uint64_t **[1];
+    sec_kernel[0] = new uint64_t *[2];
     sec_kernel[0][0] = new uint64_t [25];
+    sec_kernel[0][1] = new uint64_t [25];
     for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 5; ++j) {
             sec_kernel[0][0][i*5 + j] = proxy->createShare(kernel[i][j]);
+            sec_kernel[0][1][i*5 + j] = proxy->createShare(kernel[i][(j + 1) % 5]);
         }
     }
 
@@ -2320,7 +2322,7 @@ bool NETWORK_TEST(Party *proxy) {
     proxy->SendBytes(CNN_CL, params, 9);
 
     print2DArray("image: ", convert2double(REC(proxy, secret[0], length, length), length, length), length, length);
-    uint64_t ***weights_secure = CL(proxy, secret, 1, length, length, sec_kernel, 5, 1, 1, 2, 2, sec_bias, false);
+    uint64_t ***weights_secure = CL(proxy, secret, 1, length, length, sec_kernel, 5, 2, 1, 2, 2, sec_bias, false);
     // checking the result
     double **recon_res = convert2double(REC(proxy, weights_secure[0], max_height, max_width), max_height, max_width);
 
@@ -2371,6 +2373,52 @@ bool NETWORK_TEST(Party *proxy) {
                 }
             }
         }
+
+
+    for (uint32_t cr = 0; cr < conv_size; cr++) {
+        correct_res[cr] = new double[conv_size];   // init row of conv result
+        for (uint32_t cc = 0; cc < conv_size; cc++) {
+            double dot_product = 0;
+            for (uint32_t kr = 0; kr < 5; kr++) {
+                for (int kc = 0; kc < 5; ++kc) {
+                    double v = image[cr + kr][cc + kc];
+                    double weight = kernel[kr][kc];
+                    dot_product += v * weight;
+                }
+            }
+            dot_product += bias;
+            // Activation: RELU
+            double relu = 0.0;
+            if (dot_product > 0) {
+                relu = dot_product;
+            }
+            correct_res[cr][cc] = relu;
+        }
+    }
+    //print2DArray("activated conv", correct_res, conv_size, conv_size);
+    //MAXPOOLING
+    pooled_conv = new double *[max_height];
+
+    for (int r = 0; r < (conv_size - 2 + 1); r += 2) {
+        pooled_conv[r / 2] = new double[max_width];
+        for (int c = 0; c < (conv_size - 2 + 1); c += 2) {
+            //find max of window:
+            double max = correct_res[r][c]; // first value in window
+            for (int max_r = 0; max_r < 2; ++max_r) {
+                for (int max_c = 0; max_c < 2; ++max_c) {
+                    double next_value = correct_res[r + max_r][c + max_c];
+                    if (next_value > max) {
+                        max = next_value;
+                    }
+                }
+            }
+            pooled_conv[r / 2][c / 2] = max;
+            if (abs(max - recon_res[r/2][c/2]) > 0.1) {
+                cout << r/2 << " " << c/2 << ": " << max << " (computed: " << recon_res[r / 2][c / 2] << ")" << endl;
+                allCorrect = false;
+            }
+        }
+    }
 
     if(allCorrect){
         cout<<"networks first conv works correctly"<<endl;
@@ -2482,9 +2530,10 @@ int main(int argc, char* argv[]) {
     bool all_correct0 = true;
     int counter = 0;
     while(all_correct0 and counter < 100){
-        all_correct0 = MATMATMUL_Test(proxy); // NETWORK_TEST(proxy);
+        all_correct0 = NETWORK_TEST(proxy);
         counter++;
     }
+    //MAX_Test(proxy);
 //    MMATMATMUL_Test(proxy);
 
 //    INVSQRT_Test(proxy);
