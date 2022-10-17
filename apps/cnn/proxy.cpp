@@ -42,7 +42,6 @@ void initParams(uint32_t mode) {
             stride = 2;
             padding = 2;
             max_win_width = 0, max_win_height = 0;
-            // i_width and i_height are adjusted after padding is performed; all other parameters are not modified.
             break;
         }
         case 1:{ //LeNet
@@ -212,7 +211,7 @@ int main(int argc, char* argv[]) {
             data[i][r] = new uint64_t [i_width];
             for (uint32_t c = 0; c < i_width; ++c) {
                 double pixelValue = test_set.at(i).at(r * i_width + c);
-                data[i][r][c] = proxy->createShare(2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
+                data[i][r][c] = proxy->createShare(pixelValue);//2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
             }
         }
         if(padding > 0){
@@ -224,7 +223,6 @@ int main(int argc, char* argv[]) {
     // secret shares: bias
     auto **bias = new uint64_t *[layer_number];
     for (int layer = 0; layer < layer_number; ++layer) {
-        //cout << " - Bias for layer " << layer << " of length " << bias_dimensions[layer] << endl;
         bias[layer] = proxy->createShare(model_weights[layer + layer_number][0][0], bias_dimensions[layer]);
         delete[] model_weights[layer + layer_number][0][0];
         delete[] model_weights[layer + layer_number][0];
@@ -236,7 +234,7 @@ int main(int argc, char* argv[]) {
     uint32_t k_size = nn_mode == 2 ? k_dim : k_dim*k_dim;
     auto ***kernel = new uint64_t**[i_channel]; // weights of all kernel for first CL
     for (int i = 0; i < i_channel; ++i) {
-        kernel[i] = new uint64_t *[k_number];
+       // kernel[i] = new uint64_t *[k_number];
         kernel[i] = proxy->createShare(model_weights[0][i], k_number, k_size);
         delete[] model_weights[0][i][0];
         delete[] model_weights[0][i];
@@ -252,7 +250,7 @@ int main(int argc, char* argv[]) {
         resetParams();
         auto *** input = new uint64_t **[i_channel];
         input[0] = data[image]; // currently only 1 channel for input supported
-        print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
+        //print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
         uint64_t*** conv;
         uint64_t* prev_layer_res;
         uint64_t **weights;
@@ -274,13 +272,18 @@ int main(int argc, char* argv[]) {
             }
             case 1: { // SecureNN
                 conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], false);
-                print2DArray("weights conv0: ", convert2double(REC(proxy, conv[0], 12, 12), 12, 12), 12, 12);
+                //print2DArray("weights conv0: ", convert2double(REC(proxy, conv[0], 12, 12), 12, 12), 12, 12);
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
-                kernel = new uint64_t**[k_number];
+                cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
+                kernel = new uint64_t**[i_channel];
                 for (uint32_t i = 0; i < i_channel; i++) {
                     kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim*k_dim);
+                    if(i < 1) {
+                        print2DArray("CL weights ", model_weights[curr_layer][i], k_number, k_dim * k_dim);
+                        print2DArray("input from conv", convert2double(REC(proxy, conv[i], i_height, i_width), i_height, i_width), i_height, i_width);
+                    }
                     if(image == i_number-1) {
                         delete[] model_weights[curr_layer][i];
                     }
@@ -327,12 +330,13 @@ int main(int argc, char* argv[]) {
         //print1DArray("input to last FCL", convert2double(REC(proxy, prev_layer_res, nodes_in), nodes_in), nodes_in);
         //print2DArray("weights", convert2double(REC(proxy, weights, nodes_out, nodes_in), nodes_out, nodes_in), nodes_out, nodes_in);
         uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
+        delete[] prev_layer_res;
         switch (nn_mode) {                              // from here on network architectures differ
             case 0:{ // Chameleon (treated same as SecureNN)
             }
             case 1: { // SecureNN
                 prediction[image] = convert2double(REC(proxy, ARGMAX(proxy, output, nodes_out)));
-                print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
+                //print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
                 cout << ": predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
                 break;
             }

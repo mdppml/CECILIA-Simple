@@ -1078,7 +1078,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
                 addVal2CharArray(mt1[i][j], &ptr_out);
             }
         }
-        // addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
+        //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
         Send(proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
 
         // send the multiplication triples to P2
@@ -1089,7 +1089,8 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             }
         }
 
-        // addVal2CharArray(mt2, &ptr_out2, 3, size);
+
+        //addVal2CharArray(mt2, &ptr_out2, 3, size);
         Send(proxy->getSocketP2(), proxy->getBuffer2(), size * 3 * 8);
 
         for (int i = 0; i < 3; i++) {
@@ -1106,7 +1107,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         //total_mul += size;
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), size * 3 * 8);
-
         unsigned char *ptr = proxy->getBuffer1();
         // uint64_t **mt = new uint64_t*[3];
         uint64_t *mt[3];
@@ -1169,7 +1169,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     if (proxy->getPRole() == HELPER) {
         int filled_size = 0;
         size_t partial_size = MAXMUL;
-
         while (filled_size < size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
@@ -1179,12 +1178,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         }
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
 
-        /*if(DEBUG_FLAG >= 2)
-            printValue("MNF_MUL size", (double)size);*/
-        cout << "reconstruct input" << endl;
-        uint64_t *rec_a = REC(proxy, a, size);
-        uint64_t *rec_b = REC(proxy, b, size);
-
         uint64_t *result = new uint64_t[size];
         int filled_size = 0;
         size_t partial_size = MAXMUL;
@@ -1192,28 +1185,8 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
             }
-            cout << "call PMUL" << endl;
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
-            double *rec_presult = convert2double(REC(proxy, partial_result, partial_size), partial_size);
-            print1DArray("p result:", rec_presult, partial_size);
-            double *correct_result = new double [size];
-            bool overflow_found = false;
-            for (int i = 0; i < size; ++i) {
-                double res = convert2double(rec_a[i])*convert2double(rec_b[i]);
-                if(abs(res - rec_presult[i]) > 0.001){
-                    overflow_found = true;
-                    cout << i << " OVERFLOW for multiplication of " << convert2double(rec_a[i]) << " and " << convert2double(rec_b[i]) << endl;
-                    cout << bitset<64>(rec_a[i]) << " vs " << bitset<64>(rec_b[i]) << endl;
-                    cout << "should be " << res << " but was " << rec_presult[i] << endl;
-                }
-                correct_result[i] = res;
-            }
-            if(overflow_found){
-                return proxy->createShare(correct_result, size);
-                //print1DArray("result from PMUL:", rec_result, size);
-            }
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
-            print1DArray("copied values to result:", convert2double(REC(proxy, result+filled_size, partial_size), partial_size), partial_size);
             delete[] partial_result;
             filled_size += partial_size;
             a += partial_size;
@@ -1623,7 +1596,7 @@ uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) 
  *
  * @param a two dimensional matrix
  * @param b two dimensional matrix
- * @param a_row number of rows of @p a and @p b
+ * @param a_row number of rows of @p a and @p b; for helper: this must be the product of a_row * a_col * b_col, all other values are ignored.
  * @param a_col number of columns of @p a
  * @param b_col number of columns of @p b
  * @return a matrix of size @p a_row by @p b_col
@@ -1667,7 +1640,9 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
     }
     else if( p_role == HELPER) {
         // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
+        cout << "MUL..." << endl;
         MUL(proxy, NULL, NULL, a_row);
+        cout << "returned from MUL" << endl;
         return NULL;
     }
     else {
@@ -1680,14 +1655,12 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
  * @param a three dimensional matrix
  * @param b three dimensional matrix
  * @param n_matrices number of two-dimensional matrices of @p a and @p b
- * @param a_row number of rows per two-dimensional matrix
+ * @param a_row number of rows per two-dimensional matrix; for helper: this must be the product of n_matrices * a_row * a_col * b_col, all other values are ignored.
  * @param a_col number of columns per two-dimensional matrix of @p a
  * @param b_col number of columns per two-dimensional matrix of @p b
  * @return a matrix of size @p n_matrices by @p a_row by @p b_col
  */
 uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
-    print2DArray("kernel", convert2double(REC(proxy, a[0], a_row, a_col), a_row, a_col), a_row, a_col);
-    print2DArray("image from line 10: ", convert2double(REC(proxy, b[0] + 10, 10, b_col), 10, b_col), 10, b_col);
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrix such that all required multiplications can be performed in one go
@@ -1701,10 +1674,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
             }
         }
-        print1DArray("a concatenated", convert2double(REC(proxy, concat_a, size), size), size);
-        print1DArray("b concatenated", convert2double(REC(proxy, concat_b, size), size), size);
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
-        cout << "returned from MUL" << endl;
         // recover the resulting matrix
         uint64_t ***res = new uint64_t **[n_matrices];
         uint32_t ind = 0;
@@ -1723,7 +1693,6 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 }
             }
         }
-        cout << "resorted back to matrix shape" << endl;
         delete[] concat_a;
         delete[] concat_b;
         delete[] tmp;
@@ -1747,7 +1716,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
  * the length of b.
  * @param a two dimensional matrix
  * @param b vector
- * @param a_row number of rows of @p a
+ * @param a_row number of rows of @p a; for helper: this must be the product of a_row * a_col, a_col is ignored.
  * @param a_col number of columns of @p a / size of @p b
  * @return a vector of size @p a_row
  */
@@ -1799,7 +1768,7 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
  * @param a three dimensional matrix
  * @param b two dimensional matrix
  * @param n_matrices number of matrices in @p a / vectors in @p b
- * @param a_row number of rows of @p a
+ * @param a_row number of rows of @p a; for helper: this must be the product of a_row * a_col * n_matrices, all other values are ignored.
  * @param a_col number of columns of @p a / size of @p b
  * @return a two-dimensional matrix of size @p n_matrices by @p a_row
  */

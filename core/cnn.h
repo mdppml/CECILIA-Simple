@@ -1055,14 +1055,14 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     bool doMaxpooling = ((max_win_width > 0) && (max_win_height > 0) and (max_win_width + max_win_height) > 2);
     // stretch the input for vectorized MATVECMUL
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        //print2DArray("input channel 1", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
         uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
-        print2DArray("stretched input (first rows) ", convert2double(REC(proxy, stretched_input[0], 10, k_size), 10, k_size), 10, k_size);
+        //print2DArray("incremented channel 1", convert2double(REC(proxy, stretched_input[0], 3, k_size), 3, k_size), 3, k_size);
+        //print2DArray("incremented channel 2", convert2double(REC(proxy, stretched_input[1], 3, k_size), 3, k_size), 3, k_size);
+        //print2DArray("kernel 1", convert2double(REC(proxy, kernel[0], 3, k_size), 3, k_size), 3, k_size);
         // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
-        print2DArray("kernel", convert2double(REC(proxy, kernel[0], output_channel, k_size), output_channel, k_size), output_channel, k_size);
-        //print2DArray("image from line 10: ", convert2double(REC(proxy, stretched_input[0] + 10, 10, k_size), 10, k_size), 10, k_size);
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
-        print2DArray("matmatmul result: ", convert2double(REC(proxy, conv_result[0], output_channel, conv_len), output_channel, conv_len), output_channel, conv_len);
 
         uint64_t** summed_channel_conv;
         if(i_channel == 1){
@@ -1071,8 +1071,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         else{
             summed_channel_conv = ADD(proxy, conv_result, i_channel, output_channel, conv_len);
         }
-        print1DArray("conv output first kernel", convert2double(REC(proxy, summed_channel_conv[0], conv_len), conv_len), conv_len);
-        uint64_t conv_reshaped[conv_len*output_channel];
+        auto *conv_reshaped = new uint64_t [conv_len*output_channel];
         for (int k = 0; k < output_channel; ++k) {
             //memcpy(conv_reshaped + k*conv_len, summed_channel_conv + k, conv_len*8); //number of bytes == length * 8 because 64 bits == 8 bytes
             for (int i = 0; i < conv_len; ++i) {
@@ -1102,13 +1101,9 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         delete[] stretched_input;
         delete[] conv_input;
         delete[] conv_result;
-        //delete[] tmp;
 
         // ACTIVATION:
         uint64_t* conv_activated = RELU(proxy, conv_reshaped, conv_len*output_channel);
-        cout << "RELU done" << endl;
-        //print1DMatrixByWindows("ReLU result", convert2double(REC(proxy,conv_activated, output_channel*conv_len), output_channel*conv_len), output_channel*conv_height, conv_width, max_win_height, max_win_width);
-        //print1DArray("RELU without wins", convert2double(REC(proxy,conv_activated, output_channel*conv_len), output_channel*conv_len), output_channel*conv_len);
         if (doMaxpooling){
             // Maxpool:
             //conv_activated is like all conv_results staked on top of each other, rows not only conv_height but output_channel*conv_height
@@ -1130,11 +1125,12 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                     conv_layer[0] = new uint64_t*[1];
                     conv_layer[0][0] = new uint64_t[output_channel*out_len];
                 }
-                for (uint32_t row = 0; row < out_height; row++) {
+                conv_layer[0][0] = conv_activated;
+                /*for (uint32_t row = 0; row < out_height; row++) {
                     for (uint32_t col = 0; col < out_width; col++) {
                         conv_layer[0][0][k*out_len + row*out_width + col] = conv_activated[k*out_len + row * out_width + col];
                     }
-                }
+                }*/
             }
             else{
                 // bring result in matrix shape
@@ -1147,6 +1143,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                 }
             }
         }
+        delete[] conv_reshaped;
         delete[] conv_activated;
         return conv_layer;
     }
@@ -1178,21 +1175,27 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  */
 uint64_t* FCL(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, int node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
-
+        cout << "entered FCL" << endl;
         //print2DArray("MATVECMUL input weights", convert2double(REC(proxy, weights, node_number, in_size), node_number, in_size), node_number, in_size);
         //print1DArray("MATVECMUL input vector", convert2double(REC(proxy, input, in_size), in_size), in_size);
+        /*uint64_t **input_mat = new uint64_t * [1];
+        input_mat[0] = input;
+        uint64_t **mat_res = MATMATMUL(proxy, weights, transpose(input_mat, 1, in_size), node_number, in_size, 1);*/
         uint64_t *output = MATVECMUL(proxy, weights, input, node_number, in_size);
+        //uint64_t **matmat_output = transpose(mat_res, node_number, 1);
+        print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
+        //print1DArray("MATMATMUL output", convert2double(REC(proxy, matmat_output[0], node_number), node_number), node_number);
+        uint64_t *added_bias = ADD(proxy, output, bias, node_number);
+        delete[] output;
+        print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
+        uint64_t* activated = RELU(proxy, added_bias, node_number);
+        print1DArray("RELU output", convert2double(REC(proxy, activated, node_number), node_number), node_number);
+        delete[] added_bias;
 
-        //print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
-        uint64_t* relu = RELU(proxy, output, node_number);
-        //print1DArray("RELU output", convert2double(REC(proxy, relu, node_number), node_number), node_number);
-        output = ADD(proxy, relu, bias, node_number);
-        //print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
-        //print1DArray("activated with bias", convert2double(REC(proxy, relu, node_number), node_number), node_number);
-        delete[] relu;
-        return output;
+        return activated;
     }
     else if (proxy->getPRole() == HELPER){
+        //MATMATMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
         MATVECMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
         RELU(proxy, nullptr, node_number);
         return nullptr;

@@ -397,9 +397,11 @@ double**** getChameleonParameters(const string& model_file_dir, uint32_t number_
     // fully connected layer:
     string file_path = model_file_dir + "ws_dense0" + file_ending;
     weights[1] = parse2DParams(file_path, 980, 100, false);
+    weights[1][0] = transpose(weights[1][0], 980, 100);
 
     file_path = model_file_dir + "ws_dense1" + file_ending;
     weights[2] = parse2DParams(file_path, 100, 10, false);
+    weights[2][0] = transpose(weights[2][0], 100, 10);
 
     // bias
     file_path = model_file_dir + "bs_conv0" + file_ending;
@@ -442,10 +444,8 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
         // fully connected layer:
         string file_path = model_file_dir + "fc0_weight" + file_ending;
         weights[2] = parse2DParams(file_path, 500, 800, false);
-        weights[2][0] = transpose(weights[2][0], 500, 800);
         file_path = model_file_dir + "fc1_weight" + file_ending;
         weights[3] = parse2DParams(file_path, 10, 500, false);
-        weights[3][0] = transpose(weights[3][0], 10, 500);
 
         // bias
         file_path = model_file_dir + "conv0_bias" + file_ending;
@@ -467,7 +467,6 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
         weights[0] = switchDimensions0and1(parsedParams, 6, 1, 25);
         parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 6, 25);
         weights[1] = switchDimensions0and1(parsedParams, 16, 6, 25);
-        //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 120);
 
         // fully connected layer:
         string file_path = model_file_dir + "fc0_weight" + file_ending;
