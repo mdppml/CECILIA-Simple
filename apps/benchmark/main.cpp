@@ -4,7 +4,7 @@
 #include <iostream>
 #include "Party_BM.h"
 
-static const int REQUIRED_ARGS_COUNT = 12;
+static const int REQUIRED_ARGS_COUNT = 14;
 
 static void print_error() {
     clog
@@ -15,9 +15,11 @@ static void print_error() {
         << "6: number of operations (for vectorised operations)\n"
         << "7: vector length (for operations on vectors)\n"
         << "8 & 9: matrix size (x, y) (gram matrix has size x*x)\n"
-        << "10: window size (used in CNN)\n"
-        << "12: number of cycles (how often to run each function for the benchmark)\n"
-        << "(13+: which functions to run (e.g. MUL, MUX), without this, all functions are run)" << endl;
+        << "10: window size (used in MAXPOOL)\n"
+        << "11: kernel size (used in CNN)\n"
+        << "12: number of kernel (used in CNN)\n"
+        << "13: number of cycles (how often to run each function for the benchmark)\n"
+        << "(14+: which functions to run (e.g. MUL, MUX), without this, all functions are run)" << endl;
     exit(EXIT_FAILURE);
 }
 
@@ -65,7 +67,9 @@ int main(int argc, char* argv[]) {
     int matrix_x = stoi(argv[8]);
     int matrix_y = stoi(argv[9]);
     int window_size = stoi(argv[10]);
-    int cycle_count = stoi(argv[11]);
+    int kernel_size = stoi(argv[11]);
+    int kernel_count = stoi(argv[12]);
+    int cycle_count = stoi(argv[13]);
     // create output formatting variables:
     int delay;
     string padding;
@@ -86,8 +90,8 @@ int main(int argc, char* argv[]) {
     // initialise proxy:
     int file_descriptor = suppress_stdout();
     Party_BM* proxy = (proxy_role == HELPER) ?
-            new Party_BM(helper_port, helper_ip, op_count, vector_length, matrix_x, matrix_y, window_size, cycle_count) :
-            new Party_BM(proxy_role, helper_port, helper_ip, p1_port, p1_ip, op_count, vector_length, matrix_x, matrix_y, window_size, cycle_count);
+            new Party_BM(helper_port, helper_ip, op_count, vector_length, matrix_x, matrix_y, window_size, kernel_size, kernel_count, cycle_count) :
+            new Party_BM(proxy_role, helper_port, helper_ip, p1_port, p1_ip, op_count, vector_length, matrix_x, matrix_y, window_size, kernel_size, kernel_count, cycle_count);
     resume_stdout(file_descriptor);
     // parse/obtain function names to run:
     string* functions;
@@ -116,7 +120,10 @@ int main(int argc, char* argv[]) {
             }
             sleep(delay);
             cout << role_string << " CPU time: " << padding << cpu_time << " ms" << endl;
+            cout << "Bytes: " << (bytesSend + bytesReceived)/cycle_count << endl;
             sleep(3-delay);
+            bytesSend = 0;
+            bytesReceived = 0;
         }
     }
     delete[] functions;

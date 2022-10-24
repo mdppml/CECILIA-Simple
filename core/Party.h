@@ -20,6 +20,8 @@ using namespace std;
 #include "../utils/connection.h"
 
 class Party {
+private:
+    double kk = 0.0;
 public:
 
     Party(role r, uint16_t hport=7777, const string hip="127.0.0.1", uint16_t cport=8888,const string cip="127.0.0.1") {
@@ -103,7 +105,7 @@ public:
         seed = rand();
     }
 
-    uint64_t generateRandom() {
+    /*uint64_t generateRandom() {
         srand(seed);
         uint64_t a = rand();
         srand(seed + 1);
@@ -116,10 +118,40 @@ public:
         uint8_t val = rand() >> 24;
         seed += 1;
         return val;
+    }*/
+
+    uint64_t generateRandom() {
+        auto start = chrono::high_resolution_clock::now();
+        srand(seed);
+        uint64_t a = rand();
+        srand(seed + 1);
+        uint64_t val = rand() ^ (a << 32);
+        seed += 2;
+        auto end = chrono::high_resolution_clock::now();
+        double time_taken =
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+        time_taken *= 1e-9;
+        kk += time_taken;
+        return val;
+    }
+    uint8_t generateRandomByte() {
+        auto start = chrono::high_resolution_clock::now();
+        srand(seed);
+        uint8_t val = rand() >> 24;
+        seed += 1;
+        auto end = chrono::high_resolution_clock::now();
+        double time_taken =
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+        time_taken *= 1e-9;
+        kk += time_taken;
+        return val;
     }
 
+    void piK(){
+        cout<< kk << setprecision(9)<<endl;
+    }
 
-    uint64_t generateCommonRandom() {
+    /*uint64_t generateCommonRandom() {
         srand(common_seed);
         uint64_t a = rand();
         srand(common_seed + 1);
@@ -139,6 +171,35 @@ public:
         srand(common_seed);
         uint8_t val = (rand() & 0xfe) + 1;
         common_seed += 1;
+        return val;
+    }*/
+
+
+    uint64_t generateCommonRandom() {
+        auto start = chrono::high_resolution_clock::now();
+        srand(common_seed);
+        uint64_t a = rand();
+        //srand(common_seed + 1);
+        uint64_t val = a ^ (a << 32);
+        common_seed = val;
+        auto end = chrono::high_resolution_clock::now();
+        double time_taken =
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+        time_taken *= 1e-9;
+        kk += time_taken;
+        return val;
+    }
+
+    uint8_t generateCommonRandomByte() {
+        auto start = chrono::high_resolution_clock::now();
+        srand(common_seed);
+        uint8_t val = rand() >> 24;
+        common_seed += 1;
+        auto end = chrono::high_resolution_clock::now();
+        double time_taken =
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+        time_taken *= 1e-9;
+        kk += time_taken;
         return val;
     }
 

@@ -1136,7 +1136,8 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             if (proxy->getPRole() == P1) {
                 z[i] = z[i] >> FRAC;
             } else {
-                z[i] = -1 * ((-1 * z[i]) >> FRAC);
+                //z[i] = -1 * ((-1 * z[i]) >> FRAC);
+                z[i] = RING_N - (RING_N - (z[i] >> FRAC));
             }
         }
 

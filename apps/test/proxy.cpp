@@ -596,6 +596,7 @@ void PAD_Test(Party *proxy) {
     uint32_t padding_size = 2;
     uint64_t **x = proxy->createShare(random_2D_data(proxy, row, col, 0.0, 255.0), row, col);
     //print2DArray("Original matrix: ", convert2double(REC(proxy, x, row, col), row, col), row, col);
+
     uint64_t **padded = PAD(x, row, col, padding_value, padding_size);
     double **rec_padded = convert2double(REC(proxy, padded, row + 2 * padding_size, col + 2 * padding_size),
                                          row + 2 * padding_size, col + 2 * padding_size);
@@ -632,7 +633,7 @@ void PAD_Test(Party *proxy) {
     }
     if (allCorrect) {
         cout << "PAD works correctly" << endl;
-        print2DArray("Computed Padding", rec_padded, row + 2 * padding_size, col + 2 * padding_size);
+        //print2DArray("Computed Padding", rec_padded, row + 2 * padding_size, col + 2 * padding_size);
     } else {
         cout << "PAD works incorrectly" << endl;
         print2DArray("Computed Padding", rec_padded, row + 2 * padding_size, col + 2 * padding_size);
@@ -857,77 +858,85 @@ void CL_Test(Party *proxy) {
 
 }
 
-void FCL_Test(Party *proxy) {
+bool FCL_Test(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling FCL (fully connected layer)";
     cout << setfill('*') << setw(49) << "*" << endl;
 
     // init
-    uint32_t row = 4;
-    uint32_t col = 4;
+    uint32_t row = WSZ*2;
+    uint32_t col = WSZ*2;
     uint32_t i_channel = 50;
     uint32_t i_nodes = row * col * i_channel;
-    uint32_t o_nodes = 2;
+    uint32_t o_nodes = WSZ;
 
     bool allCorrect = true;
-    while (allCorrect) {
-        uint64_t *x = proxy->createShare(random_1D_data(proxy, i_nodes, 0.0, 255.0), i_nodes);
-        uint64_t **weights = proxy->createShare(random_2D_data(proxy, i_nodes, o_nodes, -5.0, 5.0), i_nodes, o_nodes);
-        uint64_t *bias = proxy->createShare(random_1D_data(proxy, o_nodes), o_nodes);
+    uint64_t *x = proxy->createShare(random_1D_data(proxy, i_nodes, 0.0, 255.0), i_nodes);
+    uint64_t **weights = proxy->createShare(random_2D_data(proxy, i_nodes, o_nodes, -5.0, 5.0), i_nodes, o_nodes);
+    uint64_t *bias = proxy->createShare(random_1D_data(proxy, o_nodes), o_nodes);
 
-        // send params
-        uint32_t params[2];
-        params[0] = i_nodes;
-        params[1] = o_nodes;
-        proxy->SendBytes(CNN_FCL, params, 2);
+    // send params
+    uint32_t params[2];
+    params[0] = i_nodes;
+    params[1] = o_nodes;
+    proxy->SendBytes(CNN_FCL, params, 2);
 
-        uint64_t *res = FCL(proxy, x, i_nodes, weights, o_nodes, bias);
-        double *reconstructed_res = convert2double(REC(proxy, res, o_nodes), o_nodes);
+    uint64_t *res = FCL(proxy, x, i_nodes, weights, o_nodes, bias);
+    double *reconstructed_res = convert2double(REC(proxy, res, o_nodes), o_nodes);
 
-        // checking the result
-        double *rec_input = convert2double(REC(proxy, x, i_nodes), i_nodes);
-        //print1DArray("reconstructed input: ", rec_input, i_nodes);
-        double **rec_weights = convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes);
-        //print2DArray("reconstructed weights: ", rec_weights, i_nodes, o_nodes);
-        double *rec_bias = convert2double(REC(proxy, bias, o_nodes), o_nodes);
-        //print1DArray("reconstructed bias: ", rec_bias, o_nodes);
+    // checking the result
+    double *rec_input = convert2double(REC(proxy, x, i_nodes), i_nodes);
+    delete[] x;
+    double **rec_weights = convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes);
+    for (int i = 0; i < i_nodes; ++i) {
+        delete[] weights[i];
+    }
+    delete[] weights;
+    double *rec_bias = convert2double(REC(proxy, bias, o_nodes), o_nodes);
+    delete[] bias;
 
-        double *original_res = new double[o_nodes];
-        for (uint64_t o = 0; o < o_nodes; o++) {
-            double value = 0;
-            for (int i = 0; i < i_nodes; i++) {
-                value += rec_input[i] * rec_weights[o][i]; //weights would be tansposed in FCL
-            }
-            //ReLU activation
-            if (value < 0) {
-                value = 0;
-            }
-            original_res[o] = value + rec_bias[o];
-            if (original_res[o] - reconstructed_res[o] > 0.0001) {
-                allCorrect = false;
-            }
+    double *original_res = new double[o_nodes];
+    for (uint64_t o = 0; o < o_nodes; o++) {
+        double value = 0;
+        for (int i = 0; i < i_nodes; i++) {
+            value += rec_input[i] * rec_weights[o][i]; //weights would be tansposed in FCL
         }
-
-        if (allCorrect) {
-            cout << "FCL works correctly" << endl;
-        } else {
-            cout << "FCL works incorrectly" << endl;
-            print1DArray("Computed Result: ", reconstructed_res, o_nodes);
-            print1DArray("Correct Result", original_res, o_nodes);
-            print1DArray("input", convert2double(REC(proxy, x, i_nodes), i_nodes), i_nodes);
-            print2DArray("weights", convert2double(REC(proxy, weights, i_nodes, o_nodes), i_nodes, o_nodes), i_nodes,
-                         o_nodes);
-            print1DArray("bias", convert2double(REC(proxy, bias, o_nodes), o_nodes), o_nodes);
+        //ReLU activation
+        if (value < 0) {
+            value = 0;
+        }
+        original_res[o] = value + rec_bias[o];
+        if (original_res[o] - reconstructed_res[o] > 0.0001) {
+            allCorrect = false;
         }
     }
+
+    if (allCorrect) {
+        cout << "FCL works correctly" << endl;
+    } else {
+        cout << "FCL works incorrectly" << endl;
+        print1DArray("Computed Result: ", reconstructed_res, o_nodes);
+        print1DArray("Correct Result", original_res, o_nodes);
+        print1DArray("input", rec_input, i_nodes);
+        print2DArray("weights", rec_weights, i_nodes, o_nodes);
+        print1DArray("bias", rec_bias, o_nodes);
+    }
+    delete[] original_res;
+    delete[] reconstructed_res;
+    for (int i = 0; i < i_nodes; ++i) {
+        delete[] weights[i];
+    }
+    delete[] rec_weights;
+    delete[] bias;
+    return allCorrect;
 }
 
-void FLT_Test(Party *proxy) {
+bool FLT_Test(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling FLT (flattening)";
     cout << setfill('*') << setw(49) << "*" << endl;
 
-    uint32_t row = 5;
-    uint32_t col = 5;
-    uint32_t i_channel = 3;
+    uint32_t row = 14;
+    uint32_t col = 14;
+    uint32_t i_channel = WSZ/2;
 
     uint64_t ***x = new uint64_t **[i_channel];
     for (uint64_t i = 0; i < i_channel; i++) {
@@ -937,6 +946,7 @@ void FLT_Test(Party *proxy) {
 
     uint64_t *res = FLT(x, row, col, i_channel);
     double *reconstructed_res = convert2double(REC(proxy, res, i_nodes), i_nodes);
+    delete[] res;
 
     // checking the result
     bool allCorrect = true;
@@ -960,15 +970,22 @@ void FLT_Test(Party *proxy) {
         print1DArray("Computed Result: ", reconstructed_res, i_nodes);
         print1DArray("Correct Result", original_res, i_nodes);
     }
+    delete[] original_res;
+    delete[] reconstructed_res;
+    for (int i = 0; i < i_channel; ++i) {
+        delete[] x[i];
+    }
+    delete[] x;
+    return allCorrect;
 }
 
 void INC_Test(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling INC (increasing input matrix for conv)";
     cout << setfill('*') << setw(49) << "*" << endl;
 
-    uint32_t row = 28;
-    uint32_t col = 28;
-    uint32_t i_channel = 1;
+    uint32_t row = 24;
+    uint32_t col = 24;
+    uint32_t i_channel = 20;
     uint64_t ***x = new uint64_t **[i_channel];
     for (uint64_t i = 0; i < i_channel; i++) {
         x[i] = proxy->createShare(random_2D_data(proxy, row, col, 0, 255), row, col);
@@ -1138,9 +1155,9 @@ bool MATMATMUL_Test(Party *proxy) {
     cout << setfill('*') << setw(49) << "*" << endl;
 
     // setting
-    int a_row = 3;
-    int a_col = 10;
-    int b_col = 2;
+    int a_row = WSZ*5;
+    int a_col = WSZ*10;
+    int b_col = WSZ;
 
     uint32_t *params = new uint32_t[1];
     uint32_t size = a_row * a_col * b_col; // size of the vector
@@ -1193,14 +1210,14 @@ void MMATMATMUL_Test(Party *proxy) {
 
     // setting
     int n_matrices = 3;
-    int a_row = 5;
-    int a_col = 6;
-    int b_col = 3;
+    int a_row = WSZ*5;
+    int a_col = WSZ*6;
+    int b_col = WSZ*3;
     uint32_t *params = new uint32_t[1];
     uint32_t size = n_matrices * a_row * a_col * b_col; // size of the vector
     params[0] = size;
-    double min_val = -10;
-    double max_val = 10;
+    double min_val = -100;
+    double max_val = 100;
 
     uint64_t ***mat1 = new uint64_t **[n_matrices];
     uint64_t ***mat2 = new uint64_t **[n_matrices];
@@ -1272,8 +1289,8 @@ bool MATVECMUL_Test(Party *proxy) {
     cout << setfill('*') << setw(49) << "*" << endl;
     cout << "calling this one" << endl;
     // setting
-    int a_row = 3;
-    int a_col = 10;
+    int a_row = WSZ*3;
+    int a_col = WSZ*WSZ;
     uint32_t *params = new uint32_t[1];
     uint32_t size = a_row * a_col; // size of the vector
     params[0] = size;
@@ -1320,9 +1337,9 @@ void MMATVECMUL_Test(Party *proxy) {
 
     // setting
     int n_matrices = 3;
-    int a_row = 5;
-    int a_col = 6;
-    int b_col = 3;
+    int a_row = WSZ*5;
+    int a_col = WSZ*6;
+    int b_col = WSZ*3;
     uint32_t *params = new uint32_t[1];
     uint32_t size = n_matrices * a_row * a_col; // size of the vector
     params[0] = size;
@@ -1534,29 +1551,26 @@ void ADD_Test(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling ADD functions";
     cout << setfill('*') << setw(49) << "*" << endl;
 
-    uint64_t ***x = new uint64_t **[3];
-    for (int i = 0; i < 3; ++i) {
+    const int channel = 3;
+    uint64_t ***x = new uint64_t **[channel];
+    for (int i = 0; i < channel; ++i) {
         x[i] = proxy->createShare(random_2D_data(proxy, 5, 5, -4999.0, 5000.0), 5, 5);
     }
-    uint64_t **res2 = new uint64_t *[5];
-    for (int j = 0; j < 5; ++j) {
-        uint64_t *combined_rows[3];
-        for (int i = 0; i < 3; ++i) {
-            combined_rows[i] = x[i][j];
-        }
-        res2[j] = ADD(proxy, combined_rows, 3, 5);
-    }
-    print2DArray("reconstruced result from 2D ADD", convert2double(REC(proxy, res2, 5, 5), 5, 5), 5, 5);
 
-    uint64_t **res = ADD(proxy, x, 3, 5, 5);
+    uint64_t **res = ADD(proxy, x, channel, 5, 5);
     double **recon_res = convert2double(REC(proxy, res, 5, 5), 5, 5);
-    print2DArray("reconstruced result from 3D ADD", recon_res, 5, 5);
+
     // checking the result
-    double ***originalX = new double **[3];
-    for (int i = 0; i < 3; ++i) {
+    double ***originalX = new double **[channel];
+    for (int i = 0; i < channel; ++i) {
         originalX[i] = convert2double(REC(proxy, x[i], 5, 5), 5, 5);
-        print2DArray("ORIGINAL X: ", originalX[i], 5, 5);
+        delete[] x[i];
     }
+    delete[] x;
+    for (int r = 0; r < 5; ++r) {
+        delete[] res[r];
+    }
+    delete[] res;
 
     double **correct_sum = new double *[5];
     bool allCorrect = true;
@@ -1564,7 +1578,7 @@ void ADD_Test(Party *proxy) {
         correct_sum[r] = new double[5];
         for (uint64_t c = 0; c < 5; c++) {
             double s = 0;
-            for (int i = 0; i < 3; ++i) {
+            for (int i = 0; i < channel; ++i) {
                 s += originalX[i][r][c];
             }
             correct_sum[r][c] = s;
@@ -1581,7 +1595,12 @@ void ADD_Test(Party *proxy) {
         print2DArray("Computed SUM: ", recon_res, 5, 5);
         print2DArray("Correct SUM: ", correct_sum, 5, 5);
     }
-
+    for (int r = 0; r < 5; ++r) {
+        delete[] correct_sum[r];
+        delete[] recon_res[r];
+    }
+    delete[] correct_sum;
+    delete[] recon_res;
 }
 
 //void ppRKN_ITER_Test(Party* proxy) {
@@ -2717,12 +2736,12 @@ int main(int argc, char *argv[]) {
     DRLU_Test(proxy);
 */
     //MDRLU_Test(proxy);//TODO
-    /*DIV_Test(proxy);
+    //DIV_Test(proxy);
 
     INC_Test(proxy);
-    FLT_Test(proxy);
-    FCL_Test(proxy);
-    PAD_Test(proxy);*/
+    //FLT_Test(proxy);
+   // FCL_Test(proxy);
+    //PAD_Test(proxy);
     //CL_Test(proxy);
     //MEMCPY_TEST(proxy);
 /*
@@ -2731,13 +2750,13 @@ int main(int argc, char *argv[]) {
 
     DP_Test(proxy);
     MDP_Test(proxy);*/
-    bool all_correct0 = true;
+    /*bool all_correct0 = true;
     int counter = 0;
     while (all_correct0 and counter < 1000) {
-        all_correct0 = NETWORK_M_INPUTS_TEST(proxy);
+        all_correct0 = FCL_Test(proxy); //NETWORK_M_INPUTS_TEST(proxy);
         counter++;
         cout << counter << endl;
-    }
+    }*/
     //MAX_Test(proxy);
 //    MMATMATMUL_Test(proxy);
 
@@ -2746,6 +2765,7 @@ int main(int argc, char *argv[]) {
 
 //    ppRKN_ITER_Test(proxy);
 //    ppRKN_PREDICTION_Test(proxy);
+
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

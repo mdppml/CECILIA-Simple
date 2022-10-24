@@ -8,12 +8,17 @@
 #include "model_parser.h"
 #include "mnist_data/mnist_reader.hpp"
 
+#include <fstream>
+
 using namespace std;
 const string MODEL_DIR = "../apps/cnn/model_files/";
 const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b128_n5/",
-CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
+        CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
+const string LENET_CORRECT_PATH = "/home/debora/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/LeNet_trained/correctness/",
+        CHAMELEON_CORRECT_PATH = "/home/debora/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/Chameleon_CNN/correctness/";
 const string MNIST_DATA = "../apps/cnn/mnist_data/";
-const double PIXEL_MAX = 255;
+const double PIXEL_MAX = 255; // can be used for normalization if desired.
+const bool eval_correctness = true;
 
 uint64_t layer_number;
 uint32_t i_number, i_channel, i_width, i_height;
@@ -31,24 +36,24 @@ void initParams(uint32_t mode) {
     curr_layer = 0;
     //MNIST data
     trained_for_MNIST = true;
-    i_number = 2, i_channel = 1, i_width = 28, i_height = 28;
+    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
     k_dim = 5;
     stride = 1;
     padding = 0;
     max_win_width = 2, max_win_height = 2;
     switch (mode) {
-        case 0:{ //CHAMELEON
+        case 0: { //CHAMELEON
             layer_number = 3;
             stride = 2;
             padding = 2;
             max_win_width = 0, max_win_height = 0;
             break;
         }
-        case 1:{ //LeNet
+        case 1: { //LeNet
             layer_number = 4;
             break;
         }
-        case 2:{ //CellCNN
+        case 2: { //CellCNN
             cout << "init params for single cell network" << endl; //TODO
             layer_number = 2;
             // Multi-cell data
@@ -63,11 +68,11 @@ void initParams(uint32_t mode) {
         }
     }
     h_divisor = stride;
-    if(max_win_height > 0){
+    if (max_win_height > 0) {
         h_divisor *= max_win_height;
     }
     w_divisor = stride;
-    if(max_win_width > 0){
+    if (max_win_width > 0) {
         w_divisor *= max_win_width;
     }
 }
@@ -75,39 +80,36 @@ void initParams(uint32_t mode) {
 void resetParams() {
     curr_layer = 0;
     i_channel = 1;
-    if(trained_for_MNIST){
+    if (trained_for_MNIST) {
         i_channel = 1;
         i_height = 28;
-        i_width =  28;
-    }
-    else{
+        i_width = 28;
+    } else {
         //i_channel = 64; // number of samples
         i_width = 35;   // number of markers
         i_height = 2000;// number of cells
     }
-    if(padding > 0){
-        i_height += 2*padding;
-        i_width += 2*padding;
+    if (padding > 0) {
+        i_height += 2 * padding;
+        i_width += 2 * padding;
     }
 }
 
-void updateParamsForFCL(uint32_t* bias_dimensions, bool firstFCL){
-    if(firstFCL){
-        nodes_in = i_height*i_width*i_channel;
-    }
-    else{
+void updateParamsForFCL(uint32_t *bias_dimensions, bool firstFCL) {
+    if (firstFCL) {
+        nodes_in = i_height * i_width * i_channel;
+    } else {
         nodes_in = nodes_out;
         curr_layer++; //if firstFCL: curr_layer has been updated by updateParamsAfterCL
     }
     nodes_out = bias_dimensions[curr_layer];
 }
 
-void updateParamsAfterCL(){
-    if(trained_for_MNIST) {
+void updateParamsAfterCL() {
+    if (trained_for_MNIST) {
         i_height = (i_height - k_dim + 1) / h_divisor;
         i_width = (i_width - k_dim + 1) / w_divisor;
-    }
-    else{
+    } else {
         i_height = i_channel;
         i_width = i_height; //both dimensions are eliminated to 1 after maxpool
     }
@@ -115,9 +117,11 @@ void updateParamsAfterCL(){
     curr_layer++;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 6){
-        cout << "Calling proxy without specifying role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible." << endl;
+int main(int argc, char *argv[]) {
+    if (argc < 6) {
+        cout
+                << "Calling proxy without specifying role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible."
+                << endl;
         cout << "Specify the Network Mode with the 6th parameter: 0 = CHAMELEON, 1 = LeNet5, 2 = Cell_CNN" << endl;
         return 1;
     }
@@ -130,10 +134,10 @@ int main(int argc, char* argv[]) {
 
     // parse model parameters
     initParams(nn_mode);
-    double**** model_weights;
-    auto* bias_dimensions = new uint32_t [layer_number];
+    double ****model_weights;
+    auto *bias_dimensions = new uint32_t[layer_number];
     switch (nn_mode) {
-        case 0:{
+        case 0: {
             cout << "CHAMELEON" << endl;
             model_weights = getChameleonParameters(MODEL_DIR + CHAMELEON_MODEL_FILES, 5);
             bias_dimensions[0] = 5;
@@ -141,7 +145,7 @@ int main(int argc, char* argv[]) {
             bias_dimensions[2] = 10;
             break;
         }
-        case 1:{
+        case 1: {
             cout << "LeNet by SecureNN" << endl;
             model_weights = getLeNetParameters(MODEL_DIR + LENET_NN_MODEL_FILES, true);
             bias_dimensions[0] = 20;
@@ -150,7 +154,7 @@ int main(int argc, char* argv[]) {
             bias_dimensions[3] = 10;
             break;
         }
-        case 2:{
+        case 2: {
             cout << "CellCNN" << endl;
             model_weights = getCellCnnParameters(MODEL_DIR + CELL_CNN_MODEL_FILES, 8);
             bias_dimensions[0] = 8;
@@ -162,17 +166,47 @@ int main(int argc, char* argv[]) {
             return -1;
         }
     }
-    cout << "Reading input data... ";
+    cout << "Reading input data... " << endl;
     vector<vector<unsigned char>> test_set;
     vector<unsigned char> test_label;
-    if(trained_for_MNIST){
+    if (trained_for_MNIST) {
         //read in MNIST data
         mnist::MNIST_dataset<vector, vector<uint8_t>, uint8_t> dataset =
                 mnist::read_dataset<vector, vector, uint8_t, uint8_t>(MNIST_DATA);
         test_set = dataset.test_images;
         test_label = dataset.test_labels;
-    }
-    else{
+        if (eval_correctness and role == 0) {
+            for (int i = 0; i < i_number; ++i) {
+                ofstream image_file;
+                string path;
+                switch (nn_mode) {
+                    case 0:
+                        path = CHAMELEON_CORRECT_PATH;
+                        break;
+                    case 1:
+                        path = LENET_CORRECT_PATH;
+                }
+                path += "eval_secure_" + to_string(i) + ".txt";
+                image_file.open(path, std::ios::out);
+                if (!image_file) {
+                    std::cout << "Error opening file in " << path << std::endl;
+                    return 1;
+                }
+
+                for (int r = 0; r < i_height; ++r) {
+                    for (int c = 0; c < i_width; ++c) {
+                        image_file << static_cast<int>(test_set.at(i).at(r * i_width + c));
+                        if (c < (i_width - 1)) {
+                            image_file << ",";
+                        }
+                    }
+                    image_file << endl;
+                }
+                image_file << endl;
+                image_file.close();
+            }
+        }
+    } else {
         //TODO read multi cell data
         /*double* random_label = random_1D_data(proxy, i_number, 10.0);
         for (int i = 0; i < i_number; ++i) {
@@ -199,22 +233,23 @@ int main(int argc, char* argv[]) {
 
     Party *proxy;
     cout << "Creating Proxy..." << endl;
-    if (role==0)
-        proxy = new Party(P1,hport, haddress, cport, caddress);
+    if (role == 0)
+        proxy = new Party(P1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2,hport, haddress, cport, caddress);
+        proxy = new Party(P2, hport, haddress, cport, caddress);
 
-    auto*** data = new uint64_t** [test_set.size()];
+    auto ***data = new uint64_t **[test_set.size()];
     for (uint32_t i = 0; i < i_number; ++i) {
         data[i] = new uint64_t *[i_height];
         for (uint32_t r = 0; r < i_height; ++r) {
-            data[i][r] = new uint64_t [i_width];
+            data[i][r] = new uint64_t[i_width];
             for (uint32_t c = 0; c < i_width; ++c) {
                 double pixelValue = test_set.at(i).at(r * i_width + c);
-                data[i][r][c] = proxy->createShare(pixelValue);//2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
+                data[i][r][c] = proxy->createShare(
+                        pixelValue);//2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
             }
         }
-        if(padding > 0){
+        if (padding > 0) {
             uint64_t padding_value = proxy->createShare(0);
             data[i] = PAD(data[i], i_height, i_width, padding_value, padding);
         }
@@ -231,38 +266,39 @@ int main(int argc, char* argv[]) {
 
     // secret shares: kernel
     k_number = bias_dimensions[0];
-    uint32_t k_size = nn_mode == 2 ? k_dim : k_dim*k_dim;
-    auto ***kernel = new uint64_t**[i_channel]; // weights of all kernel for first CL
+    uint32_t k_size = nn_mode == 2 ? k_dim : k_dim * k_dim;
+    auto ***kernel = new uint64_t **[i_channel]; // weights of all kernel for first CL
     for (int i = 0; i < i_channel; ++i) {
-       // kernel[i] = new uint64_t *[k_number];
+        // kernel[i] = new uint64_t *[k_number];
         kernel[i] = proxy->createShare(model_weights[0][i], k_number, k_size);
         delete[] model_weights[0][i][0];
         delete[] model_weights[0][i];
     }
     delete[] model_weights[0];
 
-    auto* prediction = new double [i_number];
+    auto *prediction = new double[i_number];
     double correct = 0, incorrect = 0;
     // CNN INFERENCE PIPELINE
     for (uint32_t image = 0; image < i_number; ++image) {
         cout << "INFERENCE PIPELINE " << image << endl;
         k_number = bias_dimensions[0];
         resetParams();
-        auto *** input = new uint64_t **[i_channel];
+        auto ***input = new uint64_t **[i_channel];
         input[0] = data[image]; // currently only 1 channel for input supported
         //print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
-        uint64_t*** conv;
-        uint64_t* prev_layer_res;
+        uint64_t ***conv;
+        uint64_t *prev_layer_res;
         uint64_t **weights;
         switch (nn_mode) {                              // from here on network architectures differ
-            case 0:{ // Chameleon
-                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], true);
+            case 0: { // Chameleon
+                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
+                          max_win_width, bias[curr_layer], true);
                 updateParamsAfterCL();
 
                 updateParamsForFCL(bias_dimensions, true);
                 // FULLY CONNECTED LAYER
                 weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
-                if(image == i_number-1) {
+                if (image == i_number - 1) {
                     delete[] model_weights[curr_layer][0];
                     delete[] model_weights[curr_layer];
                 }
@@ -271,33 +307,35 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case 1: { // SecureNN
-                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], false);
+                conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
+                          max_win_width, bias[curr_layer], false);
                 //print2DArray("weights conv0: ", convert2double(REC(proxy, conv[0], 12, 12), 12, 12), 12, 12);
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
-                cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
-                kernel = new uint64_t**[i_channel];
+                //cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
+                kernel = new uint64_t **[i_channel];
                 for (uint32_t i = 0; i < i_channel; i++) {
-                    kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim*k_dim);
-                    if(i < 1) {
+                    kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim * k_dim);
+                    /*if(i < 1) {
                         print2DArray("CL weights ", model_weights[curr_layer][i], k_number, k_dim * k_dim);
                         print2DArray("input from conv", convert2double(REC(proxy, conv[i], i_height, i_width), i_height, i_width), i_height, i_width);
-                    }
-                    if(image == i_number-1) {
+                    }*/
+                    if (image == i_number - 1) {
                         delete[] model_weights[curr_layer][i];
                     }
                 }
-                if(image == i_number-1) {
+                if (image == i_number - 1) {
                     delete[] model_weights[curr_layer];
                 }
-                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height, max_win_width, bias[curr_layer], true);
+                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
+                          max_win_width, bias[curr_layer], true);
                 updateParamsAfterCL();
 
                 // fully connected layer:
                 updateParamsForFCL(bias_dimensions, true);
                 weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
-                if(image == i_number-1) {
+                if (image == i_number - 1) {
                     delete[] model_weights[curr_layer][0];
                     delete[] model_weights[curr_layer];
                 }
@@ -306,7 +344,7 @@ int main(int argc, char* argv[]) {
                 updateParamsForFCL(bias_dimensions, false);
                 break;
             }
-            case 2:{
+            case 2: {
                 // CONVOLUTIONAL LAYER (adapted to non-symmetric filter size
                 conv = new uint64_t **[k_number];
                 for (int k = 0; k < k_number; ++k) {
@@ -322,17 +360,17 @@ int main(int argc, char* argv[]) {
         delete[] conv;
         // last FULLY CONNECTED LAYER
         weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
-        if(image == i_number-1) {
+        if (image == i_number - 1) {
             delete[] model_weights[curr_layer][0];
             delete[] model_weights[curr_layer];
         }
 
         //print1DArray("input to last FCL", convert2double(REC(proxy, prev_layer_res, nodes_in), nodes_in), nodes_in);
         //print2DArray("weights", convert2double(REC(proxy, weights, nodes_out, nodes_in), nodes_out, nodes_in), nodes_out, nodes_in);
-        uint64_t * output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
+        uint64_t *output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
         delete[] prev_layer_res;
         switch (nn_mode) {                              // from here on network architectures differ
-            case 0:{ // Chameleon (treated same as SecureNN)
+            case 0: { // Chameleon (treated same as SecureNN)
             }
             case 1: { // SecureNN
                 prediction[image] = convert2double(REC(proxy, ARGMAX(proxy, output, nodes_out)));
@@ -340,23 +378,47 @@ int main(int argc, char* argv[]) {
                 cout << ": predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
                 break;
             }
-            case 2:{
+            case 2: {
                 prediction[image] = convert2double(REC(proxy, ARGMAX(proxy, output, nodes_out)));
                 cout << ": predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
                 break;
             }
         }
-        delete[] output;
-        if (prediction[image] == int(test_label[image])){
+        if (prediction[image] == int(test_label[image])) {
             correct++;
-        }
-        else{
+        } else {
             incorrect++;
         }
+        if (trained_for_MNIST and eval_correctness and proxy->getPRole() == P1) {
+            ofstream image_file;
+            string path;
+            switch (nn_mode) {
+                case 0:
+                    path = CHAMELEON_CORRECT_PATH;
+                    break;
+                case 1:
+                    path = LENET_CORRECT_PATH;
+            }
+            path += "eval_secure_" + to_string(image) + ".txt";
+            image_file.open(path, std::ios::app);
+            if (!image_file) {
+                std::cout << "Error opening file for appending prediction at " << path << std::endl;
+                return 1;
+            }
+            double *inference_res = convert2double(REC(proxy, output, nodes_out), nodes_out);
+            image_file << " [[ ";
+            for (int v = 0; v < nodes_out; ++v) {
+                image_file << inference_res[v] << "\t";
+            }
+            image_file << "]]" << endl;
+            image_file.close();
+            delete[] inference_res;
+        }
+        delete[] output;
     }
     delete[] data[0];
     delete[] data;
-    cout << "accuracy: " << printf("%.3f", correct/i_number) << " (" << correct << "/" << i_number << ")" << endl;
+    cout << "accuracy: " << printf("%.3f", correct / i_number) << " (" << correct << "/" << i_number << ")" << endl;
     print1DArray("Prediction: ", prediction, i_number);
     string s_correct = "";
     for (int i = 0; i < i_number; ++i)
@@ -364,6 +426,7 @@ int main(int argc, char* argv[]) {
 
     cout << "Correct label: " << endl << s_correct << endl;
     proxy->PrintBytes();
+    proxy->piK();
     return 0;
 }
 

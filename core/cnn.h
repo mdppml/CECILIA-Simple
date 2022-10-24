@@ -1017,10 +1017,9 @@ uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t
  *
  * @param proxy
  * @param input data on which convolution is performed using the provided kernels.
- * The input is supposed to be in 2D shape where each channel is appended in the second dimension.
- * So a input of shape WxHxC is supposed to be represented in shape WxH*C.
+ * The input is supposed to be in 3D shape with WxHxC.
  * @param i_channel number of channels of the input; must be > 0
- * @param i_height size of input in one dimension, divided by i_channel; must be > 0
+ * @param i_height size of input in one dimension per i_channel; must be > 0
  * @param i_width size of input in the other dimension; must be > 0
  * @param kernel vector containing all kernel to be used for convolution.
  * The parameter kernel has shape i_channel x output_channel x k_dim * k_dim.
@@ -1166,7 +1165,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  * @param proxy
  * @param input the input vector of length in_size to be fully connected to the output nodes.
  * @param in_size length of the input vector (when input is in more dimensional shape, use the Flattening method FLT before)
- * @param weights to be used must be of shape in_size x node_number as provided by Chameleon files
+ * @param weights to be used must be of shape node_number x in_size
  * @param node_number number of output nodes of this layer
  * @param bias vector of length node_number. For each output node there is one bias value which is added.
  * @return the output layer that have been computed by using the dot product between input values and weights,
@@ -1178,24 +1177,18 @@ uint64_t* FCL(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, in
         cout << "entered FCL" << endl;
         //print2DArray("MATVECMUL input weights", convert2double(REC(proxy, weights, node_number, in_size), node_number, in_size), node_number, in_size);
         //print1DArray("MATVECMUL input vector", convert2double(REC(proxy, input, in_size), in_size), in_size);
-        /*uint64_t **input_mat = new uint64_t * [1];
-        input_mat[0] = input;
-        uint64_t **mat_res = MATMATMUL(proxy, weights, transpose(input_mat, 1, in_size), node_number, in_size, 1);*/
         uint64_t *output = MATVECMUL(proxy, weights, input, node_number, in_size);
-        //uint64_t **matmat_output = transpose(mat_res, node_number, 1);
-        print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
-        //print1DArray("MATMATMUL output", convert2double(REC(proxy, matmat_output[0], node_number), node_number), node_number);
+        //print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
         uint64_t *added_bias = ADD(proxy, output, bias, node_number);
         delete[] output;
-        print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
+        //print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
         uint64_t* activated = RELU(proxy, added_bias, node_number);
-        print1DArray("RELU output", convert2double(REC(proxy, activated, node_number), node_number), node_number);
+        //print1DArray("RELU output", convert2double(REC(proxy, activated, node_number), node_number), node_number);
         delete[] added_bias;
 
         return activated;
     }
     else if (proxy->getPRole() == HELPER){
-        //MATMATMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
         MATVECMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
         RELU(proxy, nullptr, node_number);
         return nullptr;

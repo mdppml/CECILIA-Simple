@@ -11,7 +11,10 @@ help () {
     echo "3 & 4: matrix size (x, y) (gram matrix has size x*x) (for operations on matrices, not vectorised vector operations)"
     echo "5: window size (used in CNN)"
     echo "6: number of cycles (how often to run each function for the benchmark)"
-    echo "(7+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
+    echo "7: window size (used in MAXPOOL)\n"
+    echo "8: kernel size (used in CNN)\n"
+    echo "9: number of kernel (used in CNN)\n"
+    echo "(10+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
     echo
     echo "options (with defaults included):"
     echo "  -h, --help                      show this help message and exit"
@@ -51,7 +54,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 # make sure that enough positional arguments were provided:
-if [[ ${#POSITIONAL_ARGS[@]} -lt 6 ]]
+if [[ ${#POSITIONAL_ARGS[@]} -lt 9 ]]
 then
   echo "Positional arguments were not provided. Call this tool with -h to see which ones are required."
   exit 1
