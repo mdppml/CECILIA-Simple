@@ -17,13 +17,15 @@ help () {
     echo "(10+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
     echo
     echo "options (with defaults included):"
-    echo "  -h, --help                      show this help message and exit"
-    echo "  -l=0, --latency=0               add a latency of 0 ms to each request"
-    echo "  -j=0, --jitter=0                randomly vary the latency by +/-0 ms (cannot be larger than latency)"
-    echo "  -b=∞, --bandwidth=∞             cap the bandwidth at ∞ KB/s"
+    echo "  -h,   --help            show this help message and exit"
+    echo "  -m=d, --mode=d          select debug (d) or release (r) build"
+    echo "  -l=0, --latency=0       add a latency of 0 ms to each request"
+    echo "  -j=0, --jitter=0        randomly vary the latency by +/-0 ms (cannot be larger than latency)"
+    echo "  -b=∞, --bandwidth=∞     cap the bandwidth at ∞ KB/s"
 }
 # parse arguments:
 JITTER=0
+MODE=d
 while [[ $# -gt 0 ]]; do
     i=$1
     case $i in
@@ -41,6 +43,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -b=*|--bandwidth=*)
             BANDWIDTH="${i#*=}"
+            shift
+            ;;
+        -m=*|--mode=*)
+            MODE="${i#*=}"
             shift
             ;;
         -*)
@@ -61,6 +67,16 @@ then
 fi
 # make positional arguments into string:
 ARGS=${POSITIONAL_ARGS[*]}
+# select appropriate executable:
+if [[ "$MODE" = d ]]
+then
+  EXECUTABLE=../../cmake-build-debug/benchmark
+elif [[ "$MODE" = r ]]
+then
+  EXECUTABLE=../../cmake-build-release/benchmark
+else
+  echo "Unknown mode \"$MODE\". Proceeding with default (debug)."
+fi
 # make sure that latency is larger than jitter:
 if [[ "$JITTER" -gt 0 ]]
 then
@@ -119,9 +135,9 @@ then
   fi
 fi
 # run benchmarks:
-../../cmake-build-debug/benchmark HELPER $PORT_HELPERP 127.0.0.1 0 0 $ARGS &
+$EXECUTABLE HELPER $PORT_HELPERP 127.0.0.1 0 0 $ARGS &
 sleep 2
-../../cmake-build-debug/benchmark P1 $PORT_PHELPER 127.0.0.1 $PORT_P1P2 127.0.0.1 $ARGS &
+$EXECUTABLE P1 $PORT_PHELPER 127.0.0.1 $PORT_P1P2 127.0.0.1 $ARGS &
 sleep 2
-../../cmake-build-debug/benchmark P2 $PORT_PHELPER 127.0.0.1 $PORT_P2P1 127.0.0.1 $ARGS
+$EXECUTABLE P2 $PORT_PHELPER 127.0.0.1 $PORT_P2P1 127.0.0.1 $ARGS
 
