@@ -11,6 +11,7 @@
 #include "../cnn/model_parser.h"
 #include "../cnn/mnist_data/mnist_reader.hpp"
 #include <bitset>
+#include <unordered_map>
 
 
 using namespace std;
@@ -18,10 +19,11 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
-constexpr int sz = 1000;
+constexpr int sz = 10;
 constexpr int WSZ = 3;
 
-void MUL_Test(Party *proxy){
+// ************************************ Ali  ***********************************************
+bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cnt){
     cout<<setfill ('*')<<setw(50)<<"Calling MUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
@@ -32,18 +34,56 @@ void MUL_Test(Party *proxy){
     proxy->SendBytes(CORE_MUL);
     uint64_t r = MUL(proxy,x, y);
     // checking the result
-    xd = convert2double(REC(proxy,x));
-    yd = convert2double(REC(proxy,y));
-    double rd = convert2double(REC(proxy,r));
+    uint64_t rec_x = REC(proxy, x);
+    uint64_t rec_y = REC(proxy, y);
+    uint64_t rec_r = REC(proxy, r);
+    xd = convert2double(rec_x);
+    yd = convert2double(rec_y);
+    double rd = convert2double(rec_r);
     double rcd = (xd*yd);
-    if ((int)(rd - rcd) == 0)
-        cout<<"MUL works correctly"<<endl;
+
+    string key = to_string((rec_x > x)) + to_string(rec_y > y) + to_string(rec_r > r);
+    if(cases.find(key) == cases.end()) {
+        cases[key] = 1;
+    }
     else {
+        cases[key]++;
+    }
+//    if(key == "001" || key == "010" || key == "100" || key == "111") {
+//        cout << "-----------------------------------------" << endl;
+//        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+//        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
+//        cout << "-----------------------------------------" << endl;
+//    }
+    if ((int)(rd - rcd) == 0) {
+        cout<<"MUL works correctly"<<endl;
+        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+//        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
+//        cout << "-----------------------------------------" << endl;
+        return true;
+    }
+    else {
+//        cout << "----------------" << i << "-------------------------" << endl;
+//        cout << "x: " << rec_x << endl;
+//        cout << "Share of x: " << x << endl;
+//        cout << "rec_x >? share_x: " << (rec_x > x) << endl;
+//        cout << "y: " << rec_y << endl;
+//        cout << "Share of y: " << y << endl;
+//        cout << "rec_y >? share_y: " << (rec_y > y) << endl;
+//        cout << "r: " << rec_r << endl;
+//        cout << "Share of r: " << r << endl;
+//        cout << "rec_r >? share_r: " << (rec_r > r) << endl;
+//        cout << "-----------------------------------------" << endl;
         cout<<"MUL works incorrectly"<<endl;
+        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+//        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
+//        cnt++;
+//        cout << "-----------------------------------------" << endl;
+        return false;
     }
 }
 
-void MMUL_Test(Party *proxy){
+bool MMUL_Test_v2(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MMUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     uint64_t x[sz], y[sz],z[sz];
@@ -59,22 +99,221 @@ void MMUL_Test(Party *proxy){
     proxy->SendBytes(CORE_MMUL,params, 1);
     uint64_t *r = MUL(proxy,x, y,sz);
     // checking the result
+    unordered_map<string, int> umap;
     bool flag = true;
     for (int i=0;i<sz;i++) {
-        double xd = convert2double(REC(proxy, x[i]));
-        double yd = convert2double(REC(proxy, y[i]));
-        double rd = convert2double(REC(proxy, r[i]));
+        uint64_t rec_x = REC(proxy, x[i]);
+        uint64_t rec_y = REC(proxy, y[i]);
+        uint64_t rec_r = REC(proxy, r[i]);
+        double xd = convert2double(rec_x);
+        double yd = convert2double(rec_y);
+        double rd = convert2double(rec_r);
+        double rcd = (xd * yd);
+        cout << "----------------" << i << "-------------------------" << endl;
+        cout << "x: " << rec_x << endl;
+        cout << "Share of x: " << x[i] << endl;
+        cout << "rec_x >? share_x: " << (rec_x > x[i]) << endl;
+        cout << "y: " << rec_y << endl;
+        cout << "Share of y: " << y[i] << endl;
+        cout << "rec_y >? share_y: " << (rec_y > y[i]) << endl;
+        cout << "r: " << rec_r << endl;
+        cout << "Share of r: " << r[i] << endl;
+        cout << "rec_r >? share_r: " << (rec_r > r[i]) << endl;
+        cout << "-----------------------------------------" << endl;
+        string key = to_string((rec_x > x[i])) + to_string(rec_y > y[i]) + to_string(rec_r > r[i]);
+        if(umap.find(key) == umap.end()) {
+            umap[key] = 1;
+        }
+        else {
+            umap[key]++;
+        }
+        if ((int) (rd - rcd) != 0) {
+            flag = false;
+            cout << "Absolute difference of multiplication of " << xd << " and " << yd << ": " << abs(rd - rcd) << endl;
+            for (auto& it: umap) {
+                // Do stuff
+                cout << it.first << ": " << it.second << endl;
+            }
+            break;
+        }
+    }
+    if (flag) {
+        cout<<"MMUL works correctly"<<endl;
+        return true;
+    }
+    else {
+        cout<<"MMUL works incorrectly"<<endl;
+        return false;
+    }
+}
+// ****************************************************************************************
+
+bool TRUNCATE_Test(Party *proxy, int &cnt, unordered_map<string, int> &map_cnt) {
+//    cout<<setfill ('*')<<setw(50)<<"Calling truncate";
+//    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    // negative values
+//    uint64_t x = 0xf000000000000000; // small negative value
+//    uint64_t x = 0x8000000000000000; // large negative value
+//    uint64_t x = (uint64_t) 1 | ((uint64_t) 1 << (L_BIT - 1));
+
+    // large positive value
+//    uint64_t x = 0x7fffffffffffffff;
+//    uint64_t x = ((uint64_t) 0 - 1) - 0xffff000000000001;
+//    uint64_t x = ((uint64_t) 0 - 1) - 0xffffff0000000000;
+    uint64_t x = proxy->generateCommonRandom();
+
+    uint64_t gt_trun_x;
+    if((x >> (L_BIT - 1)) == 0x0) {
+        gt_trun_x = x >> FRAC;
+    }
+    else {
+        gt_trun_x = ((((uint64_t) 1 << FRAC) - 1) << (L_BIT - FRAC)) | (x >> FRAC);
+    }
+
+//    cout << "x: " << bitset<64>(x) << " => " << convert2double(x) << endl;
+
+    uint64_t xi = proxy->createShare(x);
+//    uint64_t rec_x = REC(proxy, xi);
+//    cout << "x: " << bitset<64>(rec_x) << endl;
+//    cout << "xi: " << bitset<64>(xi) << " => " << convert2double(xi) << endl;
+
+/*
+    if(proxy->getPRole() == P1) {
+        uint64_t tmp = xi >> FRAC;
+        cout << "xi >> FRAC: " << bitset<64>(tmp) << endl;
+    }
+    else if(proxy->getPRole() == P2) {
+        uint64_t tmp = -1 * xi;
+        cout << "-1 * xi: " << bitset<64>(tmp) << endl;
+        tmp = tmp >> FRAC;
+        cout << "(-1 * xi) >> FRAC: " << bitset<64>(tmp) << endl;
+        tmp = -1 * tmp;
+        cout << "-1 * ((-1 * xi) >> FRAC): " << bitset<64>(tmp) << endl;
+    }
+*/
+    uint64_t trun_x = truncate(proxy, xi);
+    uint64_t rec_trun_x = REC(proxy, trun_x);
+
+//    cout << "GT: " << bitset<64>(gt_trun_x) << " => " << convert2double(gt_trun_x) << endl;
+//    cout << "CM: " << bitset<64>(rec_trun_x) << " => " << convert2double(rec_trun_x) << endl;
+
+    uint64_t r = xi - x;
+    uint64_t neg_x = (uint64_t) 0 - x;
+
+    cout << "------------------------------------------" << endl;
+    cout << " x: " << bitset<64>(x) << " => " << convert2double(x) << endl;
+//    cout << "-x: " << bitset<64>(neg_x) << " => " << convert2double(neg_x) << endl;
+//    cout << " r: " << bitset<64>(r) << " => " << convert2double(r) << endl;
+//    cout << "xi: " << bitset<64>(xi) << " => " << convert2double(xi) << endl;
+//    if(proxy->getPRole() == P1) {
+//        uint64_t tmp = xi >> FRAC;
+//        cout << "xi >> FRAC: " << bitset<64>(tmp) << endl;
+//    }
+//    else if(proxy->getPRole() == P2) {
+//        uint64_t tmp = -1 * xi;
+//        cout << "-1 * xi: " << bitset<64>(tmp) << endl;
+//        tmp = tmp >> FRAC;
+//        cout << "(-1 * xi) >> FRAC: " << bitset<64>(tmp) << endl;
+//        tmp = -1 * tmp;
+//        cout << "-1 * ((-1 * xi) >> FRAC): " << bitset<64>(tmp) << endl;
+//    }
+//    cout << "GT: " << bitset<64>(gt_trun_x) << " => " << convert2double(gt_trun_x) << endl;
+//    cout << "CM: " << bitset<64>(rec_trun_x) << " => " << convert2double(rec_trun_x) << endl;
+
+    cout << (neg_x > r) << " -- " << (r > x) << endl;
+    string key = to_string((x >> (L_BIT - 1)) & 0x1) + to_string(neg_x > r) + "" + to_string(r > x);
+    if(map_cnt.find(key) == map_cnt.end()) {
+        map_cnt[key] = 1;
+    }
+    else {
+        map_cnt[key]++;
+    }
+    if(rec_trun_x - gt_trun_x <= 0x1) {
+        cout << "truncate works correctly" << endl;
+        return true;
+    }
+    else {
+        cnt++;
+        cout << "truncate works incorrectly" << endl;
+        return false;
+    }
+}
+
+bool MUL_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling MUL";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+    double yd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+    uint64_t x = proxy->createShare(xd);
+    uint64_t y = proxy->createShare(yd);
+    proxy->SendBytes(CORE_MUL);
+    uint64_t r = MUL(proxy,x, y);
+    // checking the result
+    uint64_t rec_x = REC(proxy, x);
+    uint64_t rec_y = REC(proxy, y);
+    uint64_t rec_r = REC(proxy, r);
+    xd = convert2double(rec_x);
+    yd = convert2double(rec_y);
+    double rd = convert2double(rec_r);
+    double rcd = (xd*yd);
+
+    if ((int)(rd - rcd) == 0) {
+        cout<<"MUL works correctly"<<endl;
+        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+        return true;
+    }
+    else {
+        cout<<"MUL works incorrectly"<<endl;
+        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+        return false;
+    }
+}
+
+bool MMUL_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling MMUL";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    uint64_t x[sz], y[sz],z[sz];
+    uint32_t* params = new uint32_t[1];
+    params[0] = sz;
+    for (int i=0;i<sz;i++){
+        double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+        double yd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+        x[i] = proxy->createShare(xd);
+        y[i] = proxy->createShare(yd);
+    }
+    proxy->SendBytes(CORE_MMUL,params, 1);
+    uint64_t *r = MUL(proxy,x, y,sz);
+    // checking the result
+    unordered_map<string, int> umap;
+    bool flag = true;
+    for (int i=0;i<sz;i++) {
+        uint64_t rec_x = REC(proxy, x[i]);
+        uint64_t rec_y = REC(proxy, y[i]);
+        uint64_t rec_r = REC(proxy, r[i]);
+        double xd = convert2double(rec_x);
+        double yd = convert2double(rec_y);
+        double rd = convert2double(rec_r);
         double rcd = (xd * yd);
         if ((int) (rd - rcd) != 0) {
             flag = false;
             cout << "Absolute difference of multiplication of " << xd << " and " << yd << ": " << abs(rd - rcd) << endl;
+            for (auto& it: umap) {
+                // Do stuff
+                cout << it.first << ": " << it.second << endl;
+            }
             break;
         }
     }
-    if (flag)
+    if (flag) {
         cout<<"MMUL works correctly"<<endl;
-    else
+        return true;
+    }
+    else {
         cout<<"MMUL works incorrectly"<<endl;
+        return false;
+    }
 }
 
 void MOC_Test(Party *proxy){
@@ -431,7 +670,6 @@ void ARGMAX_Test(Party *proxy){
 
 }
 
-
 void RST_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling RST";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -523,7 +761,6 @@ void MRELU_Test(Party *proxy){
 
 }
 
-
 void DRLU_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling DRLU";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -589,7 +826,6 @@ void MDRLU_Test(Party *proxy){
     }
 
 }
-
 
 void PAD_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling PAD (padding)";
@@ -760,7 +996,6 @@ void CL_Test(Party *proxy){
     }
 
 }
-
 
 void FCL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling FCL (fully connected layer)";
@@ -1419,7 +1654,7 @@ void DIV_Test(Party *proxy){
     uint64_t x = proxy->createShare(x_d);
 
     proxy->SendBytes(CORE_DIV);
-    uint64_t div = DIVv2(proxy, x, y);
+    uint64_t div = DIV(proxy, x, y);
     uint64_t rec_dev = REC(proxy, div);
     double reconstructed_div = convert2double(rec_dev);
 
@@ -1443,6 +1678,56 @@ void DIV_Test(Party *proxy){
 
 }
 
+void MDIV_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling DIV";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+    double *x_d = new double[sz];
+    double *y_d = new double[sz];
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];
+    for(int i = 0; i < sz; i++) {
+        x_d[i] = fRand(-100, 100);
+        y_d[i] = fRand(-100, 100);
+        x[i] = proxy->createShare(x_d[i]);
+        y[i] = proxy->createShare(y_d[i]);
+    }
+
+    uint32_t* params = new uint32_t[1];
+    params[0] = sz;
+    proxy->SendBytes(CORE_MDIV, params, 1);
+    uint64_t *div = DIV(proxy, x, y, sz);
+    uint64_t *rec_dev = REC(proxy, div, sz);
+    double *reconstructed_div = convert2double(rec_dev, sz);
+
+    // checking the result
+    double *originalX = convert2double(REC(proxy, x, sz), sz);
+    double *originalY = convert2double(REC(proxy, y, sz), sz);
+    double *computed_div = new double[sz];
+    for(int i = 0; i < sz; i++) {
+        computed_div[i] = originalX[i] / originalY[i];
+    }
+
+    cout << " =========================================== " << endl;
+    for(int i = 0; i < sz; i++) {
+        if(abs(computed_div[i] - reconstructed_div[i]) < 0.0001){
+            cout << " --------------------------------------- " << endl;
+            cout<<"DIV works correctly"<<endl;
+            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+            cout<< "computed: " << reconstructed_div[i] << " -- ground truth: " << computed_div[i] << endl;
+            cout << " --------------------------------------- " << endl;
+        }
+        else{
+            cout << " --------------------------------------- " << endl;
+            cout<<"DIV works incorrectly" <<endl;
+            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+            cout<< "computed: " << reconstructed_div[i] << " -- but should be: " << computed_div[i] << endl;
+            cout << " --------------------------------------- " << endl;
+        }
+//        cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
+    }
+    cout << " =========================================== " << endl;
+}
 
 void ADD_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling ADD for one 2D vector";
@@ -2111,56 +2396,73 @@ int main(int argc, char* argv[]) {
 
     srand((unsigned) time(NULL));
 
-//    ADD_Test(proxy);
-//    MUL_Test(proxy);
-//    MMUL_Test(proxy);
+    bool result = true;
+    int ind = 0;
+    int cnt = 0;
+    unordered_map<string, int> umap;
+    while (ind < 1 ) { // && result
+        // **************************** test cases for Ali ************************************
+//        result = MUL_Test_v2(proxy, ind, umap, cnt);
+        // ************************************************************************************
 
-//    MOC_Test(proxy);
-//    MMOC_Test(proxy);
+//        result = TRUNCATE_Test(proxy, cnt, umap);
+//        ADD_Test(proxy);
+//        result = MUL_Test(proxy);
+//        result = MMUL_Test(proxy);
 
-//    MSB_Test(proxy);
-//    MMSB_Test(proxy);
-
-//    CMP_Test(proxy);
-//    MCMP_Test(proxy);
-
-//    MUX_Test(proxy);
-//    MMUX_Test(proxy);
-
-//    MAX_Test(proxy);
-//    MMAX_Test(proxy);
-
-//    RST_Test(proxy);
-//    RELU_Test(proxy);
-//    MRELU_Test(proxy);
-
-//    DRLU_Test(proxy);
-//    ARGMAX_Test(proxy);
-//    MDRLU_Test(proxy); //TODO
-    for(int i = 0; i < 20; i++)
-        DIV_Test(proxy);
+//        MOC_Test(proxy);
+//        MMOC_Test(proxy);
 //
-//    INC_Test(proxy);
-//    FLT_Test(proxy);
-//    FCL_Test(proxy);
-//    PAD_Test(proxy);
-//    CL_Test(proxy);
-
-//    EXP_Test(proxy);
-//    MEXP_Test(proxy);
-
-//    DP_Test(proxy);
-//    MDP_Test(proxy);
-//    MATMATMUL_Test(proxy);
-//    MMATMATMUL_Test(proxy);
-
-//    MATVECMUL_Test(proxy);
-
-//    INVSQRT_Test(proxy);
-//    MINVSQRT_Test(proxy);
-
-//    ppRKN_ITER_Test(proxy);
-//    ppRKN_PREDICTION_Test(proxy);
+//        MSB_Test(proxy);
+//        MMSB_Test(proxy);
+//
+//        CMP_Test(proxy);
+//        MCMP_Test(proxy);
+//
+//        MUX_Test(proxy);
+//        MMUX_Test(proxy);
+//
+//        MAX_Test(proxy);
+//        MMAX_Test(proxy);
+//
+//        RST_Test(proxy);
+//        RELU_Test(proxy);
+//        MRELU_Test(proxy);
+//
+//        DRLU_Test(proxy);
+//        ARGMAX_Test(proxy);
+//        MDRLU_Test(proxy); //TODO
+//        DIV_Test(proxy);
+        MDIV_Test(proxy);
+//
+//        INC_Test(proxy);
+//        FLT_Test(proxy);
+//        FCL_Test(proxy);
+//        PAD_Test(proxy);
+//        CL_Test(proxy);
+//
+//        EXP_Test(proxy);
+//        MEXP_Test(proxy);
+//
+//        DP_Test(proxy);
+//        MDP_Test(proxy);
+//        MATMATMUL_Test(proxy);
+//        MMATMATMUL_Test(proxy);
+//
+//        MATVECMUL_Test(proxy);
+//
+//        INVSQRT_Test(proxy);
+//        MINVSQRT_Test(proxy);
+//
+//        ppRKN_ITER_Test(proxy);
+//        ppRKN_PREDICTION_Test(proxy);
+        ind++;
+    }
+    cout << "Number of wrong operations: " << cnt << endl;
+    for (auto& it: umap) {
+        // Do stuff
+        cout << it.first << ": " << it.second << endl;
+    }
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

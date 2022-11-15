@@ -9,6 +9,8 @@
 #include "../utils/test_functions.h"
 #include <thread>
 #include <mutex>
+#include <bitset>
+
 
 //uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
 //
@@ -64,6 +66,52 @@
 //    }
 //    return b;
 //}
+/*
+ * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
+ */
+uint64_t AS(uint64_t z) {
+    uint64_t msb_z = z >> (L_BIT - 1);
+    if(msb_z == 0x0) {
+//        cout << "MSB-0 case" << endl;
+        z = z >> FRAC;
+    }
+    else {
+        z = (z >> FRAC) | ((((uint64_t) 1 << FRAC) - (uint64_t) 1) << (L_BIT - FRAC));
+    }
+    return z;
+}
+
+/**
+ * Perform the truncation operation which we use to keep the number of fractional bit consistent after MUL operation
+ * @param proxy
+ * @param z: value we want to truncate
+ * @return truncated z is returned
+ */
+uint64_t truncate(Party *proxy, uint64_t z) {
+//    uint64_t msb_z = z >> (L_BIT - 1);
+//    cout << "*******************************************" << endl;
+//    cout << "z in truncate: " << bitset<64>(z) << endl;
+//    if(msb_z == 0x0) {
+//        cout << "MSB-0 case" << endl;
+//        z = z >> FRAC;
+//    }
+//    else {
+//        z = (z >> FRAC) | ((((uint64_t) 1 << FRAC) - (uint64_t) 1) << (L_BIT - FRAC));
+//    }
+//    cout << "z in truncate: " << bitset<64>(z) << endl;
+//    cout << "*******************************************" << endl;
+    switch (proxy->getPRole()) {
+        case P1:
+            z = AS(z);
+            break;
+        case P2:
+            z = -1 * AS(-1 * z);
+            break;
+        case HELPER:
+            break;
+    }
+    return z;
+}
 
 uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
 
@@ -1023,7 +1071,6 @@ uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
     return NULL;
 }
 
-
 /** Comparison between two numbers.
  *
  * @param proxy
@@ -1109,13 +1156,19 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 
 //        uint64_t z = proxy->getPRole() * e * f + f * mt[0] + e * mt[1] + mt[2];
         uint64_t z = proxy->getPRole() * rec_e_f[0] * rec_e_f[1] + rec_e_f[1] * mt[0] + rec_e_f[0] * mt[1] + mt[2];
+//        uint64_t rec_z = REC(proxy, z);
+//        cout << "    z: " << bitset<64>(z) << endl;
+//        cout << "rec_z: " << bitset<64>(rec_z) << endl;
+//        cout << "Bitwise divided or shifted z: " << bitset<64>(rec_z >> FRAC) << endl;
+//        cout << "Converted z by 2 * FRAC: " << convert2double(rec_z, 2 * FRAC) << endl;
 
         // restore the fractional part - refer to SecureNN for more details
-        if (proxy->getPRole() == P1) {
-            z = z >> FRAC;
-        } else {
-            z = -1 * ((-1 * z) >> FRAC);
-        }
+//        if (proxy->getPRole() == P1) {
+//            z = z >> FRAC;
+//        } else {
+//            z = -1 * ((-1 * z) >> FRAC);
+//        }
+        z = truncate(proxy, z);
 
         delete [] rec_e_f;
 
@@ -1982,6 +2035,214 @@ uint64_t MDI(Party* proxy, uint64_t a){
         return 0;
     }
     return -1;
+}
+
+/** Compute the division of a / b - not the integer approximation of the result
+ *
+ * @param proxy : Party instance
+ * @param a : dividend
+ * @param b : divider
+ * @param first_call : indicates whether the DIV call is for the integer part of the division result, i.e. first call.
+ * If it is the first call, then there will be the second call of DIV for the fractional part of the division result
+ * @return a / b
+ */
+uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *signs;
+        if(first_call) {
+            uint64_t inp1[2] = {a, b};
+            signs = MSB(proxy, inp1, 2);
+            uint64_t inp2[2] = {(uint64_t) 0 - a, (uint64_t) 0 - b};
+            uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2);
+            a = abs_vals[0];
+            b = abs_vals[1];
+        }
+
+        // obtain every bit of the dividend
+        uint64_t *msb_bits_of_a_and_b = new uint64_t[L_BIT + 1];
+        uint64_t tmp = a;
+        for(int i = 0; i < L_BIT; i++) {
+            msb_bits_of_a_and_b[i] = tmp;
+            tmp = tmp << 1;
+        }
+        uint64_t *bits_of_a = MSB(proxy, msb_bits_of_a_and_b, L_BIT);
+
+        uint64_t Q = 0;
+        uint64_t R = 0;
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            R = R << 1;
+            tmp = MUL(proxy, bits_of_a[L_BIT - 1 - i], proxy->getPRole());
+            R = R + tmp;
+
+            uint64_t c = CMP(proxy, R, b);
+            uint64_t o1[2] = {c, c};
+            uint64_t o2[2] = {b, ((uint64_t) proxy->getPRole()) << i};
+
+            uint64_t *v = MUL(proxy, o1, o2, 2);
+            R = R - v[0];
+            Q = Q + v[1];
+        }
+
+        if(first_call) {
+            Q = (Q << FRAC) + DIV(proxy, R << FRAC, b, false);
+            uint64_t sign_sum = signs[0] + signs[1];
+            uint64_t c = MSB(proxy, sign_sum << (L_BIT - FRAC - 1));
+            Q = MUX(proxy, Q, (uint64_t) 0 - Q, c);
+        }
+        return Q;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        if(first_call) {
+            MSB(proxy, 0, 2);
+            MUX(proxy, 0, 0, 0, 2);
+        }
+
+        MSB(proxy, 0, L_BIT);
+
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            MUL(proxy, 0, 0);
+            CMP(proxy, 0, 0);
+            MUL(proxy, 0, 0, 2);
+        }
+
+        if(first_call) {
+            DIV(proxy, 0, 0, false);
+            MSB(proxy, 0);
+            MUX(proxy, 0, 0, 0);
+        }
+        return 0;
+    }
+    return -1;
+}
+
+/** Compute the vectorized division of a / b where a and b are vectors - not the integer approximation of the result
+ *
+ * @param proxy : Party instance
+ * @param a : vector of dividends
+ * @param b : vector of dividers
+ * @param size: number of division operations - which is the size of a and b
+ * @param first_call : indicates whether the DIV call is for the integer part of the division result, i.e. first call.
+ * If it is the first call, then there will be the second call of DIV for the fractional part of the division result
+ * @return vector (a / b)
+ */
+uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_call = true) {
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *signs;
+        if(first_call) {
+            uint64_t *inp1 = new uint64_t[2 * size];
+            uint64_t *inp2 = new uint64_t[2 * size];
+            for(int i = 0; i < size; i++) {
+                inp1[i] = a[i];
+                inp1[size + i] = b[i];
+                inp2[i] = (uint64_t) 0 - a[i];
+                inp2[size + i] = (uint64_t) 0 - b[i];
+            }
+            signs = MSB(proxy, inp1, 2 * size);
+            uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2 * size);
+            a = &abs_vals[0];
+            b = &abs_vals[size];
+        }
+
+        // obtain every bit of the dividend
+        uint64_t *msb_bits_of_a = new uint64_t[L_BIT * size];
+        for(int i = 0; i < size; i++) { // each value
+            uint64_t tmp = a[i];
+            for(int j = 0; j < L_BIT; j++) { // each bit of the value
+                msb_bits_of_a[i * L_BIT + j] = tmp;
+                tmp = tmp << 1;
+            }
+        }
+        uint64_t *bits_of_a = MSB(proxy, msb_bits_of_a, L_BIT * size);
+
+        // initialize the variables for quotient and remainder and the role vector, which is a vector full of the role value
+        uint64_t *Q = new uint64_t[size];
+        uint64_t *R = new uint64_t[size];
+        uint64_t *role_vec = new uint64_t[size];
+        for(int i = 0; i < size; i++) {
+            Q[i] = 0;
+            R[i] = 0;
+            role_vec[i] = proxy->getPRole();
+        }
+
+        // traverse all bits of the dividend
+        for (int16_t j = L_BIT - 1; j >= 0; j--) {
+            uint64_t *tmp_bits_of_a = new uint64_t[size];
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] << 1; // shift the remainder
+                tmp_bits_of_a[i] = bits_of_a[(i * L_BIT) + (L_BIT - 1 - j)];
+            }
+            uint64_t *tmp = MUL(proxy, tmp_bits_of_a, role_vec, size);
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] + tmp[i]; // put the current bit of the dividend to the least significant bit of R
+            }
+
+            uint64_t *c = CMP(proxy, R, b, size); // compare the current R and divider
+
+            uint64_t *o1 = new uint64_t[2 * size];
+            uint64_t *o2 = new uint64_t[2 * size];
+            for(int i = 0; i < size; i++) {
+                o1[2 * i] = c[i];
+                o1[2 * i + 1] = c[i];
+                o2[2 * i] = b[i];
+                o2[2 * i + 1] = ((uint64_t) proxy->getPRole()) << j;
+            }
+
+            // if the current R is larger than or equal to the divider, subtract the divider from R
+            uint64_t *v = MUL(proxy, o1, o2, 2 * size);
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] - v[2 * i];
+                Q[i] = Q[i] + v[2 * i + 1];
+            }
+        }
+
+        if(first_call) {
+            uint64_t *sign_sum = new uint64_t[size];
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] << FRAC; // prepare the remainder for the second division call
+                Q[i] = Q[i] << FRAC; // prepare the quotient for the final quotient
+                sign_sum[i] = (signs[i] + signs[i + size]) << (L_BIT - FRAC - 1);
+            }
+
+            uint64_t *neg_Q = new uint64_t[size]; // the negative of the results in case they are the correct ones based on signs
+            uint64_t *sec_div = DIV(proxy, R, b, size, false); // second division call for the fractional part of the final quotient
+            for(int i = 0; i < size; i++) {
+                Q[i] += sec_div[i];
+                neg_Q[i] = (uint64_t) 0 - Q[i];
+            }
+
+            // if both a and b are positive or negative, their (L_BIT - FRAC - 1) shifted version's MSB will be 0
+            // if one of them is positive and the other is negative, then their (L_BIT - FRAC - 1) shifted version's MSB will be 1
+            uint64_t *c = MSB(proxy, sign_sum, size);
+
+            // based on the above analysis, we select the correct version of the final quotient
+            return MUX(proxy, Q, neg_Q, c, size);
+        }
+
+        return Q;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        if(first_call) {
+            MSB(proxy, 0, 2 * size);
+            MUX(proxy, 0, 0, 0, 2 * size);
+        }
+        cout << "Check 1" << endl;
+        MSB(proxy, 0, L_BIT * size);
+        cout << "Check 2" << endl;
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            MUL(proxy, 0, 0, size);
+            CMP(proxy, 0, 0, size);
+            MUL(proxy, 0, 0, 2 * size);
+        }
+        cout << "Check 3" << endl;
+
+        if(first_call) {
+            DIV(proxy, 0, 0, size, false);
+            MSB(proxy, 0, size);
+            MUX(proxy, 0, 0, 0, size);
+        }
+        return NULL;
+    }
+    return NULL;
 }
 
 #endif //CORE_H

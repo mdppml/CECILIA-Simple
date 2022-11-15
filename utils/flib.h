@@ -90,7 +90,7 @@ uint8_t mod(int k, int n) {
 }
 
 double convert2double(uint64_t x, int precision=FRAC) {
-    double tmp = 1 << precision;
+    double tmp = (uint64_t) 1 << precision;
     if ((int) (x >> 63) == 1) {
         return -1 * ((double) (~x + 1) / tmp);
     } else {

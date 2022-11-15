@@ -171,7 +171,11 @@ int main(int argc, char* argv[]) {
                 RKN_ITERATION(helper, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
                 break;
             case CORE_DIV:
-                DIVv2(helper, 0, 0);
+                DIV(helper, 0, 0);
+                break;
+            case CORE_MDIV:
+                size1 = helper->ReadInt();
+                DIV(helper, 0, 0, size1);
                 break;
             case AUC_MSB:
                 sz = helper->ReadInt();
