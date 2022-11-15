@@ -38,8 +38,7 @@ target_link_libraries(proxy_test PRIVATE Threads::Threads)
 
 # Benchmark
 #add_executable(benchmark apps/benchmark/main.cpp)
-#target_link_libraries(proxy_benchmark PRIVATE Threads::Threads)
+#target_link_libraries(benchmark PRIVATE Threads::Threads)
 
 # include dependencies using git submodule:
 add_subdirectory(dependencies/eigen)
-

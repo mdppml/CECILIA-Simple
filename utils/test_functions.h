@@ -11,6 +11,8 @@
 #include <tuple>
 #include <random>
 
+#include <sstream>
+
 #endif //CECILIA_TEST_FUNCTIONS_H
 
 // Random matrix generation functions

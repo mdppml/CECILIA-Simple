@@ -11,16 +11,21 @@ help () {
     echo "3 & 4: matrix size (x, y) (gram matrix has size x*x) (for operations on matrices, not vectorised vector operations)"
     echo "5: window size (used in CNN)"
     echo "6: number of cycles (how often to run each function for the benchmark)"
-    echo "(7+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
+    echo "7: window size (used in MAXPOOL)\n"
+    echo "8: kernel size (used in CNN)\n"
+    echo "9: number of kernel (used in CNN)\n"
+    echo "(10+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
     echo
     echo "options (with defaults included):"
-    echo "  -h, --help                      show this help message and exit"
-    echo "  -l=0, --latency=0               add a latency of 0 ms to each request"
-    echo "  -j=0, --jitter=0                randomly vary the latency by +/-0 ms (cannot be larger than latency)"
-    echo "  -b=∞, --bandwidth=∞             cap the bandwidth at ∞ KB/s"
+    echo "  -h,   --help            show this help message and exit"
+    echo "  -m=d, --mode=d          select debug (d) or release (r) build"
+    echo "  -l=0, --latency=0       add a latency of 0 ms to each request"
+    echo "  -j=0, --jitter=0        randomly vary the latency by +/-0 ms (cannot be larger than latency)"
+    echo "  -b=∞, --bandwidth=∞     cap the bandwidth at ∞ KB/s"
 }
 # parse arguments:
 JITTER=0
+MODE=d
 while [[ $# -gt 0 ]]; do
     i=$1
     case $i in
@@ -40,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             BANDWIDTH="${i#*=}"
             shift
             ;;
+        -m=*|--mode=*)
+            MODE="${i#*=}"
+            shift
+            ;;
         -*)
             echo "Unknown option $1"
             exit 1
@@ -51,13 +60,23 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 # make sure that enough positional arguments were provided:
-if [[ ${#POSITIONAL_ARGS[@]} -lt 7 ]]
+if [[ ${#POSITIONAL_ARGS[@]} -lt 9 ]]
 then
   echo "Positional arguments were not provided. Call this tool with -h to see which ones are required."
   exit 1
 fi
 # make positional arguments into string:
 ARGS=${POSITIONAL_ARGS[*]}
+# select appropriate executable:
+if [[ "$MODE" = d ]]
+then
+  EXECUTABLE=../../cmake-build-debug/benchmark
+elif [[ "$MODE" = r ]]
+then
+  EXECUTABLE=../../cmake-build-release/benchmark
+else
+  echo "Unknown mode \"$MODE\". Proceeding with default (debug)."
+fi
 # make sure that latency is larger than jitter:
 if [[ "$JITTER" -gt 0 ]]
 then
@@ -76,10 +95,12 @@ if [[ "$LATENCY" ]] || [[ "$BANDWIDTH" ]]
 then
   PORT_P2P1=26381
   PORT_PHELPER=26379
+  # find toxiproxy executables:
   TOXI_SERVER_ARRAY=(toxiproxy-server*)
   TOXI_SERVER=${TOXI_SERVER_ARRAY[0]}
   TOXI_CLI_ARRAY=(toxiproxy-cli*)
   TOXI_CLI=${TOXI_CLI_ARRAY[0]}
+  # initialise toxiproxy:
   "./$TOXI_SERVER" &>toxi.log &
   sleep 1
   "./$TOXI_CLI" create \
@@ -114,9 +135,9 @@ then
   fi
 fi
 # run benchmarks:
-cmake-build-debug/benchmark HELPER $PORT_HELPERP 127.0.0.1 0 0 $ARGS &
+$EXECUTABLE HELPER $PORT_HELPERP 127.0.0.1 0 0 $ARGS &
 sleep 2
-cmake-build-debug/benchmark P1 $PORT_PHELPER 127.0.0.1 $PORT_P1P2 127.0.0.1 $ARGS &
+$EXECUTABLE P1 $PORT_PHELPER 127.0.0.1 $PORT_P1P2 127.0.0.1 $ARGS &
 sleep 2
-cmake-build-debug/benchmark P2 $PORT_PHELPER 127.0.0.1 $PORT_P2P1 127.0.0.1 $ARGS
+$EXECUTABLE P2 $PORT_PHELPER 127.0.0.1 $PORT_P2P1 127.0.0.1 $ARGS
 
