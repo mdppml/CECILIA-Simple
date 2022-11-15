@@ -1051,7 +1051,7 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 }
 
 uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
-    if(DEBUG_FLAG >= 1)
+    if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
         uint64_t *mt1[3];
@@ -1092,7 +1092,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
 
         Receive(proxy->getSocketP1(), proxy->getBuffer1(), 1);
         Receive(proxy->getSocketP2(), proxy->getBuffer2(), 1);
-        if(DEBUG_FLAG >= 1)
+        if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
 
@@ -1110,13 +1110,13 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         }
 
         // concatenated form of e and f shares
-        uint64_t* concat_e_f = new uint64_t[size * 2];
-        for(int i = 0; i < size; i++) {
+        uint64_t *concat_e_f = new uint64_t[size * 2];
+        for (int i = 0; i < size; i++) {
             concat_e_f[i] = a[i] - mt[0][i];
             concat_e_f[i + size] = b[i] - mt[1][i];
         }
 
-        uint64_t* e_f = REC(proxy, concat_e_f, size * 2);
+        uint64_t *e_f = REC(proxy, concat_e_f, size * 2);
 
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
@@ -1126,6 +1126,21 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             z[i] = proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
 //            cout << i << ": " << z[i] << endl;
             z[i] = truncate(proxy, z[i]);
+        }
+        delete [] e_f;
+        for (auto &i : mt) {
+            delete[] i;
+        }
+        proxy->getBuffer1()[0] = 0;
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
+        if(DEBUG_FLAG >= 1)
+            cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
+
+        return z;
+    } else {
+        return nullptr;
+    }
+}
 
 /** Multiplication of two arrays of numbers.
  *
