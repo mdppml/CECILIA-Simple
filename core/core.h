@@ -1126,23 +1126,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             z[i] = proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
 //            cout << i << ": " << z[i] << endl;
             z[i] = truncate(proxy, z[i]);
-        }
-
-        delete [] e_f;
-        for (auto &i : mt) {
-            delete[] i;
-        }
-        proxy->getBuffer1()[0] = 0;
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
-        if(DEBUG_FLAG >= 1)
-            cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
-
-
-        return z;
-    } else {
-        return nullptr;
-    }
-}
 
 /** Multiplication of two arrays of numbers.
  *

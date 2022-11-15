@@ -250,7 +250,7 @@ bool MUL_Test(Party *proxy){
     uint64_t x = proxy->createShare(xd);
     uint64_t y = proxy->createShare(yd);
     proxy->SendBytes(CORE_MUL);
-    uint64_t r = MUL(proxy,x, y);
+    uint64_t r = MUL(proxy, x, y);
     // checking the result
     uint64_t rec_x = REC(proxy, x);
     uint64_t rec_y = REC(proxy, y);
@@ -270,6 +270,7 @@ bool MUL_Test(Party *proxy){
         cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
         return false;
     }
+    return ((int) (rd - rcd) == 0);
 }
 
 bool MMUL_Test(Party *proxy){
@@ -284,8 +285,8 @@ bool MMUL_Test(Party *proxy){
         x[i] = proxy->createShare(xd);
         y[i] = proxy->createShare(yd);
     }
-    proxy->SendBytes(CORE_MMUL,params, 1);
-    uint64_t *r = MUL(proxy,x, y,sz);
+    proxy->SendBytes(CORE_MMUL, params, 1);
+    uint64_t *r = MUL(proxy, x, y, sz);
     // checking the result
     unordered_map<string, int> umap;
     bool flag = true;
@@ -1540,7 +1541,6 @@ bool MATVECMUL_Test(Party *proxy) {
 
     double **rec_mat = convert2double(REC(proxy, mat, a_row, a_col), a_row, a_col);
     double *rec_vec = convert2double(REC(proxy, vec, a_col), a_col);
-
     double *gt = multiply_matrice_vector(rec_mat, rec_vec, a_row, a_col);
 
     double tmp = 0;
@@ -3009,7 +3009,6 @@ int main(int argc, char *argv[]) {
     else
         proxy = new Party(P2, hport, haddress, cport, caddress);
 
-
     srand((unsigned) time(NULL));
 
     bool result = true;
@@ -3075,7 +3074,7 @@ int main(int argc, char *argv[]) {
         ind++;
     }
     cout << "Number of wrong operations: " << cnt << endl;
-    
+
 
 //    bool all_correct0 = true;
 //    int counter = 0;
@@ -3084,6 +3083,7 @@ int main(int argc, char *argv[]) {
 //        counter++;
 //        cout << counter << endl;
 //    }
+
 
 
     proxy->SendBytes(CORE_END);
