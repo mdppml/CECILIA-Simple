@@ -2001,9 +2001,18 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
             b = &abs_vals[size];
         }
 
+        // initialize the variables for quotient and remainder and the role vector, which is a vector full of the role value
+        uint64_t *Q = new uint64_t[size];
+        uint64_t *R = new uint64_t[size];
+        uint64_t *role_vec = new uint64_t[size];
+
         // obtain every bit of the dividend
         uint64_t *msb_bits_of_a = new uint64_t[L_BIT * size];
+
         for(int i = 0; i < size; i++) { // each value
+            Q[i] = 0;
+            R[i] = 0;
+            role_vec[i] = proxy->getPRole();
             uint64_t tmp = a[i];
             for(int j = 0; j < L_BIT; j++) { // each bit of the value
                 msb_bits_of_a[i * L_BIT + j] = tmp;
@@ -2011,16 +2020,6 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
             }
         }
         uint64_t *bits_of_a = MSB(proxy, msb_bits_of_a, L_BIT * size, false);
-
-        // initialize the variables for quotient and remainder and the role vector, which is a vector full of the role value
-        uint64_t *Q = new uint64_t[size];
-        uint64_t *R = new uint64_t[size];
-        uint64_t *role_vec = new uint64_t[size];
-        for(int i = 0; i < size; i++) {
-            Q[i] = 0;
-            R[i] = 0;
-            role_vec[i] = proxy->getPRole();
-        }
 
         // traverse all bits of the dividend
         for (int16_t j = L_BIT - 1; j >= 0; j--) {

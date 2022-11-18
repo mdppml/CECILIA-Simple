@@ -19,7 +19,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = 100;
-constexpr int sz = 3;
+constexpr int sz = 1000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -1797,7 +1797,7 @@ void DIV_Test(Party *proxy){
 
 }
 
-void MDIV_Test(Party *proxy){
+void MDIV_Test(Party *proxy, int &cnt){
     cout<<setfill ('*')<<setw(50)<<"Calling DIV";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
 
@@ -1827,25 +1827,26 @@ void MDIV_Test(Party *proxy){
         computed_div[i] = originalX[i] / originalY[i];
     }
 
-    cout << " =========================================== " << endl;
+//    cout << " =========================================== " << endl;
     for(int i = 0; i < sz; i++) {
         if(abs(computed_div[i] - reconstructed_div[i]) < 0.0001){
-            cout << " --------------------------------------- " << endl;
-            cout<<"DIV works correctly"<<endl;
-            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
-            cout<< "computed: " << reconstructed_div[i] << " -- ground truth: " << computed_div[i] << endl;
-            cout << " --------------------------------------- " << endl;
+//            cout << " --------------------------------------- " << endl;
+//            cout<<"DIV works correctly"<<endl;
+//            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+//            cout<< "computed: " << reconstructed_div[i] << " -- ground truth: " << computed_div[i] << endl;
+//            cout << " --------------------------------------- " << endl;
         }
         else{
-            cout << " --------------------------------------- " << endl;
-            cout<<"DIV works incorrectly" <<endl;
-            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
-            cout<< "computed: " << reconstructed_div[i] << " -- but should be: " << computed_div[i] << endl;
-            cout << " --------------------------------------- " << endl;
+            cnt++;
+//            cout << " --------------------------------------- " << endl;
+//            cout<<"DIV works incorrectly" <<endl;
+//            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+//            cout<< "computed: " << reconstructed_div[i] << " -- but should be: " << computed_div[i] << endl;
+//            cout << " --------------------------------------- " << endl;
         }
 //        cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
     }
-    cout << " =========================================== " << endl;
+//    cout << " =========================================== " << endl;
 }
 
 void ADD_Test(Party *proxy) {
@@ -3015,6 +3016,7 @@ int main(int argc, char *argv[]) {
     int ind = 0;
     int cnt = 0;
     unordered_map<string, int> umap;
+    auto start = chrono::high_resolution_clock::now();
     while (ind < 1 ) { // && result
         // **************************** test cases for Ali ************************************
 //        result = MUL_Test_v2(proxy, ind, umap, cnt);
@@ -3047,8 +3049,8 @@ int main(int argc, char *argv[]) {
 //        DRLU_Test(proxy);
 //        ARGMAX_Test(proxy);
 //        MDRLU_Test(proxy); //TODO
-        DIV_Test(proxy);
-        MDIV_Test(proxy);
+//        DIV_Test(proxy);
+        MDIV_Test(proxy, cnt);
 //
 //        INC_Test(proxy);
 //        FLT_Test(proxy);
@@ -3088,6 +3090,13 @@ int main(int argc, char *argv[]) {
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
+
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken =
+            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    cout<<"Total Time\t"<<fixed
+        << tt << setprecision(9) << " sec" << endl;
+
     return 0;
 }
 
