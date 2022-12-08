@@ -283,11 +283,8 @@ int main(int argc, char *argv[]) {
         cout << "INFERENCE PIPELINE " << image << endl;
         k_number = bias_dimensions[0];
         resetParams();
-        cout << curr_layer << ", " << i_channel << " x " << i_height << " x " << i_width << endl;
         auto ***input = new uint64_t **[i_channel];
-        cout << "static data: k= " << k_dim << ", s= " << stride << ", p= " << padding << ", k_n= " << k_number << endl;
         input[0] = data[image]; // currently only 1 channel for input supported
-        cout << "image " << image << " stored." << endl;
         //print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
         uint64_t ***conv;
         uint64_t *prev_layer_res;

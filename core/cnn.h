@@ -1257,7 +1257,6 @@ uint64_t * FLT(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t
  *         return vector must be deleted if not needed anymore.
  */
 uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, uint32_t max_win_height, uint32_t max_win_width, uint64_t* bias, bool last_conv = false){
-    cout << "entered CL" << endl;
     uint32_t k_size = k_dim * k_dim;
     auto conv_width = static_cast<uint32_t>(floor((i_width - k_dim + 1) / stride));
     auto conv_height = static_cast<uint32_t>(floor((i_height - k_dim + 1) / stride));
@@ -1273,9 +1272,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         //print2DArray("kernel 1", convert2double(REC(proxy, kernel[0], 3, k_size), 3, k_size), 3, k_size);
         // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
-        cout << "call MATMATMUL" << endl;
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
-        cout << "returned from MATMATMUL" << endl;
         uint64_t** summed_channel_conv;
         if(i_channel == 1){
             summed_channel_conv = conv_result[0];
@@ -1315,7 +1312,6 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         delete[] conv_result;
 
         // ACTIVATION:
-        cout << "call RELU" << endl;
         uint64_t* conv_activated = RELU(proxy, conv_reshaped, conv_len*output_channel);
         if (doMaxpooling){
             // Maxpool:
@@ -1358,22 +1354,17 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         }
         delete[] conv_reshaped;
         delete[] conv_activated;
-        cout << "return from CL" << endl;
         return conv_layer;
     }
     else if (proxy->getPRole() == HELPER){
         // convolution:
-        cout << "call MATMATMUL" << endl;
         MATMATMUL(proxy, nullptr, nullptr, 0, i_channel * output_channel * k_size * conv_len, 0, 0);
-        cout << "return from MATMATMUL, call RELU" << endl;
         // ACTIVATION:
         RELU(proxy, nullptr, conv_len*output_channel);
-        cout << "return from RELU" << endl;
         if (doMaxpooling){
             // Maxpool:
             MAX(proxy, nullptr, output_channel*conv_height, conv_width, max_win_height, max_win_width);
         }
-        cout << "return from CL" << endl;
         return nullptr;
     }
     return nullptr;
