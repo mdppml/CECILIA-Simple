@@ -12,12 +12,12 @@
 
 using namespace std;
 const string MODEL_DIR = "../apps/cnn/model_files/";
-const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b128_n5/",
+const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b4_n5/",
         CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
-const string LENET_CORRECT_PATH = "/home/debora/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/LeNet_trained/correctness/",
-        CHAMELEON_CORRECT_PATH = "/home/debora/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/Chameleon_CNN/correctness/";
+const string LENET_CORRECT_PATH = "/home/dj/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/" + LENET_NN_MODEL_FILES + "correctness/",
+        CHAMELEON_CORRECT_PATH = "/home/dj/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/Chameleon_CNN/correctness/";
 const string MNIST_DATA = "../apps/cnn/mnist_data/";
-const double PIXEL_MAX = 255; // can be used for normalization if desired.
+const double PIXEL_MAX = 255; // can be used for normalization if desired. TODO should it be included?
 const bool eval_correctness = true;
 
 uint64_t layer_number;
@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
             }
         }
         if (padding > 0) {
-            uint64_t padding_value = proxy->createShare(0);
+            uint64_t padding_value = proxy->createShare(0.0);
             data[i] = PAD(data[i], i_height, i_width, padding_value, padding);
         }
     }
@@ -283,8 +283,11 @@ int main(int argc, char *argv[]) {
         cout << "INFERENCE PIPELINE " << image << endl;
         k_number = bias_dimensions[0];
         resetParams();
+        cout << curr_layer << ", " << i_channel << " x " << i_height << " x " << i_width << endl;
         auto ***input = new uint64_t **[i_channel];
+        cout << "static data: k= " << k_dim << ", s= " << stride << ", p= " << padding << ", k_n= " << k_number << endl;
         input[0] = data[image]; // currently only 1 channel for input supported
+        cout << "image " << image << " stored." << endl;
         //print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
         uint64_t ***conv;
         uint64_t *prev_layer_res;
@@ -313,7 +316,7 @@ int main(int argc, char *argv[]) {
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
-                //cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
+                cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
                 kernel = new uint64_t **[i_channel];
                 for (uint32_t i = 0; i < i_channel; i++) {
                     kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim * k_dim);
@@ -406,11 +409,11 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             double *inference_res = convert2double(REC(proxy, output, nodes_out), nodes_out);
-            image_file << " [[ ";
             for (int v = 0; v < nodes_out; ++v) {
                 image_file << inference_res[v] << "\t";
             }
-            image_file << "]]" << endl;
+            image_file << endl;
+            image_file << prediction[image] << endl;
             image_file.close();
             delete[] inference_res;
         }

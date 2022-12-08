@@ -1060,7 +1060,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             mt1[i] = new uint64_t[size];
             mt2[i] = new uint64_t[size];
         }
-
+        cout << "prepare mul triplets" << endl;
         GenerateMultiplicationTriple(proxy, mt1, mt2, size);
 
         // send the multiplication triples to P1
@@ -1072,7 +1072,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         }
         //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
         Send(proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
-
+        cout << "multiplication triplets are sent to P1" << endl;
         // send the multiplication triples to P2
         unsigned char *ptr_out2 = proxy->getBuffer2();
         for (int i = 0; i < 3; i++) {
@@ -1084,14 +1084,18 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
 
         //addVal2CharArray(mt2, &ptr_out2, 3, size);
         Send(proxy->getSocketP2(), proxy->getBuffer2(), size * 3 * 8);
+        cout << "multiplication triplets are sent to P2" << endl;
 
         for (int i = 0; i < 3; i++) {
             delete[] mt1[i];
             delete[] mt2[i];
         }
-
+        cout << "receive something that is not used." << endl;
         Receive(proxy->getSocketP1(), proxy->getBuffer1(), 1);
+        cout << "from p1" << endl;
         Receive(proxy->getSocketP2(), proxy->getBuffer2(), 1);
+        cout << "from p2" << endl;
+        cout << "received" << endl;
         if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
@@ -1099,6 +1103,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         //total_mul += size;
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), size * 3 * 8);
+        cout << "received mul triplets" << endl;
         unsigned char *ptr = proxy->getBuffer1();
         // uint64_t **mt = new uint64_t*[3];
         uint64_t *mt[3];
@@ -1108,7 +1113,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
                 mt[i][j] = convert2Long(&ptr);
             }
         }
-
+        cout << "do the computation" << endl;
         // concatenated form of e and f shares
         uint64_t *concat_e_f = new uint64_t[size * 2];
         for (int i = 0; i < size; i++) {
@@ -1131,11 +1136,12 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         for (auto &i : mt) {
             delete[] i;
         }
-        proxy->getBuffer1()[0] = 0;
+        proxy->getBuffer1()[0] = 0; //TODO this is only sent by p2 not by p1
+        cout << "send unused value (termination?)" << endl;
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
         if(DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
-
+        cout << "return from PMUL" << endl;
         return z;
     } else {
         return nullptr;
@@ -1159,7 +1165,9 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
             }
+            cout << "call PMUL with " << partial_size << endl;
             PMUL(proxy,0, 0, partial_size);
+            cout << "returned from PMUL" << endl;
             filled_size += partial_size;
         }
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
@@ -1171,8 +1179,11 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
             }
+            cout << "call PMUL with " << partial_size << endl;
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
+            cout << "returned from PMUL" << endl;
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
+            cout << "copied result." << endl;
             delete[] partial_result;
             filled_size += partial_size;
             a += partial_size;
@@ -1652,6 +1663,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
         // form a single vector for each matrix such that all required multiplications can be performed in one go
         uint32_t size = n_matrices * a_row * a_col * b_col;
         uint32_t size2 = a_row * a_col * b_col;
+        cout << size << " / " << size2 << " = " << size/size2 << " == " << n_matrices << endl;
         uint64_t *concat_a = new uint64_t[size];
         uint64_t *concat_b = new uint64_t[size];
         for(uint32_t n = 0; n < n_matrices; n++) {
@@ -1660,7 +1672,9 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
             }
         }
+        cout << "call MUL with size " << size << endl;
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+        cout << "returned from MUL" << endl;
         // recover the resulting matrix
         uint64_t ***res = new uint64_t **[n_matrices];
         uint32_t ind = 0;
@@ -1690,7 +1704,9 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
             throw invalid_argument("core::MATMATMUL-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
         }
         // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
+        cout << "call MUL with size " << a_row << endl;
         MUL(proxy, 0, 0, a_row);
+        cout << "returned from MUL" << endl;
         return NULL;
     }
     else {
