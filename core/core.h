@@ -1060,7 +1060,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             mt1[i] = new uint64_t[size];
             mt2[i] = new uint64_t[size];
         }
-        cout << "prepare mul triplets" << endl;
         GenerateMultiplicationTriple(proxy, mt1, mt2, size);
 
         // send the multiplication triples to P1
@@ -1072,7 +1071,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         }
         //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
         Send(proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
-        cout << "multiplication triplets are sent to P1" << endl;
         // send the multiplication triples to P2
         unsigned char *ptr_out2 = proxy->getBuffer2();
         for (int i = 0; i < 3; i++) {
@@ -1084,18 +1082,13 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
 
         //addVal2CharArray(mt2, &ptr_out2, 3, size);
         Send(proxy->getSocketP2(), proxy->getBuffer2(), size * 3 * 8);
-        cout << "multiplication triplets are sent to P2" << endl;
 
         for (int i = 0; i < 3; i++) {
             delete[] mt1[i];
             delete[] mt2[i];
         }
-        cout << "receive something that is not used." << endl;
         Receive(proxy->getSocketP1(), proxy->getBuffer1(), 1);
-        cout << "from p1" << endl;
         Receive(proxy->getSocketP2(), proxy->getBuffer2(), 1);
-        cout << "from p2" << endl;
-        cout << "received" << endl;
         if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
@@ -1103,7 +1096,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         //total_mul += size;
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), size * 3 * 8);
-        cout << "received mul triplets" << endl;
         unsigned char *ptr = proxy->getBuffer1();
         // uint64_t **mt = new uint64_t*[3];
         uint64_t *mt[3];
@@ -1120,28 +1112,28 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             concat_e_f[i] = a[i] - mt[0][i];
             concat_e_f[i + size] = b[i] - mt[1][i];
         }
-
+        cout << "REC..." << endl;
         uint64_t *e_f = REC(proxy, concat_e_f, size * 2);
-
+        cout << "e_f is reconstructed" << endl;
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
 
         uint64_t *z = new uint64_t[size];
+        cout << "fill z" << endl;
         for (int i = 0; i < size; i++) {
             z[i] = proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
 //            cout << i << ": " << z[i] << endl;
             z[i] = truncate(proxy, z[i]);
         }
+        cout << "delete ef and i" << endl;
         delete [] e_f;
         for (auto &i : mt) {
             delete[] i;
         }
         proxy->getBuffer1()[0] = 0; //TODO this is only sent by p2 not by p1
-        cout << "send unused value (termination?)" << endl;
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
         if(DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
-        cout << "return from PMUL" << endl;
         return z;
     } else {
         return nullptr;

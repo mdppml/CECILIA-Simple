@@ -14,10 +14,10 @@ using namespace std;
 const string MODEL_DIR = "../apps/cnn/model_files/";
 const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b4_n5/",
         CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
-const string LENET_CORRECT_PATH = "/home/dj/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/" + LENET_NN_MODEL_FILES + "correctness/",
-        CHAMELEON_CORRECT_PATH = "/home/dj/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/Chameleon_CNN/correctness/";
+const string LENET_CORRECT_PATH = LENET_NN_MODEL_FILES + "correctness/",
+        CHAMELEON_CORRECT_PATH = CHAMELEON_MODEL_FILES + "correctness/";
 const string MNIST_DATA = "../apps/cnn/mnist_data/";
-const double PIXEL_MAX = 255; // can be used for normalization if desired. TODO should it be included?
+const double PIXEL_MAX = 255; // can be used for normalization if desired.
 const bool eval_correctness = true;
 
 uint64_t layer_number;
@@ -189,13 +189,13 @@ int main(int argc, char *argv[]) {
                 path += "eval_secure_" + to_string(i) + ".txt";
                 image_file.open(path, std::ios::out);
                 if (!image_file) {
-                    std::cout << "Error opening file in " << path << std::endl;
-                    return 1;
+                    // create file first
+                    image_file.open(path, std::ios::app);
                 }
 
                 for (int r = 0; r < i_height; ++r) {
                     for (int c = 0; c < i_width; ++c) {
-                        image_file << static_cast<int>(test_set.at(i).at(r * i_width + c));
+                        image_file << static_cast<float>(test_set.at(i).at(r * i_width + c)/PIXEL_MAX);
                         if (c < (i_width - 1)) {
                             image_file << ",";
                         }
@@ -244,9 +244,8 @@ int main(int argc, char *argv[]) {
         for (uint32_t r = 0; r < i_height; ++r) {
             data[i][r] = new uint64_t[i_width];
             for (uint32_t c = 0; c < i_width; ++c) {
-                double pixelValue = test_set.at(i).at(r * i_width + c);
-                data[i][r][c] = proxy->createShare(
-                        pixelValue);//2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
+                double pixelValue = test_set.at(i).at(r * i_width + c)/PIXEL_MAX;
+                data[i][r][c] = proxy->createShare(pixelValue); // store directly as secret shares
             }
         }
         if (padding > 0) {
