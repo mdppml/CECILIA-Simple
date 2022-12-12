@@ -90,7 +90,8 @@ uint8_t mod(int k, int n) {
 }
 
 double convert2double(uint64_t x, int precision=FRAC) {
-    double tmp = (uint64_t) 1 << precision;
+//    double tmp = (uint64_t) 1 << (precision - 1);
+    double tmp = (double)((uint64_t) 1 << precision);
     if ((int) (x >> 63) == 1) {
         return -1 * ((double) (~x + 1) / tmp);
     } else {
@@ -98,10 +99,12 @@ double convert2double(uint64_t x, int precision=FRAC) {
     }
 }
 
-uint64_t convert2uint64(double x, int precision=FRAC) {
+uint64_t convert2uint64(double x, int precision = FRAC) {
     if (x < 0) {
+//        return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << (precision - 1))));
         return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << precision)));
     } else {
+//        return (uint64_t) floor(x * (1 << (precision - 1)));
         return (uint64_t) floor(x * (1 << precision));
     }
 }
@@ -302,17 +305,17 @@ uint64_t local_MUL(uint64_t a, uint64_t b) {
     uint64_t z = a * b;
     // restore the fractional part - refer to SecureNN for more details
     // v1
-//    if ((z >> 63) == 0) {
-//        z = z >> FRAC;
-//    } else {
-//        z = -1 * ((-1 * z) >> FRAC);
-//    }
-    // v2
     if ((z >> 63) == 0) {
-        z = AS(z);
+        z = z >> FRAC;
     } else {
-        z = -1 * AS(-1 * z);
+        z = -1 * ((-1 * z) >> FRAC);
     }
+    // v2
+//    if ((z >> 63) == 0) {
+//        z = AS(z);
+//    } else {
+//        z = -1 * AS(-1 * z);
+//    }
     return z;
 }
 
