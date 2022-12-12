@@ -1935,7 +1935,8 @@ void local_MMUL_Test(Party *proxy, int &cnt, bool verbose = false){
     double *reconstructed_res = convert2double(rec_res, sz);
 
     // checking the result
-    double *originalX = convert2double(REC(proxy, x, sz), sz);
+    uint64_t *rec_x = REC(proxy, x, sz);
+    double *originalX = convert2double(rec_x, sz);
     double *originalY = convert2double(y, sz);
     double *computed_mul = new double[sz];
     for(int i = 0; i < sz; i++) {
@@ -1967,6 +1968,18 @@ void local_MMUL_Test(Party *proxy, int &cnt, bool verbose = false){
     }
     if(verbose)
         cout << " =========================================== " << endl;
+
+    delete [] x_d;
+    delete [] x;
+    delete [] y_d;
+    delete [] y;
+    delete [] computed_mul;
+    delete [] res;
+    delete [] rec_res;
+    delete [] reconstructed_res;
+    delete [] rec_x;
+    delete [] originalX;
+    delete [] originalY;
 }
 
 void ADD_Test(Party *proxy) {
@@ -3220,6 +3233,8 @@ int main(int argc, char *argv[]) {
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     cout<<"Total Time\t"<<fixed
         << tt << setprecision(9) << " sec" << endl;
+
+    delete proxy;
 
     return 0;
 }
