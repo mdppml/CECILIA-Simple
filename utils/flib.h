@@ -271,7 +271,22 @@ uint64_t getModularInverse(uint64_t a){
 }
 
 
-
+/*
+ * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
+ */
+uint64_t AS(uint64_t z, int n_shift = FRAC) {
+    z = static_cast<uint64_t>( static_cast<int64_t>(z) >> FRAC);
+//    uint64_t msb_z = z >> (L_BIT - 1);
+//    if(msb_z == 0x0) {
+////        cout << "MSB-0 case" << endl;
+//        z = static_cast<uint64_t>( static_cast<int64_t>(z) >> FRAC);
+//    }
+//    else {
+//        z = (z >> FRAC) | ((((uint64_t) 1 << FRAC) - (uint64_t) 1) << (L_BIT - FRAC));
+////        z = -1 * static_cast<uint64_t>( static_cast<int64_t>(-1 * z) >> FRAC);
+//    }
+    return z;
+}
 
 
 // Local functions which does not require security and works with secret shared values
@@ -286,10 +301,17 @@ uint64_t local_MUL(uint64_t a, uint64_t b) {
      */
     uint64_t z = a * b;
     // restore the fractional part - refer to SecureNN for more details
+    // v1
+//    if ((z >> 63) == 0) {
+//        z = z >> FRAC;
+//    } else {
+//        z = -1 * ((-1 * z) >> FRAC);
+//    }
+    // v2
     if ((z >> 63) == 0) {
-        z = z >> FRAC;
+        z = AS(z);
     } else {
-        z = -1 * ((-1 * z) >> FRAC);
+        z = -1 * AS(-1 * z);
     }
     return z;
 }
