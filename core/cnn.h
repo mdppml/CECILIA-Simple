@@ -1273,7 +1273,6 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
-
         uint64_t** summed_channel_conv;
         if(i_channel == 1){
             summed_channel_conv = conv_result[0];

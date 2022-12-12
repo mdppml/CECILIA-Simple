@@ -12,10 +12,10 @@
 
 using namespace std;
 const string MODEL_DIR = "../apps/cnn/model_files/";
-const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b128_n5/",
+const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b4_n5/",
         CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
-const string LENET_CORRECT_PATH = "/home/debora/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/LeNet_trained/correctness/",
-        CHAMELEON_CORRECT_PATH = "/home/debora/Documents/Hiwi_ppCNN/MA/submission/network_parameter/networks/Chameleon_CNN/correctness/";
+const string LENET_CORRECT_PATH = LENET_NN_MODEL_FILES + "correctness/",
+        CHAMELEON_CORRECT_PATH = CHAMELEON_MODEL_FILES + "correctness/";
 const string MNIST_DATA = "../apps/cnn/mnist_data/";
 const double PIXEL_MAX = 255; // can be used for normalization if desired.
 const bool eval_correctness = true;
@@ -189,13 +189,13 @@ int main(int argc, char *argv[]) {
                 path += "eval_secure_" + to_string(i) + ".txt";
                 image_file.open(path, std::ios::out);
                 if (!image_file) {
-                    std::cout << "Error opening file in " << path << std::endl;
-                    return 1;
+                    // create file first
+                    image_file.open(path, std::ios::app);
                 }
 
                 for (int r = 0; r < i_height; ++r) {
                     for (int c = 0; c < i_width; ++c) {
-                        image_file << static_cast<int>(test_set.at(i).at(r * i_width + c));
+                        image_file << static_cast<float>(test_set.at(i).at(r * i_width + c)/PIXEL_MAX);
                         if (c < (i_width - 1)) {
                             image_file << ",";
                         }
@@ -244,13 +244,12 @@ int main(int argc, char *argv[]) {
         for (uint32_t r = 0; r < i_height; ++r) {
             data[i][r] = new uint64_t[i_width];
             for (uint32_t c = 0; c < i_width; ++c) {
-                double pixelValue = test_set.at(i).at(r * i_width + c);
-                data[i][r][c] = proxy->createShare(
-                        pixelValue);//2*pixelValue/PIXEL_MAX - 1);                 // store directly as secret shares
+                double pixelValue = test_set.at(i).at(r * i_width + c)/PIXEL_MAX;
+                data[i][r][c] = proxy->createShare(pixelValue); // store directly as secret shares
             }
         }
         if (padding > 0) {
-            uint64_t padding_value = proxy->createShare(0);
+            uint64_t padding_value = proxy->createShare(0.0);
             data[i] = PAD(data[i], i_height, i_width, padding_value, padding);
         }
     }
@@ -313,7 +312,7 @@ int main(int argc, char *argv[]) {
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
-                //cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
+                cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
                 kernel = new uint64_t **[i_channel];
                 for (uint32_t i = 0; i < i_channel; i++) {
                     kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim * k_dim);
@@ -406,11 +405,11 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             double *inference_res = convert2double(REC(proxy, output, nodes_out), nodes_out);
-            image_file << " [[ ";
             for (int v = 0; v < nodes_out; ++v) {
                 image_file << inference_res[v] << "\t";
             }
-            image_file << "]]" << endl;
+            image_file << endl;
+            image_file << prediction[image] << endl;
             image_file.close();
             delete[] inference_res;
         }
