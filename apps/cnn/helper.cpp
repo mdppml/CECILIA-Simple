@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
     // parse model parameters
     initParams(nn_mode);
 
-    for (int image = 0; image < i_number; ++image) {
+    for (int image = 1; image < i_number; ++image) {
         resetParams();
         cout << "INFERENCE " << image << endl;
         // CNN INFERENCE PIPELINE
@@ -138,6 +138,7 @@ int main(int argc, char* argv[]) {
             }
             case 1: {
                 k_number = 20;
+                cout << "call CL for LeNet" << endl;
                 CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                    nullptr, false);
                 updateParamsAfterCL();

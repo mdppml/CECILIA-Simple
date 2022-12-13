@@ -84,6 +84,7 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
         thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz*8);
         thr1.join();
         thr2.join();
+
         ptr = proxy->getBuffer2();
         for (int i = 0; i < sz; i++) {
             b[i] = convert2Long(&ptr);
@@ -1105,27 +1106,21 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
                 mt[i][j] = convert2Long(&ptr);
             }
         }
-        cout << "do the computation" << endl;
         // concatenated form of e and f shares
         uint64_t *concat_e_f = new uint64_t[size * 2];
         for (int i = 0; i < size; i++) {
             concat_e_f[i] = a[i] - mt[0][i];
             concat_e_f[i + size] = b[i] - mt[1][i];
         }
-        cout << "REC..." << endl;
         uint64_t *e_f = REC(proxy, concat_e_f, size * 2);
-        cout << "e_f is reconstructed" << endl;
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
 
         uint64_t *z = new uint64_t[size];
-        cout << "fill z" << endl;
         for (int i = 0; i < size; i++) {
             z[i] = proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
-//            cout << i << ": " << z[i] << endl;
             z[i] = truncate(proxy, z[i]);
         }
-        cout << "delete ef and i" << endl;
         delete [] e_f;
         for (auto &i : mt) {
             delete[] i;
@@ -1156,10 +1151,9 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         while (filled_size < size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
+                cout << "**--- call PMUL: " << partial_size << endl;
             }
-            cout << "call PMUL with " << partial_size << endl;
             PMUL(proxy,0, 0, partial_size);
-            cout << "returned from PMUL" << endl;
             filled_size += partial_size;
         }
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
@@ -1170,12 +1164,10 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         while (filled_size < size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
+                cout << "**--- call PMUL: " << partial_size << endl;
             }
-            cout << "call PMUL with " << partial_size << endl;
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
-            cout << "returned from PMUL" << endl;
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
-            cout << "copied result." << endl;
             delete[] partial_result;
             filled_size += partial_size;
             a += partial_size;
@@ -1655,7 +1647,6 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
         // form a single vector for each matrix such that all required multiplications can be performed in one go
         uint32_t size = n_matrices * a_row * a_col * b_col;
         uint32_t size2 = a_row * a_col * b_col;
-        cout << size << " / " << size2 << " = " << size/size2 << " == " << n_matrices << endl;
         uint64_t *concat_a = new uint64_t[size];
         uint64_t *concat_b = new uint64_t[size];
         for(uint32_t n = 0; n < n_matrices; n++) {
@@ -1664,9 +1655,8 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
             }
         }
-        cout << "call MUL with size " << size << endl;
+        cout << "--- call MUL: " << size << endl;
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
-        cout << "returned from MUL" << endl;
         // recover the resulting matrix
         uint64_t ***res = new uint64_t **[n_matrices];
         uint32_t ind = 0;
@@ -1696,9 +1686,8 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
             throw invalid_argument("core::MATMATMUL-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
         }
         // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
-        cout << "call MUL with size " << a_row << endl;
+        cout << "--- call MUL: " << a_row << endl;
         MUL(proxy, 0, 0, a_row);
-        cout << "returned from MUL" << endl;
         return NULL;
     }
     else {

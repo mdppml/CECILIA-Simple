@@ -12,8 +12,8 @@
 
 using namespace std;
 const string MODEL_DIR = "../apps/cnn/model_files/";
-const string CHAMELEON_MODEL_FILES = "Chameleon_CNN/", LENET_NN_MODEL_FILES = "LeNet_trained/LeNetNN_b4_n5/",
-        CELL_CNN_MODEL_FILES = "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
+const string CHAMELEON_MODEL_FILES = MODEL_DIR + "Chameleon_CNN/", LENET_NN_MODEL_FILES = MODEL_DIR + "LeNet_trained/LeNetNN_b4_n5/",
+        CELL_CNN_MODEL_FILES = MODEL_DIR + "Cell_CNN/", MINIONN_MODEL_FILE = "MiniONN.txt";
 const string LENET_CORRECT_PATH = LENET_NN_MODEL_FILES + "correctness/",
         CHAMELEON_CORRECT_PATH = CHAMELEON_MODEL_FILES + "correctness/";
 const string MNIST_DATA = "../apps/cnn/mnist_data/";
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     switch (nn_mode) {
         case 0: {
             cout << "CHAMELEON" << endl;
-            model_weights = getChameleonParameters(MODEL_DIR + CHAMELEON_MODEL_FILES, 5);
+            model_weights = getChameleonParameters(CHAMELEON_MODEL_FILES, 5);
             bias_dimensions[0] = 5;
             bias_dimensions[1] = 100;
             bias_dimensions[2] = 10;
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
         }
         case 1: {
             cout << "LeNet by SecureNN" << endl;
-            model_weights = getLeNetParameters(MODEL_DIR + LENET_NN_MODEL_FILES, true);
+            model_weights = getLeNetParameters(LENET_NN_MODEL_FILES, true);
             bias_dimensions[0] = 20;
             bias_dimensions[1] = 50;
             bias_dimensions[2] = 500;
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
         }
         case 2: {
             cout << "CellCNN" << endl;
-            model_weights = getCellCnnParameters(MODEL_DIR + CELL_CNN_MODEL_FILES, 8);
+            model_weights = getCellCnnParameters(CELL_CNN_MODEL_FILES, 8);
             bias_dimensions[0] = 8;
             bias_dimensions[1] = 2;
             break;
@@ -190,6 +190,7 @@ int main(int argc, char *argv[]) {
                 image_file.open(path, std::ios::out);
                 if (!image_file) {
                     // create file first
+                    cout << "create file: " << path << endl;
                     image_file.open(path, std::ios::app);
                 }
 
@@ -204,6 +205,8 @@ int main(int argc, char *argv[]) {
                 }
                 image_file << endl;
                 image_file.close();
+
+                cout << "close file: " << path << endl;
             }
         }
     } else {
@@ -238,21 +241,6 @@ int main(int argc, char *argv[]) {
     else
         proxy = new Party(P2, hport, haddress, cport, caddress);
 
-    auto ***data = new uint64_t **[test_set.size()];
-    for (uint32_t i = 0; i < i_number; ++i) {
-        data[i] = new uint64_t *[i_height];
-        for (uint32_t r = 0; r < i_height; ++r) {
-            data[i][r] = new uint64_t[i_width];
-            for (uint32_t c = 0; c < i_width; ++c) {
-                double pixelValue = test_set.at(i).at(r * i_width + c)/PIXEL_MAX;
-                data[i][r][c] = proxy->createShare(pixelValue); // store directly as secret shares
-            }
-        }
-        if (padding > 0) {
-            uint64_t padding_value = proxy->createShare(0.0);
-            data[i] = PAD(data[i], i_height, i_width, padding_value, padding);
-        }
-    }
     cout << "Creating secret shares: " << endl;
     // secret shares: bias
     auto **bias = new uint64_t *[layer_number];
@@ -278,12 +266,23 @@ int main(int argc, char *argv[]) {
     auto *prediction = new double[i_number];
     double correct = 0, incorrect = 0;
     // CNN INFERENCE PIPELINE
-    for (uint32_t image = 0; image < i_number; ++image) {
+    for (uint32_t image = 1; image < i_number; ++image) {
         cout << "INFERENCE PIPELINE " << image << endl;
         k_number = bias_dimensions[0];
         resetParams();
         auto ***input = new uint64_t **[i_channel];
-        input[0] = data[image]; // currently only 1 channel for input supported
+        input[0] = new uint64_t *[i_height]; // currently only 1 channel for input supported
+        for (uint32_t r = 0; r < i_height; ++r) {
+            input[0][r] = new uint64_t[i_width];
+            for (uint32_t c = 0; c < i_width; ++c) {
+                double pixelValue = test_set.at(image).at(r * i_width + c)/PIXEL_MAX;
+                input[0][r][c] = proxy->createShare(pixelValue); // store directly as secret shares
+            }
+        }
+        if (padding > 0) {
+            uint64_t padding_value = proxy->createShare(0.0);
+            input[0] = PAD(input[0], i_height, i_width, padding_value, padding);
+        }
         //print2DArray("image ", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
         uint64_t ***conv;
         uint64_t *prev_layer_res;
@@ -292,6 +291,11 @@ int main(int argc, char *argv[]) {
             case 0: { // Chameleon
                 conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
                           max_win_width, bias[curr_layer], true);
+                for (int i = 0; i < i_height; ++i) {
+                    delete[] input[0][i];
+                }
+                delete[] input[0];
+                delete[] input;
                 updateParamsAfterCL();
 
                 updateParamsForFCL(bias_dimensions, true);
@@ -308,18 +312,17 @@ int main(int argc, char *argv[]) {
             case 1: { // SecureNN
                 conv = CL(proxy, input, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
                           max_win_width, bias[curr_layer], false);
-                //print2DArray("weights conv0: ", convert2double(REC(proxy, conv[0], 12, 12), 12, 12), 12, 12);
+                for (int i = 0; i < i_height; ++i) {
+                    delete[] input[0][i];
+                }
+                delete[] input[0];
+                delete[] input;
                 updateParamsAfterCL();
                 // PERFORMING CONVOLUTION
                 k_number = bias_dimensions[curr_layer];
-                cout << "i_channel " << i_channel << ", k_num " << k_number << endl;
                 kernel = new uint64_t **[i_channel];
                 for (uint32_t i = 0; i < i_channel; i++) {
                     kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim * k_dim);
-                    /*if(i < 1) {
-                        print2DArray("CL weights ", model_weights[curr_layer][i], k_number, k_dim * k_dim);
-                        print2DArray("input from conv", convert2double(REC(proxy, conv[i], i_height, i_width), i_height, i_width), i_height, i_width);
-                    }*/
                     if (image == i_number - 1) {
                         delete[] model_weights[curr_layer][i];
                     }
@@ -349,7 +352,11 @@ int main(int argc, char *argv[]) {
                 for (int k = 0; k < k_number; ++k) {
                     conv[k] = MATVECMUL(proxy, input, kernel[k], 1, i_height, i_width);
                     conv[k][0][0] = MAX(proxy, conv[k][0], i_height);
+                }for (int i = 0; i < i_height; ++i) {
+                    delete[] input[0][i];
                 }
+                delete[] input[0];
+                delete[] input;
                 updateParamsAfterCL();
 
                 prev_layer_res = FLT(conv, i_height, i_width, i_channel);
@@ -401,7 +408,8 @@ int main(int argc, char *argv[]) {
             path += "eval_secure_" + to_string(image) + ".txt";
             image_file.open(path, std::ios::app);
             if (!image_file) {
-                std::cout << "Error opening file for appending prediction at " << path << std::endl;
+                cout << "Error opening file for appending prediction at " << path << endl;
+
                 return 1;
             }
             double *inference_res = convert2double(REC(proxy, output, nodes_out), nodes_out);
@@ -415,8 +423,6 @@ int main(int argc, char *argv[]) {
         }
         delete[] output;
     }
-    delete[] data[0];
-    delete[] data;
     cout << "accuracy: " << printf("%.3f", correct / i_number) << " (" << correct << "/" << i_number << ")" << endl;
     print1DArray("Prediction: ", prediction, i_number);
     string s_correct = "";
@@ -428,5 +434,3 @@ int main(int argc, char *argv[]) {
     proxy->piK();
     return 0;
 }
-
-
