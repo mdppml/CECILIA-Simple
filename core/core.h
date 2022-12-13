@@ -11,21 +11,6 @@
 #include <mutex>
 #include <bitset>
 
-/*
- * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
- */
-uint64_t AS(uint64_t z) {
-    uint64_t msb_z = z >> (L_BIT - 1);
-    if(msb_z == 0x0) {
-//        cout << "MSB-0 case" << endl;
-        z = z >> FRAC;
-    }
-    else {
-        z = (z >> FRAC) | ((((uint64_t) 1 << FRAC) - (uint64_t) 1) << (L_BIT - FRAC));
-    }
-    return z;
-}
-
 /**
  * Perform the truncation operation which we use to keep the number of fractional bit consistent after MUL operation
  * @param proxy
@@ -270,7 +255,7 @@ uint64_t MUX(Party* proxy, uint64_t x, uint64_t y, uint64_t b) {
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
         ptr = proxy->getBuffer1();
         m1 = m1 + convert2Long(&ptr);
-        m1 = m1 >> FRAC;
+        m1 = m1 >> FRAC; // do this and the corresponding one in P2 need to be changed to arithmetic shifting?
         x = x - m1;
 
 
@@ -1034,11 +1019,6 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 //        cout << "Converted z by 2 * FRAC: " << convert2double(rec_z, 2 * FRAC) << endl;
 
         // restore the fractional part - refer to SecureNN for more details
-//        if (proxy->getPRole() == P1) {
-//            z = z >> FRAC;
-//        } else {
-//            z = -1 * ((-1 * z) >> FRAC);
-//        }
         z = truncate(proxy, z);
 
         delete [] rec_e_f;
@@ -1941,8 +1921,11 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
 
         if(first_call) {
             Q = (Q << FRAC) + DIV(proxy, R << FRAC, b, false);
-            uint64_t sign_sum = signs[0] + signs[1];
-            uint64_t c = MSB(proxy, sign_sum << (L_BIT - FRAC - 1));
+            // determine the selection bit for the sign of the result based on the signs of a and b
+            // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
+            // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
+            // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
+            uint64_t c = signs[0] + signs[1] - 2 * MUL(proxy, signs[0], signs[1]);
             Q = MUX(proxy, Q, (uint64_t) 0 - Q, c);
         }
         return Q;
@@ -1962,7 +1945,7 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
 
         if(first_call) {
             DIV(proxy, 0, 0, false);
-            MSB(proxy, 0);
+            MUL(proxy, 0, 0);
             MUX(proxy, 0, 0, 0);
         }
         return 0;
@@ -2046,11 +2029,16 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
         }
 
         if(first_call) {
-            uint64_t *sign_sum = new uint64_t[size];
+            // determine the selection bits for the signs of the results based on the signs of a's and b's
+            // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
+            // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
+            // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
+            uint64_t *tmp = MUL(proxy, signs, &signs[size], size); // for determining the signs of the results
+            uint64_t *c = new uint64_t[size]; // // for determining the signs of the results - selection bits
             for(int i = 0; i < size; i++) {
                 R[i] = R[i] << FRAC; // prepare the remainder for the second division call
                 Q[i] = Q[i] << FRAC; // prepare the quotient for the final quotient
-                sign_sum[i] = (signs[i] + signs[i + size]) << (L_BIT - FRAC - 1);
+                c[i] = (signs[i] + signs[i + size]) - 2 * tmp[i]; // for determining the signs of the results
             }
 
             uint64_t *neg_Q = new uint64_t[size]; // the negative of the results in case they are the correct ones based on signs
@@ -2059,10 +2047,6 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
                 Q[i] += sec_div[i];
                 neg_Q[i] = (uint64_t) 0 - Q[i];
             }
-
-            // if both a and b are positive or negative, their (L_BIT - FRAC - 1) shifted version's MSB will be 0
-            // if one of them is positive and the other is negative, then their (L_BIT - FRAC - 1) shifted version's MSB will be 1
-            uint64_t *c = MSB(proxy, sign_sum, size);
 
             // based on the above analysis, we select the correct version of the final quotient
             return MUX(proxy, Q, neg_Q, c, size);
@@ -2084,8 +2068,8 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
         }
 
         if(first_call) {
+            MUL(proxy, 0, 0, size);
             DIV(proxy, 0, 0, size, false);
-            MSB(proxy, 0, size);
             MUX(proxy, 0, 0, 0, size);
         }
         return NULL;

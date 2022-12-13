@@ -18,14 +18,14 @@ using namespace std;
 //using namespace Eigen;
 
 constexpr int MIN_VAL = -100;
-constexpr int MAX_VAL = 100;
+constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
 constexpr int sz = 1000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
 bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cnt){
-    cout << setfill('*') << setw(50) << "Calling MUL";
-    cout << setfill('*') << setw(49) << "*" << endl;
+//    cout << setfill('*') << setw(50) << "Calling MUL";
+//    cout << setfill('*') << setw(49) << "*" << endl;
 
     double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
     double yd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
@@ -56,8 +56,8 @@ bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cn
 //        cout << "-----------------------------------------" << endl;
 //    }
     if ((int)(rd - rcd) == 0) {
-        cout<<"MUL works correctly"<<endl;
-        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+//        cout<<"MUL works correctly"<<endl;
+//        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
 //        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
 //        cout << "-----------------------------------------" << endl;
         return true;
@@ -74,8 +74,8 @@ bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cn
 //        cout << "Share of r: " << r << endl;
 //        cout << "rec_r >? share_r: " << (rec_r > r) << endl;
 //        cout << "-----------------------------------------" << endl;
-        cout<<"MUL works incorrectly"<<endl;
-        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
+//        cout<<"MUL works incorrectly"<<endl;
+//        cout << "x: " << xd <""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""< "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
 //        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
 //        cnt++;
 //        cout << "-----------------------------------------" << endl;
@@ -469,9 +469,9 @@ void MCMP_Test(Party *proxy) {
 
 }
 
-void MUX_Test(Party *proxy) {
-    cout << setfill('*') << setw(50) << "Calling MUX";
-    cout << setfill('*') << setw(49) << "*" << endl;
+void MUX_Test(Party *proxy, int &cnt) {
+//    cout << setfill('*') << setw(50) << "Calling MUX";
+//    cout << setfill('*') << setw(49) << "*" << endl;
     double xd =
             MIN_VAL + (double) (proxy->generateCommonRandom() & RAND_MAX) / ((double) (RAND_MAX / (MAX_VAL - MIN_VAL)));
     double yd =
@@ -493,10 +493,13 @@ void MUX_Test(Party *proxy) {
         r_computed = x_reconstructed;
     else if (z_reconstructed == (1 << FRAC))
         r_computed = y_reconstructed;
-    if (r_reconstructed == r_computed)
-        cout << "MUX works correctly" << endl;
-    else
-        cout << "MUX works incorrectly" << endl;
+    if (r_reconstructed == r_computed) {
+//        cout << "MUX works correctly" << endl;
+    }
+    else {
+        cnt++;
+//        cout << "MUX works incorrectly" << endl;
+    }
 }
 
 void MMUX_Test(Party *proxy) {
@@ -1970,9 +1973,9 @@ double fRand(double fMin, double fMax)
     return fMin + f * (fMax - fMin);
 }
 
-void DIV_Test(Party *proxy){
-    cout << setfill('*') << setw(50) << "Calling DIV";
-    cout << setfill('*') << setw(49) << "*" << endl;
+void DIV_Test(Party *proxy, int &cnt, bool verbose = false){
+    if(verbose)
+        cout << setfill('*') << setw(50) << "Calling DIV" << setfill('*') << setw(49) << "*" << endl;
 
 
 //    int y_int = (rand() % 10 + 1) / 3.0;
@@ -1994,24 +1997,33 @@ void DIV_Test(Party *proxy){
     double originalY = convert2double(REC(proxy, y));
     double computed_div = originalX / originalY;
 
-    cout << " =========================================== " << endl;
-    cout << "X: " << originalX << " Y: " << originalY << endl;
+    if(verbose) {
+        cout << " =========================================== " << endl;
+        cout << "X: " << originalX << " Y: " << originalY << endl;
+    }
     if(abs(computed_div - reconstructed_div) < 0.0001){
-        cout<<"DIV works correctly"<<endl;
-        cout<< "computed: " << reconstructed_div << " -- ground truth: " << computed_div << endl;
+        if(verbose) {
+            cout<<"DIV works correctly"<<endl;
+            cout<< "computed: " << reconstructed_div << " -- ground truth: " << computed_div << endl;
+        }
     }
     else{
-        cout<<"DIV works incorrectly" <<endl;
-        cout<< "computed: " << reconstructed_div << " -- but should be: " << computed_div << endl;
+        cnt++;
+        if(verbose) {
+            cout<<"DIV works incorrectly" <<endl;
+            cout<< "computed: " << reconstructed_div << " -- but should be: " << computed_div << endl;
+        }
     }
-    cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
-    cout << " =========================================== " << endl;
+    if(verbose) {
+        cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
+        cout << " =========================================== " << endl;
+    }
 
 }
 
-void MDIV_Test(Party *proxy, int &cnt){
-    cout<<setfill ('*')<<setw(50)<<"Calling DIV";
-    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+void MDIV_Test(Party *proxy, int &cnt, bool verbose = false){
+    if(verbose)
+        cout << setfill ('*') << setw(50) << "Calling MDIV" << setfill ('*') << setw(49) << "*" << endl;
 
     double *x_d = new double[sz];
     double *y_d = new double[sz];
@@ -2039,7 +2051,8 @@ void MDIV_Test(Party *proxy, int &cnt){
         computed_div[i] = originalX[i] / originalY[i];
     }
 
-//    cout << " =========================================== " << endl;
+    if(verbose)
+        cout << " =========================================== " << endl;
     for(int i = 0; i < sz; i++) {
         if(abs(computed_div[i] - reconstructed_div[i]) < 0.0001){
 //            cout << " --------------------------------------- " << endl;
@@ -2050,15 +2063,135 @@ void MDIV_Test(Party *proxy, int &cnt){
         }
         else{
             cnt++;
-//            cout << " --------------------------------------- " << endl;
-//            cout<<"DIV works incorrectly" <<endl;
-//            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
-//            cout<< "computed: " << reconstructed_div[i] << " -- but should be: " << computed_div[i] << endl;
-//            cout << " --------------------------------------- " << endl;
+            if(verbose) {
+                cout << " --------------------------------------- " << endl;
+                cout<<"DIV works incorrectly" <<endl;
+                cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+                cout<< "computed: " << reconstructed_div[i] << " -- but should be: " << computed_div[i] << endl;
+                cout << " --------------------------------------- " << endl;
+            }
         }
 //        cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
     }
-//    cout << " =========================================== " << endl;
+    if(verbose)
+        cout << " =========================================== " << endl;
+}
+
+
+void local_MUL_Test(Party *proxy, int &cnt, bool verbose = false){
+    if(verbose)
+        cout << setfill('*') << setw(50) << "Calling local_MUL" << setfill('*') << setw(49) << "*" << endl;
+
+    // secret data
+    double x_d = fRand(-100, 100);
+    uint64_t x = proxy->createShare(x_d);
+
+    // public value
+    double y_d = fRand(-100, 100);
+    uint64_t y = convert2uint64(y_d);
+
+    uint64_t res = local_MUL(x, y);
+    uint64_t rec_res = REC(proxy, res);
+    double reconstructed_res = convert2double(rec_res);
+
+    // checking the result
+    double originalX = convert2double(REC(proxy, x));
+    double originalY = convert2double(y);
+    double computed_mul = originalX * originalY;
+
+    if(verbose) {
+        cout << " =========================================== " << endl;
+        cout << "X: " << originalX << " (" << x_d << ") " << " Y: " << originalY << " (" << y_d << ")" << endl;
+    }
+    if(abs(computed_mul - reconstructed_res) < 0.0001){
+        if(verbose) {
+            cout<<"local_MUL works correctly"<<endl;
+            cout<< "computed: " << reconstructed_res << " -- ground truth: " << computed_mul << endl;
+        }
+    }
+    else{
+        cnt++;
+        if(verbose) {
+            cout<<"local_MUL works incorrectly" <<endl;
+            cout<< "computed: " << reconstructed_res << " -- but should be: " << computed_mul << endl;
+        }
+    }
+    if(verbose) {
+        cout << "Bitwise computed result: " << bitset<L_BIT>(rec_res) << endl;
+        cout << " =========================================== " << endl;
+    }
+
+}
+
+void local_MMUL_Test(Party *proxy, int &cnt, bool verbose = false){
+    if(verbose)
+        cout << setfill ('*') << setw(50) << "Calling local_MMUL" << setfill ('*') << setw(49) << "*" << endl;
+
+    // secret values
+    double *x_d = new double[sz];
+    uint64_t *x = new uint64_t[sz];
+
+    // public values
+    double *y_d = new double[sz];
+    uint64_t *y = new uint64_t[sz];
+
+    for(int i = 0; i < sz; i++) {
+        x_d[i] = fRand(-100, 100);
+        y_d[i] = fRand(-100, 100);
+        x[i] = proxy->createShare(x_d[i]);
+        y[i] = convert2uint64(y_d[i]);
+    }
+
+    uint64_t *res = local_MUL(x, y, sz);
+    uint64_t *rec_res = REC(proxy, res, sz);
+    double *reconstructed_res = convert2double(rec_res, sz);
+
+    // checking the result
+    uint64_t *rec_x = REC(proxy, x, sz);
+    double *originalX = convert2double(rec_x, sz);
+    double *originalY = convert2double(y, sz);
+    double *computed_mul = new double[sz];
+    for(int i = 0; i < sz; i++) {
+        computed_mul[i] = originalX[i] * originalY[i];
+    }
+
+    if(verbose)
+        cout << " =========================================== " << endl;
+    for(int i = 0; i < sz; i++) {
+        if(abs(computed_mul[i] - reconstructed_res[i]) < 0.0001){
+            if(verbose) {
+                cout << " --------------------------------------- " << endl;
+                cout<<"local_MMUL works correctly"<<endl;
+                cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+                cout<< "computed: " << reconstructed_res[i] << " -- ground truth: " << computed_mul[i] << endl;
+                cout << " --------------------------------------- " << endl;
+            }
+        }
+        else{
+            cnt++;
+            if(verbose) {
+                cout << " --------------------------------------- " << endl;
+                cout<<"local_MMUL works incorrectly" <<endl;
+                cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+                cout<< "computed: " << reconstructed_res[i] << " -- but should be: " << computed_mul[i] << endl;
+                cout << " --------------------------------------- " << endl;
+            }
+        }
+    }
+    if(verbose)
+        cout << " =========================================== " << endl;
+
+    delete [] x_d;
+    delete [] x;
+    delete [] y_d;
+    delete [] y;
+    delete [] computed_mul;
+    delete [] res;
+    delete [] rec_res;
+    delete [] reconstructed_res;
+    delete [] rec_x;
+    delete [] originalX;
+    delete [] originalY;
 }
 
 void ADD_Test(Party *proxy) {
@@ -3234,6 +3367,9 @@ int main(int argc, char *argv[]) {
 //        result = MUL_Test_v2(proxy, ind, umap, cnt);
         // ************************************************************************************
 
+//        local_MUL_Test(proxy, cnt);
+        local_MMUL_Test(proxy, cnt);
+
 //        result = TRUNCATE_Test(proxy, cnt, umap);
 //        ADD_Test(proxy);
         result = MUL_Test(proxy);
@@ -3249,7 +3385,7 @@ int main(int argc, char *argv[]) {
 //        CMP_Test(proxy);
 //        MCMP_Test(proxy);
 //
-//        MUX_Test(proxy);
+//        MUX_Test(proxy, cnt);
 //        MMUX_Test(proxy);
 //
 //        MAX_Test(proxy);
@@ -3262,8 +3398,9 @@ int main(int argc, char *argv[]) {
 //        DRLU_Test(proxy);
 //        ARGMAX_Test(proxy);
 //        MDRLU_Test(proxy); //TODO
-//        DIV_Test(proxy);
-        MDIV_Test(proxy, cnt);
+//
+//        DIV_Test(proxy, cnt);
+//        MDIV_Test(proxy, cnt);
 //
 //        INC_Test(proxy);
 //        FLT_Test(proxy);
@@ -3309,6 +3446,8 @@ int main(int argc, char *argv[]) {
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     cout<<"Total Time\t"<<fixed
         << tt << setprecision(9) << " sec" << endl;
+
+    delete proxy;
 
     return 0;
 }

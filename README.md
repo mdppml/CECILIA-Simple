@@ -1,6 +1,6 @@
 # CECILIA
 
-PPAURORA is a C++ project for the private computation of AUROC and AUPRC using secure three-party computation.
+CECILIA is a three-party computational framework that offers a variety of building blocks to facilitate more complex algorithms in a privacy preserving manner. It is implemented in C++.
 
 ## Installation
 

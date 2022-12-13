@@ -208,5 +208,6 @@ int main(int argc, char* argv[]) {
         }
     }
     helper->PrintBytes();
+    delete helper;
     return 0;
 }

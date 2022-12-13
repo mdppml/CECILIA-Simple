@@ -90,7 +90,8 @@ uint8_t mod(int k, int n) {
 }
 
 double convert2double(uint64_t x, int precision=FRAC) {
-    double tmp = (uint64_t) 1 << precision;
+//    double tmp = (uint64_t) 1 << (precision - 1);
+    double tmp = (double)((uint64_t) 1 << precision);
     if ((int) (x >> 63) == 1) {
         return -1 * ((double) (~x + 1) / tmp);
     } else {
@@ -98,10 +99,12 @@ double convert2double(uint64_t x, int precision=FRAC) {
     }
 }
 
-uint64_t convert2uint64(double x, int precision=FRAC) {
+uint64_t convert2uint64(double x, int precision = FRAC) {
     if (x < 0) {
+//        return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << (precision - 1))));
         return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << precision)));
     } else {
+//        return (uint64_t) floor(x * (1 << (precision - 1)));
         return (uint64_t) floor(x * (1 << precision));
     }
 }
@@ -271,7 +274,22 @@ uint64_t getModularInverse(uint64_t a){
 }
 
 
-
+/*
+ * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
+ */
+uint64_t AS(uint64_t z, int n_shift = FRAC) {
+    z = static_cast<uint64_t>( static_cast<int64_t>(z) >> FRAC);
+//    uint64_t msb_z = z >> (L_BIT - 1);
+//    if(msb_z == 0x0) {
+////        cout << "MSB-0 case" << endl;
+//        z = static_cast<uint64_t>( static_cast<int64_t>(z) >> FRAC);
+//    }
+//    else {
+//        z = (z >> FRAC) | ((((uint64_t) 1 << FRAC) - (uint64_t) 1) << (L_BIT - FRAC));
+////        z = -1 * static_cast<uint64_t>( static_cast<int64_t>(-1 * z) >> FRAC);
+//    }
+    return z;
+}
 
 
 // Local functions which does not require security and works with secret shared values
@@ -286,11 +304,18 @@ uint64_t local_MUL(uint64_t a, uint64_t b) {
      */
     uint64_t z = a * b;
     // restore the fractional part - refer to SecureNN for more details
+    // v1
     if ((z >> 63) == 0) {
         z = z >> FRAC;
     } else {
         z = -1 * ((-1 * z) >> FRAC);
     }
+    // v2
+//    if ((z >> 63) == 0) {
+//        z = AS(z);
+//    } else {
+//        z = -1 * AS(-1 * z);
+//    }
     return z;
 }
 
