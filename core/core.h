@@ -791,7 +791,7 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
 //                proxy->getBuffer1()[bi] = (proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum) * proxy->generateCommonRandomOddByte();
 //                w_sum = (w_sum + w);
                 uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
-                proxy->getBuffer1()[bi] =(mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
+                proxy->getBuffer1()[bi] = (mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
                 w_sum = (w_sum + w) % LP;
             }
             buffer_index += L1;
@@ -814,9 +814,11 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
             addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
             buffer_index +=16;
         }
-        delete []yb;
-        delete []ya;
-        delete []z_1;
+        delete [] yb;
+        delete [] ya;
+        delete [] z_1;
+        delete [] z;
+
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (16 + L_BIT -1));
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);
 
@@ -1107,6 +1109,7 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         }
         cout << "delete ef and i" << endl;
         delete [] e_f;
+        delete [] concat_e_f;
         for (auto &i : mt) {
             delete[] i;
         }
@@ -1904,6 +1907,8 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
             uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2);
             a = abs_vals[0];
             b = abs_vals[1];
+
+            delete [] abs_vals;
         }
 
         // obtain every bit of the dividend
@@ -1928,16 +1933,23 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
             uint64_t *v = MUL(proxy, o1, o2, 2);
             R = R - v[0];
             Q = Q + v[1];
+
+            delete [] v;
         }
 
+        delete [] msb_bits_of_a_and_b;
+        delete [] bits_of_a;
+
         if(first_call) {
-            Q = (Q << FRAC) + DIV(proxy, R << FRAC, b, false);
+            uint64_t second_div = DIV(proxy, R << FRAC, b, false);
+            Q = (Q << FRAC) + second_div;
             // determine the selection bit for the sign of the result based on the signs of a and b
             // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
             // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
             // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
             uint64_t c = signs[0] + signs[1] - 2 * MUL(proxy, signs[0], signs[1]);
             Q = MUX(proxy, Q, (uint64_t) 0 - Q, c);
+            delete [] signs;
         }
         return Q;
     }
@@ -1990,12 +2002,15 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
             uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2 * size);
             a = &abs_vals[0];
             b = &abs_vals[size];
+
+            delete [] inp1;
+            delete [] inp2;
         }
 
         // initialize the variables for quotient and remainder and the role vector, which is a vector full of the role value
         uint64_t *Q = new uint64_t[size];
         uint64_t *R = new uint64_t[size];
-        uint64_t *role_vec = new uint64_t[size];
+//        uint64_t *role_vec = new uint64_t[size]; // where do we use this?
 
         // obtain every bit of the dividend
         uint64_t *msb_bits_of_a = new uint64_t[L_BIT * size];
@@ -2003,7 +2018,7 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
         for(int i = 0; i < size; i++) { // each value
             Q[i] = 0;
             R[i] = 0;
-            role_vec[i] = proxy->getPRole();
+//            role_vec[i] = proxy->getPRole();
             uint64_t tmp = a[i];
             for(int j = 0; j < L_BIT; j++) { // each bit of the value
                 msb_bits_of_a[i * L_BIT + j] = tmp;
@@ -2012,9 +2027,11 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
         }
         uint64_t *bits_of_a = MSB(proxy, msb_bits_of_a, L_BIT * size, false);
 
+        delete [] msb_bits_of_a;
+
         // traverse all bits of the dividend
         for (int16_t j = L_BIT - 1; j >= 0; j--) {
-            uint64_t *tmp_bits_of_a = new uint64_t[size];
+//            uint64_t *tmp_bits_of_a = new uint64_t[size];
             for(int i = 0; i < size; i++) {
                 R[i] = R[i] << 1; // shift the remainder
                 R[i] += bits_of_a[(i * L_BIT) + (L_BIT - 1 - j)];
@@ -2037,7 +2054,13 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
                 R[i] = R[i] - v[2 * i];
                 Q[i] = Q[i] + v[2 * i + 1];
             }
+            delete [] c;
+            delete [] o1;
+            delete [] o2;
+            delete [] v;
         }
+
+        delete [] bits_of_a;
 
         if(first_call) {
             // determine the selection bits for the signs of the results based on the signs of a's and b's
@@ -2051,6 +2074,7 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
                 Q[i] = Q[i] << FRAC; // prepare the quotient for the final quotient
                 c[i] = (signs[i] + signs[i + size]) - 2 * tmp[i]; // for determining the signs of the results
             }
+            delete [] tmp;
 
             uint64_t *neg_Q = new uint64_t[size]; // the negative of the results in case they are the correct ones based on signs
             uint64_t *sec_div = DIV(proxy, R, b, size, false); // second division call for the fractional part of the final quotient
@@ -2059,9 +2083,22 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
                 neg_Q[i] = (uint64_t) 0 - Q[i];
             }
 
+            delete [] sec_div;
+            delete [] signs;
+//            delete [] role_vec;
+
             // based on the above analysis, we select the correct version of the final quotient
-            return MUX(proxy, Q, neg_Q, c, size);
+            uint64_t *div_res = MUX(proxy, Q, neg_Q, c, size);
+            delete [] c;
+            delete [] neg_Q;
+            delete [] Q;
+            delete [] R;
+            delete [] a;
+            delete [] b;
+            return div_res;
         }
+
+        delete [] R;
 
         return Q;
     }
