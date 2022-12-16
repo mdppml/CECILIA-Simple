@@ -17,13 +17,13 @@
  * @param z: value we want to truncate
  * @return truncated z is returned
  */
-uint64_t truncate(Party *proxy, uint64_t z) {
+uint64_t truncate(Party *proxy, uint64_t z, int shift = FRAC) {
     switch (proxy->getPRole()) {
         case P1:
-            z = AS(z);
+            z = AS(z, shift);
             break;
         case P2:
-            z = -1 * AS(-1 * z);
+            z = -1 * AS(-1 * z, shift);
             break;
         case HELPER:
             break;
@@ -2108,6 +2108,62 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
         return NULL;
     }
     return NULL;
+}
+
+
+uint64_t* NORM(Party *proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *u = new uint64_t[size]; // holds how much needs to be subtracted from the nominator
+        uint64_t *div = new uint64_t[size]; // resulting division
+        for(int i = 0; i < size; i++) {
+            u[i] = 0;
+            div[i] = 0;
+        }
+
+        // iterate every bit of the fractional part to determine whether they are 1 or 0
+        for(int i = 1; i <= FRAC; i++) {
+            // compute the possible remaining of the nominator after subtracting denominator and previously subtracted value
+            uint64_t *z = new uint64_t[size];
+            for(int j = 0; j < size; j++) {
+                z[j] = ((a[j] - u[j]) << i) - b[j];
+            }
+
+            uint64_t *msb_z = MSB(proxy, z, size);
+            delete [] z;
+
+            uint64_t *concat_cont_and_subt = new uint64_t[size * 2];
+            uint64_t *twice_msb_z = new uint64_t[size * 2];
+            for(int j = 0; j < size; j++) {
+                twice_msb_z[j] = (proxy->getPRole() << FRAC) - msb_z[j];
+                twice_msb_z[j + size] = twice_msb_z[j];
+                concat_cont_and_subt[j] = proxy->getPRole() << (FRAC - i); // the contribution to the division result
+                concat_cont_and_subt[j + size] = truncate(proxy, b[j], i); // what to subtract from the nominator
+            }
+            delete [] msb_z;
+
+            // computes possibly what to subtract and what to add & determines if we need to perform those operations
+            uint64_t *tmp = MUL(proxy, twice_msb_z, concat_cont_and_subt, 2 * size);
+            delete [] concat_cont_and_subt;
+            delete [] twice_msb_z;
+
+            for(int j = 0; j < size; j++) {
+                div[j] = div[j] + tmp[j];
+                u[j] = u[j] + tmp[j + size];
+            }
+            delete [] tmp;
+        }
+
+        delete [] u;
+        return div;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        for(int i = 1; i <= FRAC; i++) {
+            MSB(proxy, 0, size);
+            MUL(proxy, 0, 0, 2 * size);
+        }
+    }
+    return NULL;
+
 }
 
 #endif //CORE_H

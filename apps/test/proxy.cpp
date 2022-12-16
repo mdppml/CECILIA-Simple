@@ -19,7 +19,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 1000;
+constexpr int sz = 1;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -2142,6 +2142,73 @@ void MDIV_Test(Party *proxy, int &cnt, bool verbose = false){
     delete [] originalY;
 }
 
+void NORM_Test(Party *proxy, int &cnt, bool verbose = false){
+    if(verbose)
+        cout << setfill ('*') << setw(50) << "Calling MNORM" << setfill ('*') << setw(49) << "*" << endl;
+
+    double *x_d = new double[sz];
+    double *y_d = new double[sz];
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];
+    for(int i = 0; i < sz; i++) {
+        x_d[i] = fRand(0, 100);
+        y_d[i] = fRand(100, 200);
+        x[i] = proxy->createShare(x_d[i]);
+        y[i] = proxy->createShare(y_d[i]);
+    }
+
+    uint32_t* params = new uint32_t[1];
+    params[0] = sz;
+    proxy->SendBytes(CORE_MNORM, params, 1);
+    uint64_t *div = NORM(proxy, x, y, sz);
+    uint64_t *rec_dev = REC(proxy, div, sz);
+    double *reconstructed_div = convert2double(rec_dev, sz);
+
+    // checking the result
+    double *originalX = convert2double(REC(proxy, x, sz), sz);
+    double *originalY = convert2double(REC(proxy, y, sz), sz);
+    double *computed_div = new double[sz];
+    for(int i = 0; i < sz; i++) {
+        computed_div[i] = originalX[i] / originalY[i];
+    }
+
+    if(verbose)
+        cout << " =========================================== " << endl;
+    for(int i = 0; i < sz; i++) {
+        if(abs(computed_div[i] - reconstructed_div[i]) < 0.0001){
+            cout << " --------------------------------------- " << endl;
+            cout<<"MNORM works correctly"<<endl;
+            cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+            cout<< "computed: " << reconstructed_div[i] << " -- ground truth: " << computed_div[i] << endl;
+            cout << " --------------------------------------- " << endl;
+        }
+        else{
+            cnt++;
+            if(verbose) {
+                cout << " --------------------------------------- " << endl;
+                cout<<"MNORM works incorrectly" <<endl;
+                cout << "X: " << originalX[i] << " Y: " << originalY[i] << endl;
+                cout<< "computed: " << reconstructed_div[i] << " -- but should be: " << computed_div[i] << endl;
+                cout << " --------------------------------------- " << endl;
+            }
+        }
+//        cout << "Bitwise computed result: " << bitset<L_BIT>(rec_dev) << endl;
+    }
+    if(verbose)
+        cout << " =========================================== " << endl;
+
+    delete [] x_d;
+    delete [] y_d;
+    delete [] x;
+    delete [] y;
+    delete [] div;
+    delete [] rec_dev;
+    delete [] reconstructed_div;
+    delete [] originalX;
+    delete [] originalY;
+
+}
+
 void local_MUL_Test(Party *proxy, int &cnt, bool verbose = false){
     if(verbose)
         cout << setfill('*') << setw(50) << "Calling local_MUL" << setfill('*') << setw(49) << "*" << endl;
@@ -3463,8 +3530,10 @@ int main(int argc, char *argv[]) {
 //        ARGMAX_Test(proxy);
 //        MDRLU_Test(proxy); //TODO
 //
-        DIV_Test(proxy, cnt);
+//        DIV_Test(proxy, cnt);
 //        MDIV_Test(proxy, cnt);
+//
+            NORM_Test(proxy, cnt, true);
 //
 //        INC_Test(proxy);
 //        FLT_Test(proxy);
