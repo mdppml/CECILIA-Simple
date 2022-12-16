@@ -308,6 +308,10 @@ bool MMUL_Test(Party *proxy){
             break;
         }
     }
+
+    delete [] params;
+    delete [] r;
+
     if (flag) {
         cout<<"MMUL works correctly"<<endl;
         return true;
@@ -523,10 +527,18 @@ void MMUX_Test(Party *proxy) {
     proxy->SendBytes(CORE_MMUX, params, 1);
     uint64_t *r = MUX(proxy, x, y, z, sz);
     // checking the result
-    double *x_reconstructed = convert2double(REC(proxy, x, sz), sz);
-    double *y_reconstructed = convert2double(REC(proxy, y, sz), sz);
-    double *z_reconstructed = convert2double(REC(proxy, z, sz), sz);
-    double *r_reconstructed = convert2double(REC(proxy, r, sz), sz);
+    uint64_t *tmp = REC(proxy, x, sz);
+    double *x_reconstructed = convert2double(tmp, sz);
+    delete [] tmp;
+    tmp = REC(proxy, y, sz);
+    double *y_reconstructed = convert2double(tmp, sz);
+    delete [] tmp;
+    tmp = REC(proxy, z, sz);
+    double *z_reconstructed = convert2double(tmp, sz);
+    delete [] tmp;
+    tmp = REC(proxy, r, sz);
+    double *r_reconstructed = convert2double(tmp, sz);
+    delete [] tmp;
     bool flag = true;
     double r_computed;
     for (int i = 0; i < sz; i++) {
@@ -545,6 +557,12 @@ void MMUX_Test(Party *proxy) {
     else {
         cout << "Vectorized MUX works incorrectly" << endl;
     }
+    delete [] params;
+    delete [] r;
+    delete [] x_reconstructed;
+    delete [] y_reconstructed;
+    delete [] z_reconstructed;
+    delete [] r_reconstructed;
 }
 
 void MAX_Test(Party *proxy) {
@@ -1605,25 +1623,31 @@ bool MATMATMUL_Test(Party *proxy) {
     cout << setfill('*') << setw(49) << "*" << endl;
 
     // setting
-    int a_row = WSZ*5;
-    int a_col = WSZ*10;
-    int b_col = WSZ;
+    int a_row = WSZ*3;
+    int a_col = WSZ*2;
+    int b_col = WSZ*4;
 
     uint32_t *params = new uint32_t[1];
     uint32_t size = a_row * a_col * b_col; // size of the vector
     params[0] = size;
     double min_val = -0.784378;
     double max_val = 1481.76;
+//    double max_val = 1000;
 
-    uint64_t **mat1 = proxy->createShare(random_2D_data(proxy, a_row, a_col, min_val, max_val), a_row, a_col);
-    uint64_t **mat2 = proxy->createShare(random_2D_data(proxy, a_col, b_col, min_val, max_val), a_col, b_col);
+    double **data1 = random_2D_data(proxy, a_row, a_col, min_val, max_val);
+    double **data2 = random_2D_data(proxy, a_col, b_col, min_val, max_val);
+    uint64_t **mat1 = proxy->createShare(data1, a_row, a_col);
+    uint64_t **mat2 = proxy->createShare(data2, a_col, b_col);
 
     proxy->SendBytes(CORE_MATMATMUL, params, 1);
     uint64_t **res = MATMATMUL(proxy, mat1, mat2, a_row, a_col, b_col);
-    double **rec_res = convert2double(REC(proxy, res, a_row, b_col), a_row, b_col);
+    uint64_t **tmp_rec = REC(proxy, res, a_row, b_col);
+    double **rec_res = convert2double(tmp_rec, a_row, b_col);
 
-    double **rec_mat1 = convert2double(REC(proxy, mat1, a_row, a_col), a_row, a_col);
-    double **rec_mat2 = convert2double(REC(proxy, mat2, a_col, b_col), a_col, b_col);
+    uint64_t** tmp_rec_mat1 = REC(proxy, mat1, a_row, a_col);
+    uint64_t** tmp_rec_mat2 = REC(proxy, mat2, a_col, b_col);
+    double **rec_mat1 = convert2double(tmp_rec_mat1, a_row, a_col);
+    double **rec_mat2 = convert2double(tmp_rec_mat2, a_col, b_col);
 
 //    proxy->print2DArray("mat1", rec_mat1, a_row, a_col);
 //    proxy->print2DArray("mat2", rec_mat2, a_col, b_col);
@@ -1650,6 +1674,37 @@ bool MATMATMUL_Test(Party *proxy) {
         print2DArray("Computed matrix multiplication", rec_res, a_row, b_col);
         print2DArray("GT matrix multiplication", gt, a_row, b_col);
     }
+
+    delete [] params;
+    for( int i = 0; i < a_row; i++) {
+        delete [] mat1[i];
+        delete [] res[i];
+        delete [] rec_res[i];
+        delete [] rec_mat1[i];
+        delete [] gt[i];
+        delete [] tmp_rec[i];
+        delete [] tmp_rec_mat1[i];
+        delete [] data1[i];
+    }
+    delete [] mat1;
+    delete [] res;
+    delete [] rec_res;
+    delete [] rec_mat1;
+    delete [] gt;
+    delete [] tmp_rec;
+    delete [] tmp_rec_mat1;
+    delete [] data1;
+    for( int i = 0; i < a_col; i++) {
+        delete [] mat2[i];
+        delete [] rec_mat2[i];
+        delete [] tmp_rec_mat2[i];
+        delete [] data2[i];
+    }
+    delete [] mat2;
+    delete [] rec_mat2;
+    delete [] tmp_rec_mat2;
+    delete [] data2;
+
     return (tmp <= 0.1);
 }
 
@@ -2075,8 +2130,17 @@ void MDIV_Test(Party *proxy, int &cnt, bool verbose = false){
     }
     if(verbose)
         cout << " =========================================== " << endl;
-}
 
+    delete [] x_d;
+    delete [] y_d;
+    delete [] x;
+    delete [] y;
+    delete [] div;
+    delete [] rec_dev;
+    delete [] reconstructed_div;
+    delete [] originalX;
+    delete [] originalY;
+}
 
 void local_MUL_Test(Party *proxy, int &cnt, bool verbose = false){
     if(verbose)
@@ -3368,7 +3432,7 @@ int main(int argc, char *argv[]) {
         // ************************************************************************************
 
 //        local_MUL_Test(proxy, cnt);
-        local_MMUL_Test(proxy, cnt);
+//        local_MMUL_Test(proxy, cnt);
 
 //        result = TRUNCATE_Test(proxy, cnt, umap);
 //        ADD_Test(proxy);
@@ -3399,7 +3463,7 @@ int main(int argc, char *argv[]) {
 //        ARGMAX_Test(proxy);
 //        MDRLU_Test(proxy); //TODO
 //
-//        DIV_Test(proxy, cnt);
+        DIV_Test(proxy, cnt);
 //        MDIV_Test(proxy, cnt);
 //
 //        INC_Test(proxy);
