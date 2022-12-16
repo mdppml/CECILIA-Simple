@@ -21,6 +21,11 @@ bool trained_for_MNIST;
 uint32_t nodes_out;
 uint32_t nodes_in;
 
+/**
+ * Initializes all parameters defining the structure of the used networks (Chameleon (mode 0), (LeNet mode 1), CellCnn (mode 2) but not yet usable, and potentially others.)
+ * Those parameters include number of images for which inference shall be computed, dimensions of input images, dimensions of kernel and others.
+ * @param mode the mode specifying the network for which the parameters are initialized.
+ */
 void initParams(uint32_t mode) {
     //MNIST data
     trained_for_MNIST = true;
@@ -63,7 +68,9 @@ void initParams(uint32_t mode) {
         h_divisor *= max_win_height;
     }
 }
-
+/**
+ * Reset those network parameters that have been changed during inference computation, so that the state is equal to that after initParams() have been called.
+ */
 void resetParams() {
     i_channel = 1;
     if(trained_for_MNIST){
@@ -80,7 +87,11 @@ void resetParams() {
         i_width += 2*padding;
     }
 }
-
+/**
+ * Update parameters as preparation for a subsequent Fully Connected Layer
+ * @param bias_dimensions vector defining the number of bias values needed per layer.
+ * @param firstFCL is true if the subsequent Fully Connected Layer (FCL) is the first FCL within the according network.
+ */
 void updateParamsForFCL(uint32_t n_out, bool firstFCL){
     if(firstFCL){
         nodes_in = i_height*i_width*i_channel;
@@ -91,7 +102,9 @@ void updateParamsForFCL(uint32_t n_out, bool firstFCL){
     }
     nodes_out = n_out;
 }
-
+/**
+ * Update parameters after Convolutional Layer.
+ */
 void updateParamsAfterCL(){
     if(trained_for_MNIST) {
         i_height = (i_height - k_dim + 1) / h_divisor;
@@ -119,7 +132,7 @@ int main(int argc, char* argv[]) {
     // parse model parameters
     initParams(nn_mode);
 
-    for (int image = 1; image < i_number; ++image) {
+    for (int image = 0; image < i_number; ++image) {
         resetParams();
         cout << "INFERENCE " << image << endl;
         // CNN INFERENCE PIPELINE
@@ -133,6 +146,7 @@ int main(int argc, char* argv[]) {
                 updateParamsForFCL(100, true);
                 // FULLY CONNECTED LAYER
                 FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                RELU(helper, nullptr, nodes_out);
                 updateParamsForFCL(10, false);
                 break;
             }
@@ -151,6 +165,7 @@ int main(int argc, char* argv[]) {
                 // fully connected layer:
                 updateParamsForFCL(500, true);
                 FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                RELU(helper, nullptr, nodes_out);
 
                 updateParamsForFCL(10, false);
                 break;
@@ -172,17 +187,7 @@ int main(int argc, char* argv[]) {
         }
         // FULLY CONNECTED LAYER
         FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-        switch (nn_mode) {                              // from here on network architectures differ
-            case 0:{ // Chameleon
-            }
-            case 1: { // SecureNN
-                ARGMAX(helper, nullptr, nodes_out);
-                break;
-            }
-            case 2:{
-
-            }
-        }
+        ARGMAX(helper, nullptr, nodes_out);
     }
     helper->PrintBytes();
     return 0;

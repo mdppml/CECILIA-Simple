@@ -1268,26 +1268,11 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
 
-        ofstream image_file;
-        double** i_values = convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width);
-        if(proxy->getPRole() == P1) {
-            image_file.open("../apps/cnn/model_files/LeNet_trained/correctness/steps.txt",
-                            std::ios::app);                // at least one win must be > 1, otherwise values are only selected 1 by one.
-            image_file << "CL input: " << i_channel << " x " << i_height << " x " << i_width << endl;
-            for (int r = 0; r < i_height; ++r) {
-                for (int c = 0; c < i_width; ++c) {
-                    image_file << static_cast<float>(i_values[r][c]);
-                    if (c < (i_width - 1)) {
-                        image_file << ",";
-                    }
-                }
-                image_file << endl;
-            }
-            image_file << endl;
+        double*** i_values = new double ** [i_channel];
+        for (int i = 0; i < i_channel; ++i) {
+            i_values[i] = convert2double(REC(proxy, input[i], i_height, i_width), i_height, i_width);
         }
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
-
-        i_values = convert2double(REC(proxy, conv_result[0], output_channel, conv_len), output_channel, conv_len);
 
         uint64_t** summed_channel_conv;
         if(i_channel == 1){
@@ -1326,36 +1311,10 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         delete[] stretched_input;
         delete[] conv_input;
         delete[] conv_result;
-        double* rec_res = convert2double(REC(proxy, conv_reshaped, conv_len*output_channel), conv_len*output_channel);
-        if(proxy->getPRole() == P1) {
-            image_file << "summed channel and added bias: (CL result)" << endl;
-            for (int k = 0; k < output_channel; ++k) {
-                for (int i = 0; i < conv_len; ++i) {
-                    image_file << static_cast<float>(rec_res[k * conv_len + i]);
-                    if (i < (conv_len - 1)) {
-                        image_file << ",";
-                    }
-                }
-                image_file << endl;
-            }
-            image_file << endl;
-        }
+
         // ACTIVATION:
         uint64_t* conv_activated = RELU(proxy, conv_reshaped, conv_len*output_channel);
-        rec_res = convert2double(REC(proxy, conv_activated, conv_len*output_channel), conv_len*output_channel);
-        if(proxy->getPRole() == P1) {
-            image_file << "RELU activated: " << endl;
-            for (int k = 0; k < output_channel; ++k) {
-                for (int i = 0; i < conv_len; ++i) {
-                    image_file << static_cast<float>(rec_res[k * conv_len + i]);
-                    if (i < (conv_len - 1)) {
-                        image_file << ",";
-                    }
-                }
-                image_file << endl;
-            }
-            image_file << endl;
-        }
+        double* rec_res = convert2double(REC(proxy, conv_activated, conv_len*output_channel), conv_len*output_channel);
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
         uint32_t out_len = out_height*out_width;
@@ -1365,21 +1324,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
             out_len = out_height*out_width;
             // Maxpool:
             //conv_activated is like all conv_results staked on top of each other, rows not only conv_height but output_channel*conv_height
-            uint64_t* conv_pooled = MAX(proxy, conv_activated, conv_height*output_channel, conv_width, max_win_height, max_win_width);
-            rec_res = convert2double(REC(proxy, conv_pooled, output_channel * out_len), output_channel*out_len);
-            if(proxy->getPRole() == P1) {
-                image_file << "Max activated: " << endl;
-                for (int k = 0; k < output_channel; ++k) {
-                    for (int i = 0; i < out_len; ++i) {
-                        image_file << static_cast<float>(rec_res[k * out_len + i]);
-                        if (i < (out_len - 1)) {
-                            image_file << ",";
-                        }
-                    }
-                    image_file << endl;
-                }
-                image_file << endl;
-            }
+            conv_activated = MAX(proxy, conv_activated, conv_height*output_channel, conv_width, max_win_height, max_win_width);
         }
 
         auto ***conv_layer = new uint64_t **[output_channel];
@@ -1390,12 +1335,12 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                     conv_layer[0] = new uint64_t*[1];
                     conv_layer[0][0] = new uint64_t[output_channel*out_len];
                 }
-                conv_layer[0][0] = conv_activated;
-                /*for (uint32_t row = 0; row < out_height; row++) {
+                //conv_layer[0][0] = conv_activated;
+                for (uint32_t row = 0; row < out_height; row++) {
                     for (uint32_t col = 0; col < out_width; col++) {
                         conv_layer[0][0][k*out_len + row*out_width + col] = conv_activated[k*out_len + row * out_width + col];
                     }
-                }*/
+                }
             }
             else{
                 // bring result in matrix shape
@@ -1410,19 +1355,15 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
         }
         delete[] conv_reshaped;
         delete[] conv_activated;
-        image_file.close();
         return conv_layer;
     }
     else if (proxy->getPRole() == HELPER){
         // convolution:
-        cout << "MATMATMUL" << endl;
         MATMATMUL(proxy, nullptr, nullptr, 0, i_channel * output_channel * k_size * conv_len, 0, 0);
         // ACTIVATION:
-        cout << "ReLU" << endl;
         RELU(proxy, nullptr, conv_len*output_channel);
         if (doMaxpooling){
             // Maxpool:
-            cout << "MAX" << endl;
             MAX(proxy, nullptr, output_channel*conv_height, conv_width, max_win_height, max_win_width);
         }
         return nullptr;
@@ -1431,7 +1372,7 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
 }
 
 /**
- * Implements functionality of a fully connected layer (FCL) with ReLU as activation function.
+ * Implements functionality of a fully connected layer (FCL) without activation function.
  * @param proxy
  * @param input the input vector of length in_size to be fully connected to the output nodes.
  * @param in_size length of the input vector (when input is in more dimensional shape, use the Flattening method FLT before)
@@ -1444,61 +1385,16 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  */
 uint64_t* FCL(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, int node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
-        //print2DArray("MATVECMUL input weights", convert2double(REC(proxy, weights, node_number, in_size), node_number, in_size), node_number, in_size);
-        //print1DArray("MATVECMUL input vector", convert2double(REC(proxy, input, in_size), in_size), in_size);
         double* i_values = convert2double(REC(proxy, input, in_size), in_size);
-        ofstream image_file;
-        if(proxy->getPRole() == P1) {
-            image_file.open("../apps/cnn/model_files/LeNet_trained/correctness/steps.txt",
-                            std::ios::app);                // at least one win must be > 1, otherwise values are only selected 1 by one.
-            image_file << "FCL input dim: " << in_size << ", output dim: " << node_number << endl;
-            for (int r = 0; r < in_size; ++r) {
-                image_file << static_cast<float>(i_values[r]);
-                if (r < (in_size - 1)) {
-                    image_file << ",";
-                }
-            }
-            image_file << endl;
-        }
         uint64_t *output = MATVECMUL(proxy, weights, input, node_number, in_size);
-        //print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
         uint64_t *added_bias = ADD(proxy, output, bias, node_number);
         delete[] output;
-        //print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
         i_values = convert2double(REC(proxy, added_bias, node_number), node_number);
-        if(proxy->getPRole() == P1) {
-            image_file.open("../apps/cnn/model_files/LeNet_trained/correctness/steps.txt",
-                            std::ios::app);                // at least one win must be > 1, otherwise values are only selected 1 by one.
-            image_file << "added channels after MATVECMUL: " << endl;
-            for (int r = 0; r < node_number; ++r) {
-                image_file << static_cast<float>(i_values[r]);
-                if (r < (node_number - 1)) {
-                    image_file << ",";
-                }
-            }
-            image_file << endl;
-        }
-        uint64_t* activated = RELU(proxy, added_bias, node_number);
-        i_values = convert2double(REC(proxy, activated, node_number), node_number);
-        if(proxy->getPRole() == P1) {
-            image_file.open("../apps/cnn/model_files/LeNet_trained/correctness/steps.txt",
-                            std::ios::app);                // at least one win must be > 1, otherwise values are only selected 1 by one.
-            image_file << "ReLU activated: " << endl;
-            for (int r = 0; r < node_number; ++r) {
-                image_file << static_cast<float>(i_values[r]);
-                if (r < (node_number - 1)) {
-                    image_file << ",";
-                }
-            }
-            image_file << endl;
-        }
-        //print1DArray("RELU output", convert2double(REC(proxy, activated, node_number), node_number), node_number);
-        delete[] added_bias;
-        return activated;
+        return added_bias;
     }
     else if (proxy->getPRole() == HELPER){
         MATVECMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
-        RELU(proxy, nullptr, node_number);
+        //RELU(proxy, nullptr, node_number);//TODO no relu for LeNets second FCL
         return nullptr;
     }
     else{

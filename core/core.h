@@ -1131,7 +1131,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         while (filled_size < size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
-                cout << "**--- call PMUL: " << partial_size << endl;
             }
             PMUL(proxy,0, 0, partial_size);
             filled_size += partial_size;
@@ -1144,7 +1143,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         while (filled_size < size) {
             if ((size - filled_size) < MAXMUL) {
                 partial_size = (size - filled_size);
-                cout << "**--- call PMUL: " << partial_size << endl;
             }
             uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
             std::copy(partial_result, partial_result + partial_size, result + filled_size);
@@ -1635,7 +1633,6 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
             }
         }
-        cout << "--- call MUL: " << size << endl;
         uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
         // recover the resulting matrix
         uint64_t ***res = new uint64_t **[n_matrices];
@@ -1666,7 +1663,6 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
             throw invalid_argument("core::MATMATMUL-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
         }
         // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
-        cout << "--- call MUL: " << a_row << endl;
         MUL(proxy, 0, 0, a_row);
         return NULL;
     }
