@@ -41,7 +41,7 @@ void initParams(uint32_t mode) {
     curr_layer = 0;
     //MNIST data
     trained_for_MNIST = true;
-    i_number = 10, i_channel = 1, i_width = 28, i_height = 28;
+    i_number = 10000, i_channel = 1, i_width = 28, i_height = 28;
     k_dim = 5;
     stride = 1;
     padding = 0;
@@ -244,7 +244,6 @@ int main(int argc, char *argv[]) {
                 image_file.open(path, std::ios::out);
                 if (!image_file) {
                     // create file first
-                    cout << "create file: " << path << endl;
                     image_file.open(path, std::ios::app);
                 }
 
@@ -260,7 +259,7 @@ int main(int argc, char *argv[]) {
                 image_file << endl;
                 image_file.close();
 
-                cout << "close file: " << path << endl;
+                cout << "initialized file: " << path << endl;
             }
         }
     } else {
@@ -349,8 +348,6 @@ int main(int argc, char *argv[]) {
 
         switch (nn_mode) {                              // from here on network architectures differ
             case 0: { // Chameleon
-                print2DArray("kernel values", convert2double(REC(proxy, kernel[0], k_number, k_dim * k_dim), k_number, k_dim * k_dim), k_number, k_dim * k_dim);
-                print2DArray("input", convert2double(REC(proxy, input[image][0], i_height, i_width), i_height, i_width), i_height, i_width);
                 conv = CL(proxy, input[image], i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
                           max_win_width, bias[curr_layer], true);
                 delete_image_share(input, image);
@@ -360,7 +357,7 @@ int main(int argc, char *argv[]) {
                 // FULLY CONNECTED LAYER
                 weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
                 if (image == i_number - 1) {
-                    delete_model_weights(model_weights, curr_layer, i_channel, bias_dimensions[curr_layer]);
+                    delete_model_weights(model_weights, curr_layer, 0, nodes_out);
                 }
                 prev_layer_res = FCL(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
                 prev_layer_res = RELU(proxy, prev_layer_res, nodes_out);
@@ -419,8 +416,8 @@ int main(int argc, char *argv[]) {
 
         uint64_t *output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
         prediction[image] = convert2double(REC(proxy, ARGMAX(proxy, output, nodes_out)));
-        print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
-        cout << ": predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
+        //print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
+        cout << "predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
 
         if (prediction[image] == int(test_label[image])) {
             correct++;
@@ -445,9 +442,9 @@ int main(int argc, char *argv[]) {
 
                 return 1;
             }
-            for (int v = 0; v < nodes_out; ++v) {
+            /*for (int v = 0; v < nodes_out; ++v) {
                 image_file << inference_res[v] << "\t";
-            }
+            }*/
             image_file << endl;
             image_file << prediction[image] << endl;
             image_file.close();
@@ -463,6 +460,10 @@ int main(int argc, char *argv[]) {
         }
         delete[] weights;
     }
+    for (int layer = 0; layer < layer_number; ++layer) {
+        delete[] bias[layer];
+    }
+    delete[] bias;
     delete[] model_weights;
     proxy->PrintBytes();
     proxy->piK();
@@ -473,6 +474,6 @@ int main(int argc, char *argv[]) {
         ground_truth[i] = test_label[i];
     print1DArray("Ground Truth: ", ground_truth, i_number);
 
-    cout << "Accuracy: " << printf("%.2f", correct / i_number) << " (" << printf("%.1f", correct) << "/" << i_number << ")" << endl;
+    cout << "Accuracy: " << printf("%.1f", correct / i_number) << " (" << printf("%.1f", correct) << "/" << i_number << ")" << endl;
     return 0;
 }

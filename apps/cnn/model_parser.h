@@ -16,12 +16,11 @@ const char col_delim = ',';
 const char* white_space = &" \t\n\r\f\v" [col_delim]; // any whitespace to be removed
 
 const string file_ending = ".txt";
-// constants for CHAMELEON
+// constants for CHAMELEON (obtained from author)
 const string ch_conv_name = "ws_conv0_filter";
-// constants for LeNet
-const string le_conv_name0 = "conv0_weight_";
-const string le_conv_name1 = "conv1_weight_";
-const string le_conv_name2 = "conv2_weight_";
+// constants for LeNet (and Chameleon where self trained)
+const string self_trained_conv_name0 = "conv0_weight_";
+const string self_trained_conv_name1 = "conv1_weight_";
 
 // constants for MINIONN
 const char row_start = '[', row_end = ']', name_end = ':';
@@ -356,7 +355,7 @@ double**** getCellCnnParameters(const string& model_file_dir, uint32_t number_of
     auto ****weights = new double ***[6]; // 1 CL, 1 FCL, bias for each layer
 
     // convolutional layer:
-    weights[0] = parseAllKernelFiles(model_file_dir, le_conv_name0, number_of_kernel, 1, 35);
+    weights[0] = parseAllKernelFiles(model_file_dir, self_trained_conv_name0, number_of_kernel, 1, 35);
     print2DArray("cl weights", weights[0][0], 1,35,true);
 
     // fully connected layer:
@@ -389,28 +388,25 @@ double**** getCellCnnParameters(const string& model_file_dir, uint32_t number_of
  */
 double**** getChameleonParameters(const string& model_file_dir, uint32_t number_of_kernel){
     auto ****weights = new double ***[6]; // 1 CL, 2 FCL, bias for each layer
-
     // convolutional layer:
-    double*** parsedParams = parseAllKernelFiles(model_file_dir, ch_conv_name, number_of_kernel, 1, 25);
+    double*** parsedParams = parseAllKernelFiles(model_file_dir, self_trained_conv_name0, number_of_kernel, 1, 25);
     weights[0] = switchDimensions0and1(parsedParams, number_of_kernel, 1, 25);
 
     // fully connected layer:
-    string file_path = model_file_dir + "ws_dense0" + file_ending;
-    weights[1] = parse2DParams(file_path, 980, 100, false);
-    weights[1][0] = transpose(weights[1][0], 980, 100);
+    string file_path = model_file_dir + "fc0_weight" + file_ending;
+    weights[1] = parse2DParams(file_path, 100, 980, false);
 
-    file_path = model_file_dir + "ws_dense1" + file_ending;
-    weights[2] = parse2DParams(file_path, 100, 10, false);
-    weights[2][0] = transpose(weights[2][0], 100, 10);
+    file_path = model_file_dir + "fc1_weight" + file_ending;
+    weights[2] = parse2DParams(file_path, 10, 100, false);
 
     // bias
-    file_path = model_file_dir + "bs_conv0" + file_ending;
+    file_path = model_file_dir + "conv0_bias" + file_ending;
     weights[3] = parse2DParams(file_path, 5, 1, true);
 
-    file_path = model_file_dir + "bs_dense0" + file_ending;
+    file_path = model_file_dir + "fc0_bias" + file_ending;
     weights[4] = parse2DParams(file_path, 100, 1, true);
 
-    file_path = model_file_dir + "bs_dense1" + file_ending;
+    file_path = model_file_dir + "fc1_bias" + file_ending;
     weights[5] = parse2DParams(file_path, 10, 1, true);
 
     return weights;
@@ -429,17 +425,16 @@ double**** getChameleonParameters(const string& model_file_dir, uint32_t number_
  * The fourth dimension specifies the length of the kernel/number of kernel values. For 5x5 kernel, this will be 25.
  */
 double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
-    double ****weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
+    auto ****weights = new double ***[8]; // 2 CL, 2 FCL, bias for each layer
     string line;
 
     if(self_trained){
         // convolutional layer:
-        double*** parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name0, 20, 1, 25);
+        double*** parsedParams = parseAllKernelFiles(model_file_dir, self_trained_conv_name0, 20, 1, 25);
         weights[0] = switchDimensions0and1(parsedParams, 20, 1, 25);
 
-        parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name1, 50, 20, 25);
+        parsedParams = parseAllKernelFiles(model_file_dir, self_trained_conv_name1, 50, 20, 25);
         weights[1] = switchDimensions0and1(parsedParams, 50, 20, 25);
-        //weights[2] = parseAllKernelFiles(model_file_dir, le_conv_name2, 800, 50); //TODO is this needed?
 
         // fully connected layer:
         string file_path = model_file_dir + "fc0_weight" + file_ending;
@@ -463,9 +458,9 @@ double**** getLeNetParameters(const string& model_file_dir, bool self_trained){
     else{ //this part is for the parameters obtained by matlab script
         // convolutional layer:
 
-        double*** parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name0, 6, 1, 25);
+        double*** parsedParams = parseAllKernelFiles(model_file_dir, self_trained_conv_name0, 6, 1, 25);
         weights[0] = switchDimensions0and1(parsedParams, 6, 1, 25);
-        parsedParams = parseAllKernelFiles(model_file_dir, le_conv_name1, 16, 6, 25);
+        parsedParams = parseAllKernelFiles(model_file_dir, self_trained_conv_name1, 16, 6, 25);
         weights[1] = switchDimensions0and1(parsedParams, 16, 6, 25);
 
         // fully connected layer:

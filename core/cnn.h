@@ -993,10 +993,6 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         z = proxy->getPRole() - convert2Long(&ptr);
         if (f) { // if f is 1  we get the next long value in the buffer.
             z = proxy->getPRole() - convert2Long(&ptr);
-            cout << convert2double(REC(proxy, z)) << endl;
-        }
-        else{
-            cout << convert2double(REC(proxy, convert2Long(&ptr))) << endl;
         }
         return z;
     }
@@ -1264,14 +1260,8 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     bool doMaxpooling = ((max_win_width > 0) && (max_win_height > 0) and (max_win_width + max_win_height) > 2);
 
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
-        // stretched_input is the same for each kernel
+        uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride); // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
-
-        double*** i_values = new double ** [i_channel];
-        for (int i = 0; i < i_channel; ++i) {
-            i_values[i] = convert2double(REC(proxy, input[i], i_height, i_width), i_height, i_width);
-        }
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
 
         uint64_t** summed_channel_conv;
@@ -1314,7 +1304,6 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
 
         // ACTIVATION:
         uint64_t* conv_activated = RELU(proxy, conv_reshaped, conv_len*output_channel);
-        double* rec_res = convert2double(REC(proxy, conv_activated, conv_len*output_channel), conv_len*output_channel);
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
         uint32_t out_len = out_height*out_width;
@@ -1379,22 +1368,19 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
  * @param weights to be used must be of shape node_number x in_size
  * @param node_number number of output nodes of this layer
  * @param bias vector of length node_number. For each output node there is one bias value which is added.
- * @return the output layer that have been computed by using the dot product between input values and weights,
- * activated with ReLu and the according bias added. It will be of length node_number.
+ * @return the output layer that have been computed by using the dot product between input values and weights
+ * and the according bias added. It will be of length node_number.
  * return vector must be deleted if not needed anymore.
  */
 uint64_t* FCL(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, int node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
-        double* i_values = convert2double(REC(proxy, input, in_size), in_size);
         uint64_t *output = MATVECMUL(proxy, weights, input, node_number, in_size);
         uint64_t *added_bias = ADD(proxy, output, bias, node_number);
         delete[] output;
-        i_values = convert2double(REC(proxy, added_bias, node_number), node_number);
         return added_bias;
     }
     else if (proxy->getPRole() == HELPER){
         MATVECMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
-        //RELU(proxy, nullptr, node_number);//TODO no relu for LeNets second FCL
         return nullptr;
     }
     else{
