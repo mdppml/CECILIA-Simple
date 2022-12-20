@@ -178,6 +178,10 @@ int main(int argc, char* argv[]) {
                 size1 = helper->ReadInt();
                 DIV(helper, 0, 0, size1);
                 break;
+            case CORE_MNORM:
+                size1 = helper->ReadInt();
+                NORM(helper, 0, 0, size1);
+                break;
             case AUC_MSB:
                 sz = helper->ReadInt();
                 AUCMSB(helper,nullptr,sz);

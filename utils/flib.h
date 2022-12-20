@@ -278,7 +278,7 @@ uint64_t getModularInverse(uint64_t a){
  * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
  */
 uint64_t AS(uint64_t z, int n_shift = FRAC) {
-    z = static_cast<uint64_t>( static_cast<int64_t>(z) >> FRAC);
+    z = static_cast<uint64_t>( static_cast<int64_t>(z) >> n_shift);
 //    uint64_t msb_z = z >> (L_BIT - 1);
 //    if(msb_z == 0x0) {
 ////        cout << "MSB-0 case" << endl;
