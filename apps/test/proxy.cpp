@@ -3503,8 +3503,8 @@ int main(int argc, char *argv[]) {
 
 //        result = TRUNCATE_Test(proxy, cnt, umap);
 //        ADD_Test(proxy);
-        result = MUL_Test(proxy);
-        result = MMUL_Test(proxy);
+//        result = MUL_Test(proxy);
+//        result = MMUL_Test(proxy);
         //MAX_Specific_Test(proxy);
 
 //        MOC_Test(proxy);
@@ -3522,7 +3522,7 @@ int main(int argc, char *argv[]) {
 //        MAX_Test(proxy);
 //        MMAX_Test(proxy);
 //
-        RST_Test(proxy);
+//        RST_Test(proxy);
 //        RELU_Test(proxy);
 //        MRELU_Test(proxy);
 //

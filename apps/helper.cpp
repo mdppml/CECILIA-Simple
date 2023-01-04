@@ -197,6 +197,11 @@ int main(int argc, char* argv[]) {
                 sz = helper->ReadInt();
                 MDIVISION(helper,nullptr,nullptr,sz);
                 break;
+            case AUC_ROCNOTIE:
+                sz = helper->ReadInt();
+                cout << "Sz: " << sz << endl;
+                AUCNOTIE(helper, 0, sz);
+                break;
             case RKN_EIG:
                 sz = helper->ReadInt();
                 EIG(helper, sz);
