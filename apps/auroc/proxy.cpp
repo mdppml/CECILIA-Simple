@@ -60,6 +60,7 @@ void random_data(Party *proxy, int nstation, uint64_t *sample_size) {
 
 }
 
+// Do we need to update file_data function considering the changes that we made in the number format?
 void file_data(string path) {
     vector<string> f_list;
     read_directory(path, f_list);
@@ -137,11 +138,6 @@ void calc_auc(Party *proxy) {
     for (int i = 0; i < size; i++) {
         TP = ADD(proxy, TP, labels[i]);
         FP = proxy->getPRole() * convert2uint64(i)  - TP;
-//        cout << i << "\tTP: " << convert2double(REC(proxy, TP)) << "\tFP: " << convert2double(REC(proxy, FP)) << endl;
-//        if (proxy->getPRole() == P1)
-//            FP = i - TP;
-//        else
-//            FP = 0 - TP;
 
         mul1[i] = TP;
         mul2[i] = FP - pre_FP;
@@ -167,11 +163,6 @@ void calc_auc(Party *proxy) {
     uint64_t FN = TP;
     uint64_t TN = proxy->createShare( (uint64_t) 0);
     TN = proxy->getPRole() * convert2uint64(size) - TP;
-//    uint64_t TN = 0;
-//    if (proxy->getPRole() == P1)
-//        TN = size - TP;
-//    else
-//        TN = 0 - TP;
 
 //    cout << "MUL is being called... Again!" << endl;
     cout << convert2double(REC(proxy, TN)) << "\t" << convert2double(REC(proxy, FN)) << endl;
@@ -228,14 +219,14 @@ void sort_data(Party *proxy, int nstation, int delta) {
             int cnt = 0;
             bool flag = false;
             while (!c_data[fl_index].empty() && !c_data[ll_index].empty()) {
-                cout << "fl_index: " << fl_index << "\tll_index: " << ll_index << endl;
-                cout << "***************************************" << endl;
-                tmp_sample_size[0] = c_data[fl_index].size();
-                tmp_sample_size[1] = c_data[ll_index].size();
-                data[0] = c_data[fl_index];
-                data[1] = c_data[ll_index];
-                print_data(proxy, 2, tmp_sample_size, data);
-                cout << "-----------------------------------" << endl;
+//                cout << "fl_index: " << fl_index << "\tll_index: " << ll_index << endl;
+//                cout << "***************************************" << endl;
+//                tmp_sample_size[0] = c_data[fl_index].size();
+//                tmp_sample_size[1] = c_data[ll_index].size();
+//                data[0] = c_data[fl_index];
+//                data[1] = c_data[ll_index];
+//                print_data(proxy, 2, tmp_sample_size, data);
+//                cout << "-----------------------------------" << endl;
 
 //                cout << "Count: " << cnt << endl;
                 cnt++;
@@ -308,7 +299,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
                 int fl_pop = 1;
                 int ll_pop = 0;
 
-                cout << "########### min_val: " << min_val << endl;
+//                cout << "########### min_val: " << min_val << endl;
 
                 for (int j = 0; j < min_val; j++) {
 //                    cout << j << endl;
@@ -339,13 +330,13 @@ void sort_data(Party *proxy, int nstation, int delta) {
 
                 }
 
-                cout << "-----------------------------------" << endl;
-                cout << "After the loop" << endl;
-                tmp_sample_size[0] = c_data[fl_index].size();
-                tmp_sample_size[1] = c_data[ll_index].size();
-                data[0] = c_data[fl_index];
-                data[1] = c_data[ll_index];
-                print_data(proxy, 2, tmp_sample_size, data);
+//                cout << "-----------------------------------" << endl;
+//                cout << "After the loop" << endl;
+//                tmp_sample_size[0] = c_data[fl_index].size();
+//                tmp_sample_size[1] = c_data[ll_index].size();
+//                data[0] = c_data[fl_index];
+//                data[1] = c_data[ll_index];
+//                print_data(proxy, 2, tmp_sample_size, data);
 
                 if(c_data[ll_index].size() > c_data[fl_index].size()) {
                     int tmp = ll_index;
@@ -353,14 +344,14 @@ void sort_data(Party *proxy, int nstation, int delta) {
                     fl_index = tmp;
                 }
 
-                cout << "-----------------------------------" << endl;
-                cout << "After the exchanging" << endl;
-                tmp_sample_size[0] = c_data[fl_index].size();
-                tmp_sample_size[1] = c_data[ll_index].size();
-                data[0] = c_data[fl_index];
-                data[1] = c_data[ll_index];
-                print_data(proxy, 2, tmp_sample_size, data);
-                cout << "***************************************" << endl;
+//                cout << "-----------------------------------" << endl;
+//                cout << "After the exchanging" << endl;
+//                tmp_sample_size[0] = c_data[fl_index].size();
+//                tmp_sample_size[1] = c_data[ll_index].size();
+//                data[0] = c_data[fl_index];
+//                data[1] = c_data[ll_index];
+//                print_data(proxy, 2, tmp_sample_size, data);
+//                cout << "***************************************" << endl;
 
 //                cout << "Over" << endl;
 
@@ -418,9 +409,9 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //        cout << "last while loop is over" << endl;
         nstation = (nstation / 2) + (nstation % 2);
 
-        cout << "=========================================" << endl;
-        print_data(proxy, nstation, tmp_sample_size);
-        cout << "=========================================" << endl;
+//        cout << "=========================================" << endl;
+//        print_data(proxy, nstation, tmp_sample_size);
+//        cout << "=========================================" << endl;
 
     }
 }
@@ -498,25 +489,26 @@ int main(int argc, char *argv[]) {
         cout << "random data" << endl;
         random_data(proxy, nstation, sample_size);
     }
-    cout << "================================" << endl;
-    print_data(proxy, nstation, sample_size);
-    cout << "================================" << endl;
+//    cout << "=========== Data of each station ==================" << endl;
+//    print_data(proxy, nstation, sample_size);
+//    cout << "================================" << endl;
 
     auto start = chrono::high_resolution_clock::now();
 
-    cout << "Sorting..." << endl;
+//    cout << "Sorting..." << endl;
     sort_data(proxy, nstation, delta);
 
-    uint64_t total_n_samples = 0;
-    for(int i = 0; i < nstation; i++) {
-        total_n_samples += sample_size[i];
-    }
-    uint64_t tmp_size[1] = {total_n_samples};
-    print_data(proxy, 1, tmp_size);
+//    cout << "Data after sorting: " << endl;
+//    uint64_t total_n_samples = 0;
+//    for(int i = 0; i < nstation; i++) {
+//        total_n_samples += sample_size[i];
+//    }
+//    uint64_t tmp_size[1] = {total_n_samples};
+//    print_data(proxy, 1, tmp_size);
 
-    cout << "... is done!" << endl;
-    calc_auc(proxy);
-//    calc_auc_v2(proxy);
+//    cout << "... is done!" << endl;
+//    calc_auc(proxy);
+    calc_auc_v2(proxy);
 
     ios_base::sync_with_stdio(false);
     auto end = chrono::high_resolution_clock::now();
