@@ -107,6 +107,8 @@ int main(int argc, char* argv[]) {
     // run benchmark:
     double cpu_time, real_time;
     for (int i = 0; i < function_count; i++) {
+        bytesSend = 0;
+        bytesReceived = 0;
         file_descriptor = suppress_stdout();
         tie(cpu_time, real_time) = proxy->benchmark(functions[i]);
         resume_stdout(file_descriptor);
@@ -120,10 +122,8 @@ int main(int argc, char* argv[]) {
             }
             sleep(delay);
             cout << role_string << " CPU time: " << padding << cpu_time << " ms" << endl;
-            cout << "Bytes: " << (bytesSend + bytesReceived)/cycle_count << endl;
+            cout << role_string << " bytes:    " << padding << (bytesSend + bytesReceived)/cycle_count << endl;
             sleep(3-delay);
-            bytesSend = 0;
-            bytesReceived = 0;
         }
     }
     delete[] functions;

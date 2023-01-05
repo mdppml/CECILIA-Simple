@@ -17,6 +17,7 @@
 #include <chrono>
 #include <string>
 #include <map>
+#include "../../utils/AES_CTR_RBG.h"
 
 using namespace std::chrono;
 
@@ -65,6 +66,7 @@ public:
         if (role == HELPER) {
             throw std::invalid_argument("Tried to call the P1 and P2 constructor with a helper role");
         }
+        rbg = new AES_CTR_RBG();
         //generate random data:
         double* vector = random_1D_data(this, _count, 255, false);
         _vector = createShare(
@@ -177,6 +179,7 @@ public:
         _flattened_vector_of_vectors_size = _vector_length * _count;
         _flattened_matrix_size = _matrix_x * _matrix_y;
         this->_flattened_matrix_size_3D = _matrix_x * _matrix_y * _count;
+        rbg = new AES_CTR_RBG();
         _number = 0;
         _vector = nullptr;
         _vector_of_vectors = nullptr;
@@ -191,6 +194,7 @@ public:
         _bias_vector = nullptr;
         _flattened_matrix_3D = nullptr;
         _matrix_fcl_weights = nullptr;
+
     }
 
     ~Party_BM() {
@@ -298,6 +302,17 @@ public:
 
     }
 
+    void generate_random() {
+        uint64_t a = rand();
+        for (int i = 0; i < 10000; i++) {
+            a = rand();
+        }
+    }
+
+    void aes_random() {
+        rbg->GenerateBlock(buffer, 10000);
+    }
+
     void matrix_vector_multiplication() {
         if (this->getPRole() == HELPER) {
             MATVECMUL(this, nullptr, nullptr, 0, _matrix_y * _count * _matrix_x, 0);
@@ -391,6 +406,8 @@ private:
         map["ARGMAX"] = &Party_BM::argmax;
         map["MAX"] = &Party_BM::max;
         map["MAXPOOL"] = &Party_BM::max_per_window;
+        map["RAND"] = &Party_BM::generate_random;
+        map["AES"] = &Party_BM::aes_random;
         return map;
     }
     std::map<std::string, void(Party_BM::*)()> function_mappings = create_map();
@@ -401,6 +418,8 @@ private:
     uint64_t **_vector_of_vectors, **_matrix_MATVECMUL, **_matrix_fcl_weights;
     uint64_t ***_vector_of_matrices, ***_matrix_MATMATMUL, ***_vector_of_gram_matrices, ***_matrix_kernel;
     double** _double_matrix;
+    unsigned char* buffer = new unsigned char[10000];
+    AES_CTR_RBG* rbg;
 };
 
 
