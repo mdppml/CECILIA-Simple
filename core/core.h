@@ -9,62 +9,27 @@
 #include "../utils/test_functions.h"
 #include <thread>
 #include <mutex>
-#include "bitset"
+#include <bitset>
 
-//uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
-//
-//    uint64_t b;
-//    if ( proxy->getPRole() == P1) {
-//        unsigned char *ptr = proxy->getBuffer1();
-//        addVal2CharArray(a, &ptr);
-//        Send(proxy->getSocketP2(), proxy->getBuffer1(), 8);
-//        Receive(proxy->getSocketP2(), proxy->getBuffer1(), 8);
-//        ptr = proxy->getBuffer1();
-//        b = convert2Long(&ptr);
-//
-//    } else if ( proxy->getPRole() == P2) {
-//        unsigned char *ptr = proxy->getBuffer1();
-//        addVal2CharArray(a, &ptr);
-//        Send(proxy->getSocketP1(), proxy->getBuffer1(), 8);
-//        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 8);
-//        ptr = proxy->getBuffer1();
-//        b = convert2Long(&ptr);
-//    }
-//    return (a + b) & mask;
-//}
-//
-//uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
-//
-//    uint64_t *b = new uint64_t[sz];
-//    if ( proxy->getPRole() == P1 ) {
-//        unsigned char *ptr = proxy->getBuffer1();
-//        for (int i = 0; i < sz; i++) {
-//            addVal2CharArray(a[i], &ptr);
-//        }
-//        Send(proxy->getSocketP2(), proxy->getBuffer1(), sz * 8);
-//        Receive(proxy->getSocketP2(), proxy->getBuffer1(), sz * 8);
-//        ptr = proxy->getBuffer1();
-//        for (int i = 0; i < sz; i++) {
-//            b[i] = convert2Long(&ptr);
-//        }
-//
-//    } else if ( proxy->getPRole() == P2) {
-//        unsigned char *ptr = proxy->getBuffer1();
-//        for (int i = 0; i < sz; i++) {
-//            addVal2CharArray(a[i], &ptr);
-//        }
-//        Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
-//        Receive(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
-//        ptr = proxy->getBuffer1();
-//        for (int i = 0; i < sz; i++) {
-//            b[i] = convert2Long(&ptr);
-//        }
-//    }
-//    for (int i = 0; i < sz; i++) {
-//        b[i] = (a[i] + b[i]) & mask;
-//    }
-//    return b;
-//}
+/**
+ * Perform the truncation operation which we use to keep the number of fractional bit consistent after MUL operation
+ * @param proxy
+ * @param z: value we want to truncate
+ * @return truncated z is returned
+ */
+uint64_t truncate(Party *proxy, uint64_t z, int shift = FRAC) {
+    switch (proxy->getPRole()) {
+        case P1:
+            z = AS(z, shift);
+            break;
+        case P2:
+            z = -1 * AS(-1 * z, shift);
+            break;
+        case HELPER:
+            break;
+    }
+    return z;
+}
 
 uint64_t REC(Party* proxy, uint64_t a, uint64_t mask=RING_N) {
 
@@ -104,6 +69,7 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
         thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz*8);
         thr1.join();
         thr2.join();
+
         ptr = proxy->getBuffer2();
         for (int i = 0; i < sz; i++) {
             b[i] = convert2Long(&ptr);
@@ -140,9 +106,11 @@ uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
                 addVal2CharArray(a[i][j], &ptr);
             }
         }
-        Send(proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), n_row * n_col * 8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), n_row * n_col * 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         for (int i = 0; i < n_row; i++) {
             for(int j = 0; j < n_col; j++) {
                 b[i][j] = convert2Long(&ptr);
@@ -156,9 +124,11 @@ uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
                 addVal2CharArray(a[i][j], &ptr);
             }
         }
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
-        ptr = proxy->getBuffer1();
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), n_row * n_col * 8);
+        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), n_row * n_col * 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->getBuffer2();
         for (int i = 0; i < n_row; i++) {
             b[i] = new uint64_t[n_col];
             for( int j = 0; j < n_col; j++) {
@@ -285,7 +255,7 @@ uint64_t MUX(Party* proxy, uint64_t x, uint64_t y, uint64_t b) {
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
         ptr = proxy->getBuffer1();
         m1 = m1 + convert2Long(&ptr);
-        m1 = m1 >> FRAC;
+        m1 = m1 >> FRAC; // do this and the corresponding one in P2 need to be changed to arithmetic shifting?
         x = x - m1;
 
 
@@ -704,6 +674,7 @@ uint64_t *MOC(Party* proxy, uint64_t *x, uint32_t sz) {
     return NULL;
 }
 
+// THIS MSB IS NOT UP-TO-DATE! WE NEED TO EITHER UPDATE IT OR DELETE IT!
 /** Most significant bit: Returns the first (=left-most) bit of @p x.
  *
  * @param x
@@ -788,7 +759,7 @@ uint64_t MSB(Party *proxy, uint64_t x) {
 }
 
 // MSB has 4 communication round. MOC and PC are hardcoded in MSB to reduce the number of communication rounds of MSB calls.
-uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
+uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint8_t f = proxy->generateCommonRandomByte() & 0x1;
         uint64_t *z_1 = new uint64_t[sz];
@@ -821,7 +792,7 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
 //                proxy->getBuffer1()[bi] = (proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum) * proxy->generateCommonRandomOddByte();
 //                w_sum = (w_sum + w);
                 uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
-                proxy->getBuffer1()[bi] =(mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
+                proxy->getBuffer1()[bi] = (mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
                 w_sum = (w_sum + w) % LP;
             }
             buffer_index += L1;
@@ -844,9 +815,11 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
             addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
             buffer_index +=16;
         }
-        delete []yb;
-        delete []ya;
-        delete []z_1;
+        delete [] yb;
+        delete [] ya;
+        delete [] z_1;
+        delete [] z;
+
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (16 + L_BIT -1));
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);
 
@@ -917,8 +890,10 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz) {
             uint64_t val1 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
             uint64_t val2 = (convert2Long(&ptr) + convert2Long(&ptr2)-(w[j]^res)*N1)/N1;
             jk += 16;
-            val1 = convert2uint64((double)val1);
-            val2 = convert2uint64((double)val2);
+            if(format) {
+                val1 = convert2uint64((double)val1);
+                val2 = convert2uint64((double)val2);
+            }
             uint64_t vs_1 = proxy->generateRandom();
             uint64_t vs_2 = (val1 - vs_1);
             addVal2CharArray(vs_1, &ptr_out);
@@ -959,7 +934,6 @@ uint64_t *CMP(Party* proxy, uint64_t *x, uint64_t *y,uint32_t sz) {
     }
     return NULL;
 }
-
 
 /** Comparison between two numbers.
  *
@@ -1040,13 +1014,14 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 
 //        uint64_t z = proxy->getPRole() * e * f + f * mt[0] + e * mt[1] + mt[2];
         uint64_t z = proxy->getPRole() * rec_e_f[0] * rec_e_f[1] + rec_e_f[1] * mt[0] + rec_e_f[0] * mt[1] + mt[2];
+//        uint64_t rec_z = REC(proxy, z);
+//        cout << "    z: " << bitset<64>(z) << endl;
+//        cout << "rec_z: " << bitset<64>(rec_z) << endl;
+//        cout << "Bitwise divided or shifted z: " << bitset<64>(rec_z >> FRAC) << endl;
+//        cout << "Converted z by 2 * FRAC: " << convert2double(rec_z, 2 * FRAC) << endl;
 
         // restore the fractional part - refer to SecureNN for more details
-        if (proxy->getPRole() == P1) {
-            z = z >> FRAC;
-        } else {
-            z = -1 * ((-1 * z) >> FRAC);
-        }
+        z = truncate(proxy, z);
 
         delete [] rec_e_f;
 
@@ -1059,7 +1034,7 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 }
 
 uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
-    if(DEBUG_FLAG >= 1)
+    if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
         uint64_t *mt1[3];
@@ -1068,7 +1043,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             mt1[i] = new uint64_t[size];
             mt2[i] = new uint64_t[size];
         }
-
         GenerateMultiplicationTriple(proxy, mt1, mt2, size);
 
         // send the multiplication triples to P1
@@ -1080,7 +1054,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         }
         //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
         Send(proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
-
         // send the multiplication triples to P2
         unsigned char *ptr_out2 = proxy->getBuffer2();
         for (int i = 0; i < 3; i++) {
@@ -1097,10 +1070,9 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
             delete[] mt1[i];
             delete[] mt2[i];
         }
-
         Receive(proxy->getSocketP1(), proxy->getBuffer1(), 1);
         Receive(proxy->getSocketP2(), proxy->getBuffer2(), 1);
-        if(DEBUG_FLAG >= 1)
+        if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
 
@@ -1116,41 +1088,30 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
                 mt[i][j] = convert2Long(&ptr);
             }
         }
-
         // concatenated form of e and f shares
-        uint64_t* concat_e_f = new uint64_t[size * 2];
-        for(int i = 0; i < size; i++) {
+        uint64_t *concat_e_f = new uint64_t[size * 2];
+        for (int i = 0; i < size; i++) {
             concat_e_f[i] = a[i] - mt[0][i];
             concat_e_f[i + size] = b[i] - mt[1][i];
         }
-
-        uint64_t* e_f = REC(proxy, concat_e_f, size * 2);
-
+        uint64_t *e_f = REC(proxy, concat_e_f, size * 2);
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
 
         uint64_t *z = new uint64_t[size];
         for (int i = 0; i < size; i++) {
             z[i] = proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
-//            cout << i << ": " << z[i] << endl;
-            if (proxy->getPRole() == P1) {
-                z[i] = z[i] >> FRAC;
-            } else {
-                //z[i] = -1 * ((-1 * z[i]) >> FRAC);
-                z[i] = RING_N - (RING_N - (z[i] >> FRAC));
-            }
+            z[i] = truncate(proxy, z[i]);
         }
-
         delete [] e_f;
+        delete [] concat_e_f;
         for (auto &i : mt) {
             delete[] i;
         }
-        proxy->getBuffer1()[0] = 0;
+        proxy->getBuffer1()[0] = 0; //TODO this is only sent by p2 not by p1
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
         if(DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
-
-
         return z;
     } else {
         return nullptr;
@@ -1910,6 +1871,299 @@ uint64_t MDI(Party* proxy, uint64_t a){
         return 0;
     }
     return -1;
+}
+
+/** Compute the division of a / b - not the integer approximation of the result
+ *
+ * @param proxy : Party instance
+ * @param a : dividend
+ * @param b : divider
+ * @param first_call : indicates whether the DIV call is for the integer part of the division result, i.e. first call.
+ * If it is the first call, then there will be the second call of DIV for the fractional part of the division result
+ * @return a / b
+ */
+uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, bool first_call = true) {
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *signs;
+        if(first_call) {
+            uint64_t inp1[2] = {a, b};
+            signs = MSB(proxy, inp1, 2);
+            uint64_t inp2[2] = {(uint64_t) 0 - a, (uint64_t) 0 - b};
+            uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2);
+            a = abs_vals[0];
+            b = abs_vals[1];
+
+            delete [] abs_vals;
+        }
+
+        // obtain every bit of the dividend
+        uint64_t *msb_bits_of_a_and_b = new uint64_t[L_BIT + 1];
+        uint64_t tmp = a;
+        for(int i = 0; i < L_BIT; i++) {
+            msb_bits_of_a_and_b[i] = tmp;
+            tmp = tmp << 1;
+        }
+        uint64_t *bits_of_a = MSB(proxy, msb_bits_of_a_and_b, L_BIT, false);
+
+        uint64_t Q = 0;
+        uint64_t R = 0;
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            R = R << 1;
+            R = R + bits_of_a[L_BIT - 1 - i];
+
+            uint64_t c = CMP(proxy, R, b);
+            uint64_t o1[2] = {c, c};
+            uint64_t o2[2] = {b, ((uint64_t) proxy->getPRole()) << i};
+
+            uint64_t *v = MUL(proxy, o1, o2, 2);
+            R = R - v[0];
+            Q = Q + v[1];
+
+            delete [] v;
+        }
+
+        delete [] msb_bits_of_a_and_b;
+        delete [] bits_of_a;
+
+        if(first_call) {
+            uint64_t second_div = DIV(proxy, R << FRAC, b, false);
+            Q = (Q << FRAC) + second_div;
+            // determine the selection bit for the sign of the result based on the signs of a and b
+            // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
+            // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
+            // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
+            uint64_t c = signs[0] + signs[1] - 2 * MUL(proxy, signs[0], signs[1]);
+            Q = MUX(proxy, Q, (uint64_t) 0 - Q, c);
+            delete [] signs;
+        }
+        return Q;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        if(first_call) {
+            MSB(proxy, 0, 2);
+            MUX(proxy, 0, 0, 0, 2);
+        }
+
+        MSB(proxy, 0, L_BIT, false);
+
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            CMP(proxy, 0, 0);
+            MUL(proxy, 0, 0, 2);
+        }
+
+        if(first_call) {
+            DIV(proxy, 0, 0, false);
+            MUL(proxy, 0, 0);
+            MUX(proxy, 0, 0, 0);
+        }
+        return 0;
+    }
+    return -1;
+}
+
+/** Compute the vectorized division of a / b where a and b are vectors - not the integer approximation of the result
+ *
+ * @param proxy : Party instance
+ * @param a : vector of dividends
+ * @param b : vector of dividers
+ * @param size: number of division operations - which is the size of a and b
+ * @param first_call : indicates whether the DIV call is for the integer part of the division result, i.e. first call.
+ * If it is the first call, then there will be the second call of DIV for the fractional part of the division result
+ * @return vector (a / b)
+ */
+uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_call = true) {
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *signs;
+        if(first_call) {
+            uint64_t *inp1 = new uint64_t[2 * size];
+            uint64_t *inp2 = new uint64_t[2 * size];
+            for(int i = 0; i < size; i++) {
+                inp1[i] = a[i];
+                inp1[size + i] = b[i];
+                inp2[i] = (uint64_t) 0 - a[i];
+                inp2[size + i] = (uint64_t) 0 - b[i];
+            }
+            signs = MSB(proxy, inp1, 2 * size);
+            uint64_t *abs_vals = MUX(proxy, inp1, inp2, signs, 2 * size);
+            a = &abs_vals[0];
+            b = &abs_vals[size];
+
+            delete [] inp1;
+            delete [] inp2;
+        }
+
+        // initialize the variables for quotient and remainder and the role vector, which is a vector full of the role value
+        uint64_t *Q = new uint64_t[size];
+        uint64_t *R = new uint64_t[size];
+//        uint64_t *role_vec = new uint64_t[size]; // where do we use this?
+
+        // obtain every bit of the dividend
+        uint64_t *msb_bits_of_a = new uint64_t[L_BIT * size];
+
+        for(int i = 0; i < size; i++) { // each value
+            Q[i] = 0;
+            R[i] = 0;
+//            role_vec[i] = proxy->getPRole();
+            uint64_t tmp = a[i];
+            for(int j = 0; j < L_BIT; j++) { // each bit of the value
+                msb_bits_of_a[i * L_BIT + j] = tmp;
+                tmp = tmp << 1;
+            }
+        }
+        uint64_t *bits_of_a = MSB(proxy, msb_bits_of_a, L_BIT * size, false);
+
+        delete [] msb_bits_of_a;
+
+        // traverse all bits of the dividend
+        for (int16_t j = L_BIT - 1; j >= 0; j--) {
+//            uint64_t *tmp_bits_of_a = new uint64_t[size];
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] << 1; // shift the remainder
+                R[i] += bits_of_a[(i * L_BIT) + (L_BIT - 1 - j)];
+            }
+
+            uint64_t *c = CMP(proxy, R, b, size); // compare the current R and divider
+
+            uint64_t *o1 = new uint64_t[2 * size];
+            uint64_t *o2 = new uint64_t[2 * size];
+            for(int i = 0; i < size; i++) {
+                o1[2 * i] = c[i];
+                o1[2 * i + 1] = c[i];
+                o2[2 * i] = b[i];
+                o2[2 * i + 1] = ((uint64_t) proxy->getPRole()) << j;
+            }
+
+            // if the current R is larger than or equal to the divider, subtract the divider from R
+            uint64_t *v = MUL(proxy, o1, o2, 2 * size);
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] - v[2 * i];
+                Q[i] = Q[i] + v[2 * i + 1];
+            }
+            delete [] c;
+            delete [] o1;
+            delete [] o2;
+            delete [] v;
+        }
+
+        delete [] bits_of_a;
+
+        if(first_call) {
+            // determine the selection bits for the signs of the results based on the signs of a's and b's
+            // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
+            // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
+            // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
+            uint64_t *tmp = MUL(proxy, signs, &signs[size], size); // for determining the signs of the results
+            uint64_t *c = new uint64_t[size]; // // for determining the signs of the results - selection bits
+            for(int i = 0; i < size; i++) {
+                R[i] = R[i] << FRAC; // prepare the remainder for the second division call
+                Q[i] = Q[i] << FRAC; // prepare the quotient for the final quotient
+                c[i] = (signs[i] + signs[i + size]) - 2 * tmp[i]; // for determining the signs of the results
+            }
+            delete [] tmp;
+
+            uint64_t *neg_Q = new uint64_t[size]; // the negative of the results in case they are the correct ones based on signs
+            uint64_t *sec_div = DIV(proxy, R, b, size, false); // second division call for the fractional part of the final quotient
+            for(int i = 0; i < size; i++) {
+                Q[i] += sec_div[i];
+                neg_Q[i] = (uint64_t) 0 - Q[i];
+            }
+
+            delete [] sec_div;
+            delete [] signs;
+//            delete [] role_vec;
+
+            // based on the above analysis, we select the correct version of the final quotient
+            uint64_t *div_res = MUX(proxy, Q, neg_Q, c, size);
+            delete [] c;
+            delete [] neg_Q;
+            delete [] Q;
+            delete [] R;
+            delete [] a;
+            delete [] b;
+            return div_res;
+        }
+
+        delete [] R;
+
+        return Q;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        if(first_call) {
+            MSB(proxy, 0, 2 * size);
+            MUX(proxy, 0, 0, 0, 2 * size);
+        }
+
+        MSB(proxy, 0, L_BIT * size, false);
+
+        for (int16_t i = L_BIT - 1; i >= 0; i--) {
+            CMP(proxy, 0, 0, size);
+            MUL(proxy, 0, 0, 2 * size);
+        }
+
+        if(first_call) {
+            MUL(proxy, 0, 0, size);
+            DIV(proxy, 0, 0, size, false);
+            MUX(proxy, 0, 0, 0, size);
+        }
+        return NULL;
+    }
+    return NULL;
+}
+
+
+uint64_t* NORM(Party *proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        uint64_t *u = new uint64_t[size]; // holds how much needs to be subtracted from the nominator
+        uint64_t *div = new uint64_t[size]; // resulting division
+        for(int i = 0; i < size; i++) {
+            u[i] = 0;
+            div[i] = 0;
+        }
+
+        // iterate every bit of the fractional part to determine whether they are 1 or 0
+        for(int i = 1; i <= FRAC; i++) {
+            // compute the possible remaining of the nominator after subtracting denominator and previously subtracted value
+            uint64_t *z = new uint64_t[size];
+            for(int j = 0; j < size; j++) {
+                z[j] = ((a[j] - u[j]) << i) - b[j];
+            }
+
+            uint64_t *msb_z = MSB(proxy, z, size);
+            delete [] z;
+
+            uint64_t *concat_cont_and_subt = new uint64_t[size * 2];
+            uint64_t *twice_msb_z = new uint64_t[size * 2];
+            for(int j = 0; j < size; j++) {
+                twice_msb_z[j] = (proxy->getPRole() << FRAC) - msb_z[j];
+                twice_msb_z[j + size] = twice_msb_z[j];
+                concat_cont_and_subt[j] = proxy->getPRole() << (FRAC - i); // the contribution to the division result
+                concat_cont_and_subt[j + size] = truncate(proxy, b[j], i); // what to subtract from the nominator
+            }
+            delete [] msb_z;
+
+            // computes possibly what to subtract and what to add & determines if we need to perform those operations
+            uint64_t *tmp = MUL(proxy, twice_msb_z, concat_cont_and_subt, 2 * size);
+            delete [] concat_cont_and_subt;
+            delete [] twice_msb_z;
+
+            for(int j = 0; j < size; j++) {
+                div[j] = div[j] + tmp[j];
+                u[j] = u[j] + tmp[j + size];
+            }
+            delete [] tmp;
+        }
+
+        delete [] u;
+        return div;
+    }
+    else if (proxy->getPRole() == HELPER) {
+        for(int i = 1; i <= FRAC; i++) {
+            MSB(proxy, 0, size);
+            MUL(proxy, 0, 0, 2 * size);
+        }
+    }
+    return NULL;
+
 }
 
 #endif //CORE_H

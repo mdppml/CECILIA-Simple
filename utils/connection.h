@@ -31,6 +31,9 @@ uint64_t bytesSend = 0;
 uint64_t bytesReceived =0;
 double tt = 0.0;
 
+// variables to analyze the runtime of MULv3
+double t0 = 0, t1 = 0, t15 = 0, t2 = 0, t3 = 0, t4 = 0, t5 = 0;
+
 /*void SetSocketQuickAck(int sock)
 {
      int value = 1;
@@ -419,6 +422,18 @@ void PBytes(){
     cout<<"Comm Time\t"<<fixed
                        << tt << setprecision(9);
     cout << " sec" << endl;
+
+
+    cout << "------------------------" << endl;
+    cout << "t0: " << fixed << t0 << setprecision(9) << " sec" << endl;
+    cout << "t1: " << fixed << t1 << setprecision(9) << " sec" << endl;
+    cout << "t15: " << fixed << t15 << setprecision(9) << " sec" << endl;
+    cout << "t2: " << fixed << t2 << setprecision(9) << " sec" << endl;
+    cout << "t3: " << fixed << t3 << setprecision(9) << " sec" << endl;
+    cout << "t4: " << fixed << t4 << setprecision(9) << " sec" << endl;
+    cout << "t5: " << fixed << t5 << setprecision(9) << " sec" << endl;
+    cout << "Total: " << fixed << (t1 + t2 + t3 + t4 + t5) << setprecision(9) << " sec" << endl;
+    cout << "------------------------" << endl;
 }
 void close_socket(int socket){
     cout<<socket<<endl;

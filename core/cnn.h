@@ -12,6 +12,26 @@
 
 using namespace std;
 
+// Node for binary-tree data structure
+struct node {
+    int index;
+    uint64_t multiplier;
+    struct node* parent;
+    struct node* left_child;
+    struct node* right_child;
+};
+
+struct node *newNode(Party *proxy, int index) {
+    struct node *n = (struct node *)malloc(sizeof(struct node));
+
+    n->index = index;
+    n->multiplier = proxy->getPRole();
+    n->parent = NULL;
+    n->left_child = NULL;
+    n->right_child = NULL;
+    return n;
+}
+
 /**
  * Vectorized subtraction: subtract elementwise b from a (a-b)
  * @param a from values of this vector the values of b will be subtracted
@@ -319,7 +339,7 @@ uint64_t MAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
  * @return the maximum element per window, therefore floor(matrix_size / (win_rows*win_cols)) elements in a vector
  * return vector must be deleted if not needed anymore.
  */
-uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, uint32_t win_rows, uint32_t win_cols){
+uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, uint32_t win_rows, uint32_t win_cols, bool backprop = false){
     uint32_t matrix_size = m_rows * m_cols;
     uint32_t window_length = win_cols * win_rows;
     uint32_t cmpWindowVectorSize = window_length; //size of resulting vector after cmp, MUX, and it's divided by 2 is size of each half.
@@ -327,10 +347,49 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
     bool isResidueInBuffer = false;
 
     uint32_t numberOfWins;
+    uint64_t **dmax;
+    struct node** leaves;
+    struct node** current_nodes;
+    struct node** previous_nodes;
+    struct node** residue_nodes;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         auto *resorted = new uint64_t [matrix_size];                // RESORT matrix to have all values of a window subsequently
         RST(matrix, m_cols, m_rows, win_cols, win_rows, resorted);
         numberOfWins = matrix_size / window_length;
+
+        // for backpropagation - initialize the required variables
+        if(backprop) {
+            cout << "check 1" << endl;
+            // initialize the matrix to hold multiplier of each index
+            cout << "depth: " << ceil(log2(window_length)) << endl;
+            dmax = new uint64_t*[(int) ceil(log2(window_length))];
+            for(int i = 0; i < log2(window_length); i++) {
+                dmax[i] = new uint64_t[matrix_size];
+                for(int j = 0; j < matrix_size; j++) {
+                    dmax[i][j] = convert2uint64(proxy->getPRole());
+                    if(i == 0 && j == 0) { cout << "Role:" << proxy->getPRole() << endl;}
+                }
+            }
+            int tmp_depth = ceil(log2(window_length));
+            print2DArray("dmax - init", convert2double(REC(proxy, dmax, tmp_depth, matrix_size), tmp_depth, window_length), tmp_depth, matrix_size);
+
+            print1DArray("dmax - init", convert2double(REC(proxy, straighten2DArray(dmax, tmp_depth, matrix_size),
+                                                              matrix_size * tmp_depth), matrix_size * tmp_depth), matrix_size * tmp_depth);
+            cout << "check 2" << endl;
+
+            // initialize index map
+            leaves = new struct node*[matrix_size];
+            for(int w = 0; w < numberOfWins; w++) {
+                for(int i = 0; i < window_length; i++) {
+                    leaves[w * window_length + i] = newNode(proxy, i);
+                }
+            }
+            cout << "check 3" << endl;
+
+            previous_nodes = leaves;
+            residue_nodes = new struct node*[numberOfWins];
+            cout << "check 4" << endl;
+        }
 
         auto *maxElements = new uint64_t [numberOfWins];
         uint64_t residue [numberOfWins];
@@ -344,6 +403,49 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
             comparisons = halfSize * numberOfWins;
             uint64_t firstHalf [comparisons+numberOfWins]; // allocate space for 1 value more in case residue from store is used
             uint64_t secondHalf [comparisons+numberOfWins];
+
+            if(backprop) {
+                cout << "check 5 - halfSize: " << halfSize << endl;
+                int step_size = halfSize;
+                int coreHalfSize = halfSize;
+                if (cmpWindowVectorSize & 1) {                        //there is a residue remaining
+                    cout << "check 6" << endl;
+                    if(isResidueStored) {                        //there is a residue remaining
+                        cout << "check 6.1" << endl;
+                        current_nodes = new struct node*[comparisons + numberOfWins];
+                        step_size++;
+                        for(int i = 0; i < numberOfWins; i++) {
+                            current_nodes[step_size * (i + 1) - 1] = newNode(proxy, step_size - 1); // how to index these nodes? individually or thinking them as a whole
+                            current_nodes[step_size * (i + 1) - 1]->left_child = previous_nodes[cmpWindowVectorSize * (i + 1) - 1];
+                            previous_nodes[cmpWindowVectorSize * (i + 1) - 1]->parent = current_nodes[step_size * (i + 1) - 1];
+                            current_nodes[step_size * (i + 1) - 1]->right_child = residue_nodes[i];
+                            residue_nodes[i]->parent = current_nodes[step_size * (i + 1) - 1];
+                        }
+                    }
+                    else { //no residue stored up to now:
+                        cout << "check 6.2" << endl;
+                        current_nodes = new struct node*[comparisons];
+                        for(int i = 0; i < numberOfWins; i++) {
+                            residue_nodes[i] = previous_nodes[cmpWindowVectorSize * (i + 1) - 1];
+                        }
+                    }
+                }
+                else {
+                    cout << "check 6.3" << endl;
+                    current_nodes = new struct node*[comparisons];
+                }
+                cout << "check 7" << endl;
+                for(int j = 0; j < numberOfWins; j++) {
+                     for(int i = 0; i < coreHalfSize; i++) {
+                         current_nodes[i + step_size * j] = newNode(proxy, i);
+                         current_nodes[i + step_size * j]->left_child = previous_nodes[i + cmpWindowVectorSize * j];
+                         previous_nodes[i + cmpWindowVectorSize * j]->parent = current_nodes[i + step_size * j];
+                         current_nodes[i + step_size * j]->right_child = previous_nodes[i + coreHalfSize + cmpWindowVectorSize * j];
+                         previous_nodes[i + coreHalfSize + cmpWindowVectorSize * j]->parent = current_nodes[i + step_size * j];
+                    }
+                }
+                cout << "check 8" << endl;
+            }
 
             for (uint32_t i = 0; i < numberOfWins; i++) {
                 uint64_t *currWindowStart = (resorted + i * cmpWindowVectorSize);
@@ -373,11 +475,27 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
             }
             if (comparisons > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
-                uint64_t *c = SUB(firstHalf, secondHalf, comparisons);
-                uint64_t *d = MSB(proxy, c, comparisons);
+//                uint64_t *c = SUB(firstHalf, secondHalf, comparisons);
+//                uint64_t *d = MSB(proxy, c, comparisons);
+                uint64_t *d = CMP(proxy, firstHalf, secondHalf, comparisons);
+
                 //MUX: returns for each position i: firstHalf[i] if d[i] = 0; secondHalf[i] if d[i] = 1
-                resorted = MUX(proxy, firstHalf, secondHalf, d, comparisons);
-                delete[] c;
+//                resorted = MUX(proxy, firstHalf, secondHalf, d, comparisons);
+                resorted = MUX(proxy, secondHalf, firstHalf, d, comparisons);
+
+                if(backprop) {
+                    cout << "check 9" << endl;
+                    for(int i = 0; i < comparisons; i++) {
+                        cout << "check 9." << i << ".1" << endl;
+                        current_nodes[i]->left_child->multiplier = d[i];
+                        cout << "check 9." << i << ".2" << endl;
+                        current_nodes[i]->right_child->multiplier = convert2uint64(proxy->getPRole()) - d[i];
+                    }
+                    cout << "check 10" << endl;
+                    previous_nodes = current_nodes; // update the previous_nodes to current_nodes
+                }
+
+//                delete[] c;
                 delete[] d;
             }
             //prepare next round:
@@ -385,15 +503,121 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
             isResidueStored = isResidueInBuffer;
         }
         if (isResidueStored) {
-            uint64_t *c = SUB(resorted, residue, numberOfWins);
-            uint64_t *d = MSB(proxy, c, numberOfWins);
-            resorted = MUX(proxy, resorted, residue, d, numberOfWins);
-            delete[] c;
+//            uint64_t *c = SUB(resorted, residue, numberOfWins);
+//            uint64_t *d = MSB(proxy, c, numberOfWins);
+            uint64_t *d = CMP(proxy, resorted, residue, numberOfWins);
+//            resorted = MUX(proxy, resorted, residue, d, numberOfWins);
+            resorted = MUX(proxy, residue, resorted, d, numberOfWins);
+
+            if(backprop) {
+                cout << "check 11" << endl;
+                for(int i = 0; i < comparisons; i++) {
+                    cout << "check 11." << i << endl;
+                    struct node* tmp_node = newNode(proxy, 0);
+                    tmp_node->left_child = current_nodes[i];
+                    current_nodes[i]->parent = tmp_node;
+                    tmp_node->left_child->multiplier = d[i];
+                    tmp_node->right_child = residue_nodes[i];
+                    residue_nodes[i]->parent = tmp_node;
+                    tmp_node->right_child->multiplier = convert2uint64(proxy->getPRole()) - d[i];
+                }
+                cout << "check 12" << endl;
+            }
+
+//            delete[] c;
             delete[] d;
         }
         for (uint32_t m = 0; m < numberOfWins; m++){
             maxElements[m] = resorted[m];
         }
+
+        // derivative of maxpool
+        if(backprop) {
+            cout << "check 13" << endl;
+            print1DArray("dmax - initial", convert2double(REC(proxy, straighten2DArray(dmax, ceil(log2(window_length)), matrix_size),
+                                                                           matrix_size * ceil(log2(window_length))), matrix_size * ceil(log2(window_length))), matrix_size * ceil(log2(window_length)));
+            for(int i = 0; i < matrix_size; i++) {
+                cout << "check 13." << i << endl;
+                int ind = 0;
+                struct node* crnt = leaves[i];
+                while(ind < ceil(log2(window_length)) && crnt->parent != NULL) {
+                    cout << "check 13." << i << "." << ind << endl;
+                    dmax[ind][i] = crnt->multiplier;
+                    cout << ind << " -- " << crnt->index << " -> " << crnt->parent->index << endl;
+                    cout << "check 13." << i << "." << ind << " - 2" << endl;
+                    ind++;
+                    crnt = crnt->parent;
+                    cout << "check 13." << i << "." << ind << " - 3" << endl;
+                }
+                cout << "check 13." << i << " - end" << endl;
+            }
+            cout << "check 14" << endl;
+
+            int n_depth = ceil(log2(window_length));
+            int size;
+            bool flag = false;
+            uint64_t *res = new uint64_t[matrix_size];
+            uint64_t *v1;
+            uint64_t *v2;
+            uint64_t *cur_dmax = straighten2DArray(dmax, n_depth, matrix_size);
+            cout << "check 15" << endl;
+            for(int i = 0; i < ceil(log2(ceil(log2(window_length)))); i++) {
+//                double *rec_cur_dmax = convert2double(REC(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth);
+//                print1DMatrixByWindows("computed max values (test): ", rec_cur_dmax, n_depth, matrix_size, 3, 3);
+                print1DArray("dmax - Step " + to_string(i), convert2double(REC(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth), matrix_size * n_depth);
+                size = n_depth / 2;
+                cout << "check 16." << i << endl;
+                if(n_depth % 2 == 1) {
+                    if(flag) {
+                        cout << "check 16." << i << " - 1" << endl;
+                        size++;
+                        v1 = new uint64_t[size * matrix_size];
+                        v2 = new uint64_t[size * matrix_size];
+                        memcpy(&v1[matrix_size * (size - 1)], &cur_dmax[(n_depth - 1) * matrix_size], matrix_size);
+                        memcpy(&v2[matrix_size * (size - 1)], &res, matrix_size);
+                        flag = false;
+                    }
+                    else {
+                        cout << "check 16." << i << " - 2" << endl;
+                        v1 = new uint64_t[size * matrix_size];
+                        v2 = new uint64_t[size * matrix_size];
+                        memcpy(res, &cur_dmax[(n_depth - 1) * matrix_size], matrix_size * 8);
+                        flag = true;
+                    }
+                }
+                else {
+                    cout << "check 16." << i << " - 3" << endl;
+                    cout << "Size: " << size << " - Matrix size: " << matrix_size << endl;
+                    v1 = new uint64_t[size * matrix_size];
+                    v2 = new uint64_t[size * matrix_size];
+                }
+                cout << "check 17." << i << endl;
+                cout << "n_depth: " << n_depth << endl;
+                print1DArray("dmax - Step " + to_string(i) + " before copy", convert2double(REC(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth), matrix_size * n_depth);
+                for(int j = 0; j < n_depth / 2; j++) {
+                    cout << "check 17." << i << " - 2." << j << endl;
+                    memcpy(&v1[j * matrix_size], &cur_dmax[j * matrix_size], matrix_size * 8);
+                    cout << " --- start of v2: " << (j + (n_depth / 2)) * matrix_size << endl;
+                    memcpy(&v2[j * matrix_size], &cur_dmax[(j + (n_depth / 2)) * matrix_size], matrix_size * 8);
+                }
+                cout << "check 18." << i << " - mul size: " << size * matrix_size << endl;
+                print1DArray("v1", convert2double(REC(proxy, v1, size * matrix_size), size * matrix_size), size * matrix_size);
+                print1DArray("v2", convert2double(REC(proxy, v2, size * matrix_size), size * matrix_size), size * matrix_size);
+                delete [] cur_dmax;
+                cur_dmax = MUL(proxy, v1, v2, size * matrix_size);
+                n_depth = size;
+
+                delete [] v1;
+                delete [] v2;
+            }
+            if(flag) {
+                cout << "check 19" << endl;
+                cur_dmax = MUL(proxy, cur_dmax, res, matrix_size); // return this if backprop is true
+            }
+            print1DMatrixByWindows("cur_dmax: ", convert2double(REC(proxy, cur_dmax, matrix_size), matrix_size), numberOfWins, window_length, 1, window_length);
+//            print1DArray("dmax", convert2double(REC(proxy, cur_dmax, matrix_size), matrix_size), matrix_size);
+        }
+
         delete [] resorted;
         return maxElements;
     }
@@ -417,7 +641,8 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
             auto vectorLength = static_cast<uint32_t>(floor(halfSize * numberOfWins));
             if (vectorLength > 0) {          // maximums are not yet found
                 //compare: a-b =c and then MSB(c) =d
-                MSB(proxy, nullptr, vectorLength);
+//                MSB(proxy, nullptr, vectorLength);
+                CMP(proxy, nullptr, nullptr, vectorLength);
                 //MUX:
                 MUX(proxy, nullptr, nullptr, nullptr, vectorLength);
             }
@@ -426,9 +651,33 @@ uint64_t* MAX(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
             isResidueStored = isResidueInBuffer;
         }
         if (isResidueStored) {
-            MSB(proxy, nullptr, numberOfWins);
+//            MSB(proxy, nullptr, numberOfWins);
+            CMP(proxy, nullptr, nullptr, numberOfWins);
             MUX(proxy, nullptr, nullptr, nullptr, numberOfWins);
         }
+
+        if(backprop) {
+            int n_depth = ceil(log2(window_length));
+            int size;
+            bool flag = false;
+            for (int i = 0; i < ceil(log2(ceil(log2(window_length)))); i++) {
+                size = n_depth / 2;
+                if (n_depth % 2 == 1) {
+                    if (flag) {
+                        size++;
+                        flag = false;
+                    } else {
+                        flag = true;
+                    }
+                }
+                MUL(proxy, 0, 0, size * matrix_size);
+                n_depth = size;
+            }
+            if (flag) {
+                MUL(proxy, 0, 0, matrix_size); // return this if backprop is true
+            }
+        }
+
         return nullptr;
     }
     return nullptr;
@@ -744,10 +993,6 @@ uint64_t DRELU(Party* proxy, uint64_t x){
         z = proxy->getPRole() - convert2Long(&ptr);
         if (f) { // if f is 1  we get the next long value in the buffer.
             z = proxy->getPRole() - convert2Long(&ptr);
-            cout << convert2double(REC(proxy, z)) << endl;
-        }
-        else{
-            cout << convert2double(REC(proxy, convert2Long(&ptr))) << endl;
         }
         return z;
     }
@@ -869,44 +1114,6 @@ uint64_t* DRELU(Party* proxy, uint64_t* x, uint32_t size){
         return nullptr;
     }
     return nullptr;
-}
-
-
-uint64_t DIV(Party* proxy, uint64_t a, uint64_t b) {
-    //compare with Algorithm 8 Division by SecureNN
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-
-        uint64_t result = 0;
-        uint64_t u = proxy->createShare(0);
-        for (int16_t i = FRAC - 1; i >= 0; i--) {
-            //___3. step
-            uint64_t y = a << i; // equals a * 2^i not as pseudocode in paper
-            uint64_t z = y - u - b;
-
-            //___4. step (DRELU)
-            uint64_t drelu = DRELU(proxy, z);
-
-            //___5. step (MUL)
-            uint64_t mul = MUL(proxy, drelu, b);
-
-            //___6. step and 8. step (combined)
-            result += (drelu << i);
-            //___7. step
-            u += mul;
-            cout << "current result: " << bitset<L_BIT>(REC(proxy, result)) << endl;
-        }
-        return result;
-    } else if (proxy->getPRole() == HELPER) {
-        for (int16_t i = FRAC-1; i >= 0; i--) {
-            //___4. step (DRELU)
-            DRELU(proxy, 0);
-
-            //___5. step (MUL)
-            MUL(proxy, 0, 0);
-        }
-        return 0;
-    }
-    return -1;
 }
 
 // LAYER HELPER FUNCTIONS:
@@ -1050,16 +1257,10 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
     auto conv_width = static_cast<uint32_t>(floor((i_width - k_dim + 1) / stride));
     auto conv_height = static_cast<uint32_t>(floor((i_height - k_dim + 1) / stride));
     uint32_t conv_len = conv_width * conv_height;
-                                                            // at least one win must be > 1, otherwise values are only selected 1 by one.
     bool doMaxpooling = ((max_win_width > 0) && (max_win_height > 0) and (max_win_width + max_win_height) > 2);
-    // stretch the input for vectorized MATVECMUL
+
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        //print2DArray("input channel 1", convert2double(REC(proxy, input[0], i_height, i_width), i_height, i_width), i_height, i_width);
-        uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride);
-        //print2DArray("incremented channel 1", convert2double(REC(proxy, stretched_input[0], 3, k_size), 3, k_size), 3, k_size);
-        //print2DArray("incremented channel 2", convert2double(REC(proxy, stretched_input[1], 3, k_size), 3, k_size), 3, k_size);
-        //print2DArray("kernel 1", convert2double(REC(proxy, kernel[0], 3, k_size), 3, k_size), 3, k_size);
-        // stretched_input is the same for each kernel
+        uint64_t *** stretched_input = INC(input, i_channel, i_height, i_width, k_dim, stride); // stretched_input is the same for each kernel
         uint64_t *** conv_input = transpose(stretched_input, i_channel, conv_len, k_size);
         uint64_t ***conv_result = MATMATMUL(proxy, kernel, conv_input, i_channel, output_channel, k_size, conv_len);
 
@@ -1103,19 +1304,18 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
 
         // ACTIVATION:
         uint64_t* conv_activated = RELU(proxy, conv_reshaped, conv_len*output_channel);
-        if (doMaxpooling){
-            // Maxpool:
-            //conv_activated is like all conv_results staked on top of each other, rows not only conv_height but output_channel*conv_height
-            conv_activated = MAX(proxy, conv_activated, output_channel*conv_height, conv_width, max_win_height, max_win_width);
-        }
-
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
+        uint32_t out_len = out_height*out_width;
         if (doMaxpooling) {
             out_height /= max_win_height;
             out_width /= max_win_width;
+            out_len = out_height*out_width;
+            // Maxpool:
+            //conv_activated is like all conv_results staked on top of each other, rows not only conv_height but output_channel*conv_height
+            conv_activated = MAX(proxy, conv_activated, conv_height*output_channel, conv_width, max_win_height, max_win_width);
         }
-        uint32_t out_len = out_height*out_width;
+
         auto ***conv_layer = new uint64_t **[output_channel];
         for (uint32_t k = 0; k < output_channel; k++) {
             if(last_conv){
@@ -1124,12 +1324,12 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
                     conv_layer[0] = new uint64_t*[1];
                     conv_layer[0][0] = new uint64_t[output_channel*out_len];
                 }
-                conv_layer[0][0] = conv_activated;
-                /*for (uint32_t row = 0; row < out_height; row++) {
+                //conv_layer[0][0] = conv_activated;
+                for (uint32_t row = 0; row < out_height; row++) {
                     for (uint32_t col = 0; col < out_width; col++) {
                         conv_layer[0][0][k*out_len + row*out_width + col] = conv_activated[k*out_len + row * out_width + col];
                     }
-                }*/
+                }
             }
             else{
                 // bring result in matrix shape
@@ -1161,36 +1361,26 @@ uint64_t*** CL(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_h
 }
 
 /**
- * Implements functionality of a fully connected layer (FCL) with ReLU as activation function.
+ * Implements functionality of a fully connected layer (FCL) without activation function.
  * @param proxy
  * @param input the input vector of length in_size to be fully connected to the output nodes.
  * @param in_size length of the input vector (when input is in more dimensional shape, use the Flattening method FLT before)
  * @param weights to be used must be of shape node_number x in_size
  * @param node_number number of output nodes of this layer
  * @param bias vector of length node_number. For each output node there is one bias value which is added.
- * @return the output layer that have been computed by using the dot product between input values and weights,
- * activated with ReLu and the according bias added. It will be of length node_number.
+ * @return the output layer that have been computed by using the dot product between input values and weights
+ * and the according bias added. It will be of length node_number.
  * return vector must be deleted if not needed anymore.
  */
 uint64_t* FCL(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, int node_number, uint64_t* bias){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
-        cout << "entered FCL" << endl;
-        //print2DArray("MATVECMUL input weights", convert2double(REC(proxy, weights, node_number, in_size), node_number, in_size), node_number, in_size);
-        //print1DArray("MATVECMUL input vector", convert2double(REC(proxy, input, in_size), in_size), in_size);
         uint64_t *output = MATVECMUL(proxy, weights, input, node_number, in_size);
-        //print1DArray("MATVECMUL output", convert2double(REC(proxy, output, node_number), node_number), node_number);
         uint64_t *added_bias = ADD(proxy, output, bias, node_number);
         delete[] output;
-        //print1DArray("bias", convert2double(REC(proxy, bias, node_number), node_number), node_number);
-        uint64_t* activated = RELU(proxy, added_bias, node_number);
-        //print1DArray("RELU output", convert2double(REC(proxy, activated, node_number), node_number), node_number);
-        delete[] added_bias;
-
-        return activated;
+        return added_bias;
     }
     else if (proxy->getPRole() == HELPER){
         MATVECMUL(proxy, nullptr, nullptr, node_number*in_size, 0);
-        RELU(proxy, nullptr, node_number);
         return nullptr;
     }
     else{

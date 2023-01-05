@@ -5,8 +5,8 @@
 #ifndef CECILIA_TEST_FUNCTIONS_H
 #define CECILIA_TEST_FUNCTIONS_H
 
-#include "../core/core.h"
 #include "flib.h"
+#include "../core/core.h"
 #include <fstream>
 #include <tuple>
 #include <random>

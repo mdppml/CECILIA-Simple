@@ -9,82 +9,79 @@
 #include "../../core/Party.h"
 #include "../../utils/parse_options.h"
 #include "../../utils/llib.h"
-#include "../../core/core.h"
+#include "../../core/auc.h"
+//#include "../../core/core.h"
 #include <sys/stat.h>
 #include <dirent.h>
 #include <algorithm>
+
 using namespace std;
 int nstation;
-uint64_t sample_size[1000];
+uint64_t sample_size[100];
 
-struct prediction{
-    uint64_t val;
-    uint64_t label;
-};
+client_data *c_data;
 
-typedef std::deque<prediction> client_data;
-client_data* c_data;
-
-bool IsPathExist(const std::string &s)
-{
+bool IsPathExist(const std::string &s) {
     struct stat buf;
-    return (stat (s.c_str(), &buf) == 0);
+    return (stat(s.c_str(), &buf) == 0);
 }
-void read_directory(const std::string& name, vector<string>& v)
-{
-    DIR* dirp = opendir(name.c_str());
-    struct dirent * dp;
+
+void read_directory(const std::string &name, vector<string> &v) {
+    DIR *dirp = opendir(name.c_str());
+    struct dirent *dp;
     while ((dp = readdir(dirp)) != NULL) {
         v.push_back(dp->d_name);
     }
     closedir(dirp);
 }
 
-
-void random_data(int nstation, uint64_t* sample_size,int role){
+void random_data(Party *proxy, int nstation, uint64_t *sample_size) {
     srand(100);
     c_data = new client_data[nstation];
-    for (int i=0;i<nstation;i++){
+    for (int i = 0; i < nstation; i++) {
         uint64_t tmp[MAXSAMPLESIZE];
-        for (int j=0;j<sample_size[i];j++){
-            tmp[j] = (rand()%10000)+1;
+        for (int j = 0; j < sample_size[i]; j++) {
+//            tmp[j] = (rand() % 10000) + 1;
+            tmp[j] = proxy->generateCommonRandom() & MAXSCALAR;
         }
 
-        sort_values(tmp,sample_size[i]);
-        for (int j=0;j<sample_size[i];j++){
-            uint64_t l = rand()%2;
+        sort_values(tmp, sample_size[i]);
+        for (int j = 0; j < sample_size[i]; j++) {
+            uint64_t l = proxy->createShare(convert2uint64(rand() % 2));
+            c_data[i].push_back({proxy->createShare(tmp[j]), l});
 
-            if (role == 0)
-                c_data[i].push_back({(uint64_t)rand(),(uint64_t)rand()});
-            else
-                c_data[i].push_back({tmp[j]-rand(),l-rand(),});
+//            if (role == 0)
+//                c_data[i].push_back({(uint64_t) rand(), (uint64_t) rand()});
+//            else
+//                c_data[i].push_back({tmp[j] - rand(), l - rand(),});
 
         }
     }
 
 }
-void file_data(string path){
+
+void file_data(string path) {
     vector<string> f_list;
-    read_directory(path,f_list);
+    read_directory(path, f_list);
     c_data = new client_data[f_list.size()];
     int f_index = 0;
-    for(string file : f_list) {
+    for (string file: f_list) {
         if (file != "." && file != "..") {
             file = path + "/" + file;
             ifstream ip(file.c_str());
-            cout<<file<<endl;
-            if (ip.is_open()){
-                cout<<"ddd"<<endl;
+            cout << file << endl;
+            if (ip.is_open()) {
+                cout << "ddd" << endl;
                 string tmp;
                 int s_size = 0;
-                while (ip.good()){
-                    getline(ip,tmp,',');
+                while (ip.good()) {
+                    getline(ip, tmp, ',');
                     if (tmp.empty())
                         break;
-                    char* end;
-                    uint64_t label = strtoull( tmp.c_str(), &end,10 );
-                    getline(ip,tmp,'\n');
-                    uint64_t pred = strtoull( tmp.c_str(), &end,10 );
+                    char *end;
+                    uint64_t label = strtoull(tmp.c_str(), &end, 10);
+                    getline(ip, tmp, '\n');
+                    uint64_t pred = strtoull(tmp.c_str(), &end, 10);
                     s_size++;
                 }
                 sample_size[f_index] = s_size;
@@ -95,30 +92,39 @@ void file_data(string path){
     }
     nstation = f_index;
 }
-void print_data(int nstation, uint64_t* sample_size){
-    for (int i=0;i<nstation;i++){
-        cout<<"Station : "<<i<<endl;
-        for(prediction n : c_data[i]) {
-            cout<<n.val<<" "<<n.label<<endl;
+
+void print_data(int nstation, uint64_t *sample_size) {
+    for (int i = 0; i < nstation; i++) {
+        cout << "Station : " << i << endl;
+        for (prediction n: c_data[i]) {
+            cout << n.val << " " << n.label << endl;
         }
     }
 }
-void print_data(int nstation, uint64_t* sample_size, Party* proxy){
-    for (int i=0;i<nstation;i++){
-        cout<<"Station : "<<i<<endl;
-        for(prediction n : c_data[i]) {
-            cout<< REC(proxy, n.val)<<"\t"<< REC(proxy, n.label)<<endl;
+
+void print_data(Party *proxy, int nstation, uint64_t *sample_size, client_data *data = c_data) {
+    for (int i = 0; i < nstation; i++) {
+        cout << "Station : " << i << endl;
+        for (prediction n: data[i]) {
+            cout << convert2double(REC(proxy, n.val)) << "\t" << convert2double(REC(proxy, n.label)) << endl;
         }
+        cout << "[";
+        for (prediction n: data[i]) {
+            cout << convert2double(REC(proxy, n.label)) << ", ";
+        }
+        cout << "]" << endl;
     }
 }
-void del(){
-    delete [] c_data;
+
+void del() {
+    delete[] c_data;
 }
-void calc_auc(Party* proxy){
+
+void calc_auc(Party *proxy) {
     uint32_t size = c_data[0].size();
-    uint64_t* labels = new uint64_t[size];
-    int i=0;
-    for(prediction n : c_data[0]) {
+    uint64_t *labels = new uint64_t[size];
+    int i = 0;
+    for (prediction n: c_data[0]) {
         labels[i++] = n.label;
     }
 
@@ -128,120 +134,194 @@ void calc_auc(Party* proxy){
     uint64_t numerator = 0;
     uint64_t *mul1 = new uint64_t[size];
     uint64_t *mul2 = new uint64_t[size];
-    for (int i=0;i<size;i++){
-        TP = proxy->ADD(TP,labels[i]);
-        if (proxy->GetRole()==P1)
-            FP = i - TP;
-        else
-            FP = 0 - TP;
+    for (int i = 0; i < size; i++) {
+        TP = ADD(proxy, TP, labels[i]);
+        FP = proxy->getPRole() * convert2uint64(i)  - TP;
+//        cout << i << "\tTP: " << convert2double(REC(proxy, TP)) << "\tFP: " << convert2double(REC(proxy, FP)) << endl;
+//        if (proxy->getPRole() == P1)
+//            FP = i - TP;
+//        else
+//            FP = 0 - TP;
 
         mul1[i] = TP;
-        mul2[i] = FP-pre_FP;
+        mul2[i] = FP - pre_FP;
 
         pre_FP = FP;
     }
+//    cout << "TP: " << convert2double(REC(proxy, TP)) << "\tFP: " << convert2double(REC(proxy, FP)) << endl;
 
-    proxy->SendBytes(MMUL,size);
-    uint64_t *area = proxy->MMUL(mul1,mul2,size);
-    for (int i=0;i<size;i++){
-        numerator = proxy->ADD(numerator,area[i]);
+
+//    cout << "MUL is being called..." << endl;
+    uint32_t params[1] = {size};
+    proxy->SendBytes(CORE_MMUL, params, 1);
+    uint64_t *area = MUL(proxy, mul1, mul2, size);
+//    cout << "MUL is over" << endl;
+
+    for (int i = 0; i < size; i++) {
+        numerator = ADD(proxy, numerator, area[i]);
     }
-    delete [] mul1;
-    delete [] mul2;
-    delete [] area;
+    delete[] mul1;
+    delete[] mul2;
+    delete[] area;
 
     uint64_t FN = TP;
-    uint64_t TN = 0;
-    if (proxy->GetRole()==P1)
-        TN = size - TP;
-    else
-        TN = 0 - TP;
+    uint64_t TN = proxy->createShare( (uint64_t) 0);
+    TN = proxy->getPRole() * convert2uint64(size) - TP;
+//    uint64_t TN = 0;
+//    if (proxy->getPRole() == P1)
+//        TN = size - TP;
+//    else
+//        TN = 0 - TP;
 
-    proxy->SendBytes(MUL);
-    uint64_t denominator = proxy->MUL(FN,TN);
+//    cout << "MUL is being called... Again!" << endl;
+    cout << convert2double(REC(proxy, TN)) << "\t" << convert2double(REC(proxy, FN)) << endl;
+    proxy->SendBytes(CORE_MUL);
+    uint64_t denominator = MUL(proxy, FN, TN);
 
-    //proxy->SendBytes(TDIV);
-    uint64_t auc = proxy->DIVISION(numerator,denominator);
+//    cout << "NORM is being called..." << endl;
+    uint64_t num[1] = {numerator};
+    uint64_t den[1] = {denominator};
+    cout << convert2double(REC(proxy, numerator)) << "\t" << convert2double(REC(proxy, denominator)) << endl;
+    params[0] = 1;
+    proxy->SendBytes(CORE_MNORM, params, 1);
+    uint64_t *auc = NORM(proxy, num, den, 1);
 
-    auc = proxy->Reconstruct(auc);
-    cout<<"AUC :\t"<<auc<<endl;
-    delete [] labels;
+//    cout << "REC is being called..." << endl;
+    auc = REC(proxy, auc, 1);
+    cout << "AUC :\t" << convert2double(auc[0]) << endl;
+    delete[] labels;
 }
-void sort_data(int nstation, Party* proxy, int delta){
 
+
+void calc_auc_v2(Party *proxy) {
+    uint32_t size = c_data[0].size();
+    uint32_t params[1] = {size};
+    proxy->SendBytes(AUC_ROCNOTIE, params, 1);
+    uint64_t auc = AUCNOTIE(proxy, c_data, size);
+    cout << "AUC :\t" << convert2double(REC(proxy, auc)) << endl;
+}
+
+void sort_data(Party *proxy, int nstation, int delta) {
     int tmp_delta = delta;
-    while (nstation!=1) {
-        int i=0;
-        int ns = nstation-(nstation%2);
-        while (i<ns){
+    while (nstation != 1) {
+//        cout << "nstation: " << nstation << endl;
+        int i = 0;
+        int ns = nstation - (nstation % 2);
+        while (i < ns) {
+//            cout << "i: " << i << endl;
             delta = tmp_delta;
-            int fl_index=i;
-            int ll_index=i+1;
-            if (c_data[i].size() < c_data[i+1].size()){
-                fl_index=i+1;
-                ll_index=i;
+            int fl_index = i;
+            int ll_index = i + 1;
+            if (c_data[i].size() < c_data[i + 1].size()) {
+                fl_index = i + 1;
+                ll_index = i;
             }
-            uint64_t *diff = new uint64_t[2*c_data[ll_index].size()];
-            uint64_t *mux_val1 = new uint64_t[2*c_data[ll_index].size()];
-            uint64_t *mux_val2 = new uint64_t[2*c_data[ll_index].size()];
-            uint64_t *mux_res = new uint64_t[2*c_data[ll_index].size()];
+            uint64_t *diff = new uint64_t[2 * c_data[ll_index].size()];
+            uint64_t *mux_val1 = new uint64_t[2 * c_data[ll_index].size()];
+            uint64_t *mux_val2 = new uint64_t[2 * c_data[ll_index].size()];
+            uint64_t *mux_res = new uint64_t[2 * c_data[ll_index].size()];
             client_data sorted;
 
-
+            uint64_t tmp_sample_size[100];
+            client_data data[2];
             // sort
-            while (!c_data[fl_index].empty() && !c_data[ll_index].empty()){
-                int diff_size = c_data[fl_index].size();
-                if(diff_size > c_data[ll_index].size())
-                    diff_size = c_data[ll_index].size();
+            int cnt = 0;
+            bool flag = false;
+            while (!c_data[fl_index].empty() && !c_data[ll_index].empty()) {
+                cout << "fl_index: " << fl_index << "\tll_index: " << ll_index << endl;
+                cout << "***************************************" << endl;
+                tmp_sample_size[0] = c_data[fl_index].size();
+                tmp_sample_size[1] = c_data[ll_index].size();
+                data[0] = c_data[fl_index];
+                data[1] = c_data[ll_index];
+                print_data(proxy, 2, tmp_sample_size, data);
+                cout << "-----------------------------------" << endl;
 
-                for (int j=0;j<diff_size;j++){
+//                cout << "Count: " << cnt << endl;
+                cnt++;
+                int diff_size = c_data[fl_index].size();
+                if (diff_size > c_data[ll_index].size()) {
+                    diff_size = c_data[ll_index].size();
+                    flag = true;
+                }
+//                cout << "check 1" << endl;
+
+                for (int j = 0; j < diff_size; j++) {
                     diff[j] = c_data[fl_index][j].val - c_data[ll_index][j].val;
                     mux_val1[j] = c_data[fl_index][j].val;
                     mux_val2[j] = c_data[ll_index][j].val;
-                    mux_val1[j+diff_size] = c_data[fl_index][j].label;
-                    mux_val2[j+diff_size] = c_data[ll_index][j].label;
+                    mux_val1[j + diff_size] = c_data[fl_index][j].label;
+                    mux_val2[j + diff_size] = c_data[ll_index][j].label;
                 }
+//                cout << "check 2" << endl;
 
+                uint32_t params[1] = {(uint32_t) diff_size};
+                proxy->SendBytes(CORE_MMSB, params, 1);
+                uint64_t *diff_res = MSB(proxy, diff, diff_size);
+//                cout << "check 3" << endl;
 
-                proxy->SendBytes(MMSB, diff_size);
-                uint64_t * diff_res = proxy->MMSB(diff,diff_size);
-
-                for (int j=0;j<diff_size;j++){
+                for (int j = 0; j < diff_size; j++) {
                     diff[j] = diff_res[j];
-                    diff[j+diff_size] = diff_res[j];
+                    diff[j + diff_size] = diff_res[j];
                 }
 
-
-                mux_res = proxy->MSelectShare(mux_val1,mux_val2,diff,2*diff_size);
-                for (int j=0;j<diff_size;j++){
+//                cout << "check 4" << endl;
+//                mux_res = proxy->MSelectShare(mux_val1, mux_val2, diff, 2 * diff_size);
+                params[0] = 2 * diff_size;
+                proxy->SendBytes(CORE_MMUX, params, 1);
+                mux_res = MUX(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
+                for (int j = 0; j < diff_size; j++) {
                     c_data[fl_index][j].val = mux_res[j];
-                    c_data[fl_index][j].label = mux_res[j+diff_size];
+                    c_data[fl_index][j].label = mux_res[j + diff_size];
+                }
+//                cout << "check 5" << endl;
+
+                params[0] = 2 * diff_size;
+                proxy->SendBytes(CORE_MMUX, params, 1);
+                mux_res = MUX(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
+//                cout << "check 5.5" << endl;
+                for (int j = 0; j < diff_size; j++) {
+                    c_data[ll_index][j].val = mux_res[j];
+                    c_data[ll_index][j].label = mux_res[j + diff_size];
                 }
 
-                mux_res = proxy->MSelectShare(mux_val2,mux_val1,diff,2*diff_size);
-                for (int j=0;j<diff_size;j++){
-                    c_data[ll_index][j].val = mux_res[j];
-                    c_data[ll_index][j].label = mux_res[j+diff_size];
-                }
+//                cout << "Moving...";
+//                if(flag) {
+//                    int n_iter = c_data[ll_index].size() - c_data[fl_index].size();
+//                    for(int t = 0; t < n_iter; t++) {
+//                        c_data[fl_index].push_back(c_data[ll_index][diff_size]);
+//                        c_data[ll_index].erase(c_data[ll_index].begin() + diff_size);
+//                    }
+//
+////                    for(int t = 0; t < c_data[ll_index].size() - c_data[fl_index].size(); t++) {
+////                        c_data[ll_index].pop_back();
+////                    }
+//                }
+//                cout << " is done!" << endl;
+
                 sorted.push_back(c_data[fl_index][0]);
                 c_data[fl_index].pop_front();
+//                cout << "check 6" << endl;
 
 
-
-                int min_val = min({delta, (int)c_data[fl_index].size(), (int)c_data[ll_index].size()});
+                int min_val = min({delta, (int) c_data[fl_index].size(), (int) c_data[ll_index].size()});
                 int fl_pop = 1;
                 int ll_pop = 0;
 
-                for (int j=0;j<min_val;j++){
-                    if (c_data[ll_index].size() == 1){
+                cout << "########### min_val: " << min_val << endl;
+
+                for (int j = 0; j < min_val; j++) {
+//                    cout << j << endl;
+                    if (c_data[ll_index].size() == 1) {
                         delta = 0;
                         break;
                     }
                     if (fl_pop != ll_pop) {
                         diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
-                        proxy->SendBytes(MMSB2, 1);
-                        uint64_t *diff_res = proxy->MMSB2(diff, 1);
-                        uint64_t cmp = proxy->Reconstruct(diff_res[0]);
+                        params[0] = 1;
+                        proxy->SendBytes(CORE_MMSB, params, 1);
+                        uint64_t *diff_res = MSB(proxy, diff, 1);
+                        uint64_t cmp = REC(proxy, diff_res[0]);
                         if (cmp == 0) {
                             sorted.push_back(c_data[fl_index][0]);
                             c_data[fl_index].pop_front();
@@ -251,8 +331,7 @@ void sort_data(int nstation, Party* proxy, int delta){
                             c_data[ll_index].pop_front();
                             ll_pop++;
                         }
-                    }
-                    else{
+                    } else {
                         sorted.push_back(c_data[fl_index][0]);
                         c_data[fl_index].pop_front();
                         fl_pop++;
@@ -260,22 +339,56 @@ void sort_data(int nstation, Party* proxy, int delta){
 
                 }
 
+                cout << "-----------------------------------" << endl;
+                cout << "After the loop" << endl;
+                tmp_sample_size[0] = c_data[fl_index].size();
+                tmp_sample_size[1] = c_data[ll_index].size();
+                data[0] = c_data[fl_index];
+                data[1] = c_data[ll_index];
+                print_data(proxy, 2, tmp_sample_size, data);
+
+                if(c_data[ll_index].size() > c_data[fl_index].size()) {
+                    int tmp = ll_index;
+                    ll_index = fl_index;
+                    fl_index = tmp;
+                }
+
+                cout << "-----------------------------------" << endl;
+                cout << "After the exchanging" << endl;
+                tmp_sample_size[0] = c_data[fl_index].size();
+                tmp_sample_size[1] = c_data[ll_index].size();
+                data[0] = c_data[fl_index];
+                data[1] = c_data[ll_index];
+                print_data(proxy, 2, tmp_sample_size, data);
+                cout << "***************************************" << endl;
+
+//                cout << "Over" << endl;
+
             }
-            if (c_data[fl_index].size() > 0){
-                while (!c_data[fl_index].empty()){
+
+//            cout << "Inner while loop is over" << endl;
+
+            if (c_data[fl_index].size() > 0) {
+//                cout << "if statement" << endl;
+                while (!c_data[fl_index].empty()) {
                     sorted.push_back(c_data[fl_index][0]);
                     c_data[fl_index].pop_front();
                 }
-            }else{
-                while (!c_data[ll_index].empty()){
+            } else {
+//                cout << "else statement" << endl;
+                while (!c_data[ll_index].empty()) {
                     sorted.push_back(c_data[ll_index][0]);
                     c_data[ll_index].pop_front();
                 }
             }
 
+//            cout << "if statement is over" << endl;
+
             // merge
             c_data[i] = sorted;
-            c_data[i+1].clear();
+            c_data[i + 1].clear();
+
+//            cout << "merging is over" << endl;
 
             // delete
             delete[] diff;
@@ -283,22 +396,36 @@ void sort_data(int nstation, Party* proxy, int delta){
             delete[] mux_val2;
             delete[] mux_res;
 
-            i+=2;
+            i += 2;
+
         }
 
-        i=1;
+//        cout << "inner while loop is over" << endl;
+
+        uint64_t tmp_sample_size[100];
+        tmp_sample_size[0] = c_data[0].size();
+        i = 1;
         c_data[1].clear();
-        while (i<nstation){
-            if (i%2 == 0)
-                c_data[i/2] = c_data[i];
+        while (i < nstation) {
+//            cout << "last while loop: " << i << endl;
+            if (i % 2 == 0) {
+                tmp_sample_size[i / 2] = c_data[i].size();
+                c_data[i / 2] = c_data[i];
+            }
             c_data[i].clear();
-            i+=1;
+            i += 1;
         }
-        nstation = (nstation/2)+(nstation%2);
+//        cout << "last while loop is over" << endl;
+        nstation = (nstation / 2) + (nstation % 2);
+
+        cout << "=========================================" << endl;
+        print_data(proxy, nstation, tmp_sample_size);
+        cout << "=========================================" << endl;
 
     }
 }
-int main(int argc, char* argv[]) {
+
+int main(int argc, char *argv[]) {
     uint8_t role = atoi(argv[1]);
     uint16_t cport = atoi(argv[2]);
     string caddress(argv[3]);
@@ -307,10 +434,7 @@ int main(int argc, char* argv[]) {
     int delta = atoi(argv[6]);
     string ss(argv[7]);
 
-
-
     nstation = 2;
-
 
     bool file_flag = false;
     if (!IsPathExist(ss)) {
@@ -346,7 +470,7 @@ int main(int argc, char* argv[]) {
             for (int i = 0; i < nstation; i++)
                 sample_size[i] = 20000;
         }
-    }else{
+    } else {
         file_flag = true;
     }
 
@@ -360,23 +484,40 @@ int main(int argc, char* argv[]) {
     }
 
     Party *proxy;
-    if (role==0)
-        proxy = new Party(P1,hport, haddress, cport, caddress);
+    if (role == 0)
+        proxy = new Party(P1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2,hport, haddress, cport, caddress);
+        proxy = new Party(P2, hport, haddress, cport, caddress);
 
 
+    // determine which type of data is going to be used -- real or synthetic
     if (file_flag) {
-        cout<<"mete "<<endl;
+        cout << "real data" << endl;
         file_data(ss);
+    } else {
+        cout << "random data" << endl;
+        random_data(proxy, nstation, sample_size);
     }
-    else{
-        random_data(nstation,sample_size,role);
-    }
-    print_data(nstation,sample_size,proxy);
+    cout << "================================" << endl;
+    print_data(proxy, nstation, sample_size);
+    cout << "================================" << endl;
+
     auto start = chrono::high_resolution_clock::now();
-    sort_data(nstation,proxy, delta);
+
+    cout << "Sorting..." << endl;
+    sort_data(proxy, nstation, delta);
+
+    uint64_t total_n_samples = 0;
+    for(int i = 0; i < nstation; i++) {
+        total_n_samples += sample_size[i];
+    }
+    uint64_t tmp_size[1] = {total_n_samples};
+    print_data(proxy, 1, tmp_size);
+
+    cout << "... is done!" << endl;
     calc_auc(proxy);
+//    calc_auc_v2(proxy);
+
     ios_base::sync_with_stdio(false);
     auto end = chrono::high_resolution_clock::now();
     double time_taken =
@@ -388,9 +529,9 @@ int main(int argc, char* argv[]) {
 
     //print_data(nstation,sample_size,proxy);
 
-    proxy->SendBytes(END);
+    proxy->SendBytes(CORE_END);
     proxy->PrintBytes();
     del();
-    cout<<"*****************************"<<endl;
+    cout << "*****************************" << endl;
     return 0;
 }

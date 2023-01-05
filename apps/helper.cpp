@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
                         and params[2] <= params[0]
                         and params[3] <= params[1]
                     ){
-                    MAX(helper, nullptr, params[0], params[1], params[2], params[3]);
+                    MAX(helper, nullptr, params[0], params[1], params[2], params[3], true);
                 }
                 else{
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;
@@ -174,6 +174,14 @@ int main(int argc, char* argv[]) {
             case CORE_DIV:
                 DIV(helper, 0, 0);
                 break;
+            case CORE_MDIV:
+                size1 = helper->ReadInt();
+                DIV(helper, 0, 0, size1);
+                break;
+            case CORE_MNORM:
+                size1 = helper->ReadInt();
+                NORM(helper, 0, 0, size1);
+                break;
             case AUC_MSB:
                 sz = helper->ReadInt();
                 AUCMSB(helper,nullptr,sz);
@@ -188,6 +196,11 @@ int main(int argc, char* argv[]) {
             case AUC_MDIV:
                 sz = helper->ReadInt();
                 MDIVISION(helper,nullptr,nullptr,sz);
+                break;
+            case AUC_ROCNOTIE:
+                sz = helper->ReadInt();
+                cout << "Sz: " << sz << endl;
+                AUCNOTIE(helper, 0, sz);
                 break;
             case RKN_EIG:
                 sz = helper->ReadInt();
@@ -204,5 +217,6 @@ int main(int argc, char* argv[]) {
         }
     }
     helper->PrintBytes();
+    delete helper;
     return 0;
 }

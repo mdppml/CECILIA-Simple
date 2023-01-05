@@ -42,6 +42,9 @@ public:
         }
         SetCommonSeed();
 
+        // pre-compute the truncation mask for negative values based on FRAC
+        neg_truncation_mask = (((uint64_t) 1 << FRAC) - 1) << (L_BIT - FRAC);
+
         // compute the number of bits for exponential
         // for positive power
         bool flag = false;
@@ -201,6 +204,17 @@ public:
         time_taken *= 1e-9;
         kk += time_taken;
         return val;
+    }
+
+    uint64_t createShare(uint64_t val){
+        uint64_t share;
+        if (p_role ==P1) {
+            share = generateCommonRandom();
+        }
+        else{
+            share = val - generateCommonRandom();
+        }
+        return share;
     }
 
     uint64_t createShare(double val){
@@ -367,6 +381,10 @@ public:
     void setMinPower(double minPower) {
         min_power = minPower;
     }
+
+    uint64_t getNegTruncationMask() const {
+        return neg_truncation_mask;
+    }
 private:
     role p_role;
     int socket_p1,socket_p2,socket_helper;
@@ -378,6 +396,7 @@ private:
     int neg_n_bits = FRAC; // number of bits of a negative value to consider in the exponential computation
     double max_power = 0;
     double min_power = 0;
+    uint64_t neg_truncation_mask = 0;
 };
 
 
