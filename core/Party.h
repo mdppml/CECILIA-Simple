@@ -18,6 +18,11 @@ using namespace std;
 #include "../utils/constant.h"
 #include "../utils/flib.h"
 #include "../utils/connection.h"
+#include "../utils/AES_CTR_RBG.h"
+#include <cryptopp/secblock.h>
+using CryptoPP::FixedSizeSecBlock;
+#include <cryptopp/osrng.h>
+using CryptoPP::OS_GenerateRandomBlock;
 
 class Party {
 private:
@@ -26,7 +31,6 @@ public:
 
     Party(role r, uint16_t hport=7777, const string hip="127.0.0.1", uint16_t cport=8888,const string cip="127.0.0.1") {
         p_role = r;
-
         if (p_role == P1) {
             socket_helper = connect2helper(cip, hip, cport, hport, r);
             socket_p2 = open_P1(cip, cport);
@@ -40,7 +44,7 @@ public:
             socket_p1 = client_socket[0];
             socket_p2 = client_socket[1];
         }
-        SetCommonSeed();
+        initialiseRBG();
 
         // pre-compute the truncation mask for negative values based on FRAC
         neg_truncation_mask = (((uint64_t) 1 << FRAC) - 1) << (L_BIT - FRAC);
@@ -91,21 +95,20 @@ public:
         }
     }
 
-    void SetCommonSeed() {
+    void initialiseRBG() {
         if (p_role == P1) {
-            srand(time(NULL) + 10000);
-            common_seed = rand();
-            unsigned char *ptr = &buffer[0];
-            addVal2CharArray((uint64_t) common_seed, &ptr);
-            Send(socket_p2, buffer, 8);
+            OS_GenerateRandomBlock(false, buffer, 32);
+            Send(socket_p2, buffer, 32);
+            common_rbg = new AES_CTR_RBG(buffer, 32);
+            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
         } else if (p_role == P2) {
-            srand(time(NULL) + 20000);
-            Receive(socket_p1, buffer, 8);
+            Receive(socket_p1, buffer, 32);
             unsigned char *ptr = &buffer[0];
-            common_seed = convert2Long(&ptr);
-        } else if (p_role == HELPER)
-            srand(time(NULL) + 30000);
-        seed = rand();
+            common_rbg = new AES_CTR_RBG(ptr, 32);
+            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
+        }
+        rbg = new AES_CTR_RBG();
+        rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
     }
 
     /*uint64_t generateRandom() {
@@ -125,11 +128,12 @@ public:
 
     uint64_t generateRandom() {
         auto start = chrono::high_resolution_clock::now();
-        srand(seed);
-        uint64_t a = rand();
-        srand(seed + 1);
-        uint64_t val = rand() ^ (a << 32);
-        seed += 2;
+        if (used_random_bytes + 7 >= BUFFER_SIZE) {
+            rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
+            used_random_bytes = 0;
+        }
+        uint64_t val = *(uint64_t *)(random_buffer + used_random_bytes);
+        used_random_bytes += 8;
         auto end = chrono::high_resolution_clock::now();
         double time_taken =
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count();
@@ -139,9 +143,12 @@ public:
     }
     uint8_t generateRandomByte() {
         auto start = chrono::high_resolution_clock::now();
-        srand(seed);
-        uint8_t val = rand() >> 24;
-        seed += 1;
+        if (used_random_bytes >= BUFFER_SIZE) {
+            rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
+            used_random_bytes = 0;
+        }
+        uint8_t val = random_buffer[used_random_bytes];
+        used_random_bytes++;
         auto end = chrono::high_resolution_clock::now();
         double time_taken =
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count();
@@ -180,11 +187,12 @@ public:
 
     uint64_t generateCommonRandom() {
         auto start = chrono::high_resolution_clock::now();
-        srand(common_seed);
-        uint64_t a = rand();
-        //srand(common_seed + 1);
-        uint64_t val = a ^ (a << 32);
-        common_seed = val;
+        if (used_common_random_bytes + 7 >= BUFFER_SIZE) {
+            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
+            used_common_random_bytes = 0;
+        }
+        uint64_t val = *(uint64_t *)(common_random_buffer + used_common_random_bytes);
+        used_common_random_bytes += 8;
         auto end = chrono::high_resolution_clock::now();
         double time_taken =
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count();
@@ -195,9 +203,12 @@ public:
 
     uint8_t generateCommonRandomByte() {
         auto start = chrono::high_resolution_clock::now();
-        srand(common_seed);
-        uint8_t val = rand() >> 24;
-        common_seed += 1;
+        if (used_common_random_bytes >= BUFFER_SIZE) {
+            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
+            used_common_random_bytes = 0;
+        }
+        uint8_t val = common_random_buffer[used_common_random_bytes];
+        used_common_random_bytes++;
         auto end = chrono::high_resolution_clock::now();
         double time_taken =
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count();
@@ -390,8 +401,12 @@ private:
     int socket_p1,socket_p2,socket_helper;
     uint8_t buffer[BUFFER_SIZE];
     uint8_t buffer2[BUFFER_SIZE];
-    uint32_t common_seed;
-    uint32_t seed;
+    CryptoPP::byte random_buffer[BUFFER_SIZE];
+    CryptoPP::byte common_random_buffer[BUFFER_SIZE];
+    size_t used_random_bytes = 0;
+    size_t used_common_random_bytes = 0;
+    AES_CTR_RBG* common_rbg;
+    AES_CTR_RBG* rbg;
     int n_bits = FRAC; // number of bits of a value to consider in the exponential computation
     int neg_n_bits = FRAC; // number of bits of a negative value to consider in the exponential computation
     double max_power = 0;
