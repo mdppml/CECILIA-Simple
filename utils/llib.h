@@ -1,7 +1,3 @@
-//
-// Created by Mete Akgun on 18.07.20.
-//
-
 #ifndef PML_LLIB_H
 #define PML_LLIB_H
 
@@ -53,6 +49,8 @@ void quickSort(uint64_t real_arr[], int low, int high)
 void sort_values(uint64_t real_arr[], int n){
     quickSort(real_arr, 0, n);
 }
+
+
 
 
 #endif //PML_LLIB_H

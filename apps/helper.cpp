@@ -200,7 +200,15 @@ int main(int argc, char* argv[]) {
             case AUC_ROCNOTIE:
                 sz = helper->ReadInt();
                 cout << "Sz: " << sz << endl;
-                AUCNOTIE(helper, 0, sz);
+                ROCNOTIE(helper, 0, sz);
+                break;
+            case AUC_ROCWITHTIE:
+                sz = helper->ReadInt();
+                ROCWITHTIE(helper, 0, sz);
+                break;
+            case AUC_PR:
+                sz = helper->ReadInt();
+                PRCURVE(helper, 0, sz);
                 break;
             case RKN_EIG:
                 sz = helper->ReadInt();
