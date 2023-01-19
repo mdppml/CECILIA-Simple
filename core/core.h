@@ -2110,7 +2110,16 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
     return NULL;
 }
 
-
+/** Perform division operation, or more specifically normalization operation, of two given inputs. The operation is
+ * taken from SecureNN, but it is implemented by using the building blocks of CECILIA. Note that there is an implicit
+ * assumption for NORM to work correctly: the elements of a must be less than the corresponding elements of b.
+ *
+ * @param proxy
+ * @param a: the nominators
+ * @param b: the denominators
+ * @param size: the number of elements in a and b
+ * @return div: uint64_t vector consisting of elementwise division of a/b
+ */
 uint64_t* NORM(Party *proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *u = new uint64_t[size]; // holds how much needs to be subtracted from the nominator

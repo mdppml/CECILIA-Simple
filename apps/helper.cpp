@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
     uint32_t sz, n_gms, size1, size2;
     uint64_t params [9];
     op operation;
+    auto start = chrono::high_resolution_clock::now();
     while (keep_looping){
         operation = static_cast<op>(helper->ReadByte());
         switch(operation) {
@@ -224,7 +225,12 @@ int main(int argc, char* argv[]) {
                 break;
         }
     }
+    auto end = chrono::high_resolution_clock::now();
     helper->PrintBytes();
+
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    helper->PrintPaperFriendly(time_taken);
     delete helper;
     return 0;
 }

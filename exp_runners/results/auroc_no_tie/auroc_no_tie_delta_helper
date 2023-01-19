@@ -1,0 +1,12 @@
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	1669347803
+Bytes Received:	2001941658
+Receive Time	1236.491590 sec
+Send Time	1.960525823 sec
+Paper	1669.347803000	2001.941658000	931.692286750

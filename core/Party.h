@@ -40,7 +40,8 @@ public:
             socket_p1 = client_socket[0];
             socket_p2 = client_socket[1];
         }
-        SetCommonSeed();
+        for(int at = 0; at < 20000; at++)
+            SetCommonSeed();
 
         // pre-compute the truncation mask for negative values based on FRAC
         neg_truncation_mask = (((uint64_t) 1 << FRAC) - 1) << (L_BIT - FRAC);
@@ -324,6 +325,10 @@ public:
 
     void PrintBytes() {
         PBytes();
+    }
+
+    void PrintPaperFriendly(double time_taken) {
+        cout << "Paper\t" << (bytesSend / 1e6) << "\t" << (bytesReceived / 1e6) << "\t" << fixed << time_taken << setprecision(9) << endl;
     }
 
     role getPRole() const {

@@ -519,6 +519,8 @@ int main(int argc, char *argv[]) {
          << time_taken << setprecision(9);
     cout << " sec" << endl;
 
+    proxy->PrintPaperFriendly(time_taken);
+
     //print_data(nstation,sample_size,proxy);
 
     proxy->SendBytes(CORE_END);

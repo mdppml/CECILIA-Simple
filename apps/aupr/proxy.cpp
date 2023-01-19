@@ -443,6 +443,7 @@ int main(int argc, char* argv[]) {
 
 //    cout << "Data after sorting: " << endl;
     SORT(proxy, c_data, nstation, delta);
+    auto mid = chrono::high_resolution_clock::now();
 //    cout<<"Confidence mapping was calculated"<<endl;
 //    cout << "======================" << endl;
 //    uint64_t total_n_samples = 0;
@@ -458,12 +459,19 @@ int main(int argc, char* argv[]) {
 
     ios_base::sync_with_stdio(false);
     auto end = chrono::high_resolution_clock::now();
-    double time_taken =
-            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
-    cout << "Time taken by program is : " << fixed
-         << time_taken << setprecision(9);
-    cout << " sec" << endl;
+    cout << "Time taken by program is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
+
+    proxy->PrintPaperFriendly(time_taken);
+
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(mid - start).count();
+    time_taken *= 1e-9;
+    cout << "Time taken by SORT is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
+
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(end - mid).count();
+    time_taken *= 1e-9;
+    cout << "Time taken by AUC computation is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

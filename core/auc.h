@@ -94,11 +94,14 @@ uint64_t *MRound(Party *proxy, uint64_t *a, uint32_t sz) {
         return b;
     } else if (proxy->getPRole() == HELPER) {
         cout << "helper MRound" << endl;
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+//        Receive(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+//        Receive(proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+        thread thr1 = thread(Receive, proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+        thr1.join();
+        thr2.join();
         unsigned char *ptr = proxy->getBuffer1();
         unsigned char *ptr_out = proxy->getBuffer1();
-
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
         unsigned char *ptr2 = proxy->getBuffer2();
         unsigned char *ptr_out2 = proxy->getBuffer2();
         for (uint32_t i = 0; i < sz; i++) {
@@ -111,8 +114,12 @@ uint64_t *MRound(Party *proxy, uint64_t *a, uint32_t sz) {
             addVal2CharArray(v1, &ptr_out);
             addVal2CharArray(v2, &ptr_out2);
         }
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+//        Send(proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+//        Send(proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+        thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+        thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+        thr1.join();
+        thr2.join();
         return NULL;
     }
     return nullptr;

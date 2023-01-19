@@ -19,7 +19,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 1;
+constexpr int sz = 16384;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -394,8 +394,15 @@ void MMSB_Test(Party *proxy) {
     for (int i = 0; i < sz; i++) {
         x[i] = proxy->generateRandom();
     }
+    auto start = chrono::high_resolution_clock::now();
     proxy->SendBytes(CORE_MMSB, params, 1);
     uint64_t *r = MSB(proxy, x, sz);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken =
+            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout<<"MSB Time:\t" << fixed
+        << time_taken << setprecision(9) << " sec" << endl;
     //uint64_t *r = MSBv2(proxy,x,sz);
     // checking the result
     uint64_t *x_reconstructed = REC(proxy, x, sz);
@@ -598,7 +605,6 @@ void MAX_Test(Party *proxy) {
     }
 
 }
-
 
 void MAX_Specific_Test(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling MAX with specific input";
@@ -2996,7 +3002,6 @@ void ADD_Test(Party *proxy) {
 //}
 
 
-
 bool NETWORK_TEST(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling LeNet Test";
     cout << setfill('*') << setw(49) << "*" << endl;
@@ -3511,7 +3516,7 @@ int main(int argc, char *argv[]) {
 //        MMOC_Test(proxy);
 //
 //        MSB_Test(proxy);
-//        MMSB_Test(proxy);
+        MMSB_Test(proxy);
 //
 //        CMP_Test(proxy);
 //        MCMP_Test(proxy);
@@ -3533,7 +3538,7 @@ int main(int argc, char *argv[]) {
 //        DIV_Test(proxy, cnt);
 //        MDIV_Test(proxy, cnt);
 //
-            NORM_Test(proxy, cnt, true);
+//        NORM_Test(proxy, cnt, true);
 //
 //        INC_Test(proxy);
 //        FLT_Test(proxy);
@@ -3575,10 +3580,10 @@ int main(int argc, char *argv[]) {
     proxy->PrintBytes();
 
     auto end = chrono::high_resolution_clock::now();
-    double time_taken =
-            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-    cout<<"Total Time\t"<<fixed
-        << tt << setprecision(9) << " sec" << endl;
+//    double time_taken =
+//            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//    cout<<"Total Time\t"<<fixed
+//        << time_taken << setprecision(9) << " sec" << endl;
 
     delete proxy;
 
