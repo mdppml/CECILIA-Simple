@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 nsamples=(64 128 256 512 1024)
 nparties=3
-nrepetition=5
+nrepetition=1
 for (( iter=0; iter<$nrepetition; iter++))
 do
 	for i in ${nsamples[@]};

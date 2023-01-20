@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 s="8,12,18,32,58,107,258,507,1008"
-nrepetition=5
+nrepetition=1
 for (( iter=0; iter<$nrepetition; iter++))
 do
 	echo " ======== Iteration $iter ========== "

@@ -334,17 +334,21 @@ int main(int argc, char* argv[]) {
         random_data(proxy, c_data, nstation, sample_size);
     }
 
+    cout << "Number of parties: " << nstation << endl;
+    for(int i = 0; i < nstation; i++)
+        cout << sample_size[i] << "\t" << endl;
+
     auto start = chrono::high_resolution_clock::now();
 //    sort_data(nstation,proxy, delta);
     SORT(proxy, c_data, nstation, delta);
 
-    cout << "Data after sorting: " << endl;
-    uint64_t total_n_samples = 0;
-    for(int i = 0; i < nstation; i++) {
-        total_n_samples += sample_size[i];
-    }
-    uint64_t tmp_size[1] = {total_n_samples};
-    print_data(proxy, 1, tmp_size, c_data, true);
+//    cout << "Data after sorting: " << endl;
+//    uint64_t total_n_samples = 0;
+//    for(int i = 0; i < nstation; i++) {
+//        total_n_samples += sample_size[i];
+//    }
+//    uint64_t tmp_size[1] = {total_n_samples};
+//    print_data(proxy, 1, tmp_size, c_data, true);
 
 //    calc_confidence(proxy);
     cout<<"Confidence mapping was calculated"<<endl;

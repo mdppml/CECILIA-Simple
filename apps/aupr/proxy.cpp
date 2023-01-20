@@ -435,6 +435,10 @@ int main(int argc, char* argv[]) {
         random_data(proxy, c_data, nstation, sample_size);
     }
 
+    cout << "Number of parties: " << nstation << endl;
+    for(int i = 0; i < nstation; i++)
+        cout << sample_size[i] << "\t" << endl;
+
     auto start = chrono::high_resolution_clock::now();
 
 //    sort_data(nstation,proxy, delta);

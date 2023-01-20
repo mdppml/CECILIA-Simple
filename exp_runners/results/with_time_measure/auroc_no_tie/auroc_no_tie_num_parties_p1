@@ -1,0 +1,195 @@
+2,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 2000
+AUC :	0.473633
+Time taken by program is : 98.599353 sec
+Paper	75.804272000	63.681419000	98.599353083
+Bytes Sent:	75804273
+Bytes Received:	63681419
+Receive Time	92.882624951 sec
+Send Time	0.217344571 sec
+*****************************
+4,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 4000
+AUC :	0.499023
+Time taken by program is : 396.662930 sec
+Paper	453.686357000	381.574658000	396.662930125
+Bytes Sent:	453686358
+Bytes Received:	381574658
+Receive Time	367.904925012 sec
+Send Time	0.625146505 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 8000
+AUC :	0.516602
+Time taken by program is : 1211.685211 sec
+Paper	2115.670497000	1779.558675000	1211.685210500
+Bytes Sent:	2115670498
+Bytes Received:	1779558675
+Receive Time	1105.007959812 sec
+Send Time	1.678137108 sec
+*****************************
+2,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 2000
+AUC :	0.501953
+Time taken by program is : 98.507789 sec
+Paper	75.809476000	63.685840000	98.507788792
+Bytes Sent:	75809477
+Bytes Received:	63685840
+Receive Time	92.806106692 sec
+Send Time	0.225027344 sec
+*****************************
+4,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 4000
+AUC :	0.493164
+Time taken by program is : 396.553530 sec
+Paper	453.682180000	381.571126000	396.553529542
+Bytes Sent:	453682181
+Bytes Received:	381571126
+Receive Time	367.801706373 sec
+Send Time	0.611267240 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 8000
+AUC :	0.50293
+Time taken by program is : 1211.536662 sec
+Paper	2115.675605000	1779.563072000	1211.536661708
+Bytes Sent:	2115675606
+Bytes Received:	1779563072
+Receive Time	1104.390012206 sec
+Send Time	1.692864749 sec
+*****************************
+2,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 2000
+AUC :	0.489258
+Time taken by program is : 98.542062 sec
+Paper	75.808802000	63.685229000	98.542061666
+Bytes Sent:	75808803
+Bytes Received:	63685229
+Receive Time	92.839916265 sec
+Send Time	0.215904013 sec
+*****************************
+4,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 4000
+AUC :	0.495117
+Time taken by program is : 396.504783 sec
+Paper	453.683790000	381.572499000	396.504783166
+Bytes Sent:	453683791
+Bytes Received:	381572499
+Receive Time	367.759953589 sec
+Send Time	0.616789694 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 8000
+AUC :	0.501953
+Time taken by program is : 1211.859809 sec
+Paper	2115.667039000	1779.555754000	1211.859808833
+Bytes Sent:	2115667040
+Bytes Received:	1779555754
+Receive Time	1105.130717389 sec
+Send Time	1.689826400 sec
+*****************************
+2,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 2000
+AUC :	0.510742
+Time taken by program is : 98.508377 sec
+Paper	75.807141000	63.683832000	98.508377000
+Bytes Sent:	75807142
+Bytes Received:	63683832
+Receive Time	92.791431540 sec
+Send Time	0.220570038 sec
+*****************************
+4,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 4000
+AUC :	0.50293
+Time taken by program is : 396.645728 sec
+Paper	453.682346000	381.571253000	396.645727834
+Bytes Sent:	453682347
+Bytes Received:	381571253
+Receive Time	367.921865549 sec
+Send Time	0.619354412 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 8000
+AUC :	0.492188
+Time taken by program is : 1212.114546 sec
+Paper	2115.653077000	1779.543967000	1212.114545916
+Bytes Sent:	2115653078
+Bytes Received:	1779543967
+Receive Time	1105.765591531 sec
+Send Time	1.670048185 sec
+*****************************
+2,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 2000
+AUC :	0.491211
+Time taken by program is : 98.577275 sec
+Paper	75.809406000	63.685737000	98.577275166
+Bytes Sent:	75809407
+Bytes Received:	63685737
+Receive Time	92.838138853 sec
+Send Time	0.222238998 sec
+*****************************
+4,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 4000
+AUC :	0.494141
+Time taken by program is : 396.603086 sec
+Paper	453.684445000	381.573031000	396.603085959
+Bytes Sent:	453684446
+Bytes Received:	381573031
+Receive Time	367.789129956 sec
+Send Time	0.612015971 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P2 is connected
+random data
+Size: 8000
+AUC :	0.50293
+Time taken by program is : 1211.549073 sec
+Paper	2115.666324000	1779.555222000	1211.549073416
+Bytes Sent:	2115666325
+Bytes Received:	1779555222
+Receive Time	1104.899848286 sec
+Send Time	1.690001558 sec
+*****************************

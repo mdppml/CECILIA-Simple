@@ -488,6 +488,11 @@ int main(int argc, char *argv[]) {
         cout << "random data" << endl;
         random_data(proxy, c_data, nstation, sample_size);
     }
+
+    cout << "Number of parties: " << nstation << endl;
+    for(int i = 0; i < nstation; i++)
+        cout << sample_size[i] << "\t" << endl;
+
 //    cout << "=========== Data of each station ==================" << endl;
 //    print_data(proxy, nstation, sample_size, true);
 //    cout << "================================" << endl;

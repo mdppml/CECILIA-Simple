@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 deltas=(3 5 11 25 51 101)
 s="8,1000,1000,1000,1000,1000,1000,1000,1000"
-nrepetition=5
+nrepetition=1
 for (( iter=0; iter<$nrepetition; iter++))
 do
 	for i in ${deltas[@]};

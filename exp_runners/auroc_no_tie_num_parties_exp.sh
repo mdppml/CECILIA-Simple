@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 nparties=(2 4 8)
-nrepetition=5
+nrepetition=1
 for (( iter=0; iter<$nrepetition; iter++))
 do
 	for i in ${nparties[@]};
