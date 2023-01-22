@@ -20,7 +20,7 @@
 #define MAX_SAMPLE_MASK 0x7ffff
 
 #define MAX_MATRIX_SIZE 20000
-#define BUFFER_SIZE 40000000
+#define BUFFER_SIZE 400000000
 
 #define DEBUG_FLAG 0
 
@@ -28,9 +28,12 @@
 // constants for INVSQRT
 #define ORTHMASK 0x3e000
 #define MAX_DELTA 100
-#define MIN_DELTA 10
+#define MIN_DELTA 100
 #define MAXSCALAR 0xfffff
 #define MAXA 0x3fffff
+
+// constants for sockets
+#define SCKNUM 8
 
 enum role {
     P1, P2, HELPER

@@ -279,15 +279,6 @@ uint64_t getModularInverse(uint64_t a){
  */
 uint64_t AS(uint64_t z, int n_shift = FRAC) {
     z = static_cast<uint64_t>( static_cast<int64_t>(z) >> n_shift);
-//    uint64_t msb_z = z >> (L_BIT - 1);
-//    if(msb_z == 0x0) {
-////        cout << "MSB-0 case" << endl;
-//        z = static_cast<uint64_t>( static_cast<int64_t>(z) >> FRAC);
-//    }
-//    else {
-//        z = (z >> FRAC) | ((((uint64_t) 1 << FRAC) - (uint64_t) 1) << (L_BIT - FRAC));
-////        z = -1 * static_cast<uint64_t>( static_cast<int64_t>(-1 * z) >> FRAC);
-//    }
     return z;
 }
 

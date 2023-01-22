@@ -758,6 +758,43 @@ uint64_t MSB(Party *proxy, uint64_t x) {
     return -1;
 }
 
+void MSB_SUB(Party *proxy, uint64_t *x, uint64_t *z, uint64_t *z_1, uint8_t *yb, uint64_t *ya, uint8_t f, uint8_t rnd, int start_index, int end_index){
+    //auto start = std::chrono::high_resolution_clock::now();
+    int L1 = L_BIT - 1;
+    unsigned char *ptr_out = proxy->getBuffer1();
+    ptr_out += (start_index * (L1+16));
+    int buffer_index = (start_index * (L1+16));
+    int y_index = (start_index * L1);
+    for (int i = start_index; i < end_index; i++) {
+        uint8_t w_sum = 0;
+        for (int t = L1 - 1; t >= 0; t--) {
+            uint8_t a_bit = bit(z[i], t);
+            int bi = buffer_index + t;
+            int yi = y_index + t;
+            uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
+            proxy->getBuffer1()[bi] = (mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((rnd % (LP - 1)) + 1)) % LP;
+            rnd += 7;
+            w_sum = (w_sum + w) % LP;
+        }
+        buffer_index += L1;
+        y_index += L1;
+        ptr_out += L1;
+
+
+        uint8_t isWrap = 0;
+        if (z[i]<z_1[i])
+            isWrap = 1;
+        z_1[i] =  z_1[i] + proxy->getPRole()*isWrap*N1;
+        addVal2CharArray(proxy->getPRole()*f*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
+        addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
+        buffer_index +=16;
+    }
+    /*auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(stop - start);
+    cout << "duration MSB_SUB " << duration.count() << endl;*/
+}
+
+
 // MSB has 4 communication round. MOC and PC are hardcoded in MSB to reduce the number of communication rounds of MSB calls.
 uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -777,53 +814,37 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
         }
 
         uint64_t *z = REC(proxy, z_1, sz, N1_MASK);
+        int block_size = (int)ceil(sz*1.0/SCKNUM);
+        if (block_size == 0)
+            block_size = sz;
 
-        unsigned char *ptr_out = proxy->getBuffer1();
-        int buffer_index = 0;
-        int y_index = 0;
-        int L1 = L_BIT - 1;
-        for (int i = 0; i < sz; i++) {
-            uint8_t w_sum = 0;
-            for (int t = L1 - 1; t >= 0; t--) {
-                uint8_t a_bit = bit(z[i], t);
-                int bi = buffer_index + t;
-                int yi = y_index + t;
-//                uint8_t w = yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi];
-//                proxy->getBuffer1()[bi] = (proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum) * proxy->generateCommonRandomOddByte();
-//                w_sum = (w_sum + w);
-                uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
-                proxy->getBuffer1()[bi] = (mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
-                w_sum = (w_sum + w) % LP;
-            }
-            buffer_index += L1;
-            y_index += L1;
-            ptr_out += L1;
-
-            /*for (int t = 0; t < L1; t++) {
-                int ind1 = (proxy->generateCommonRandomByte() % L1) + jk;
-                int ind2 = (proxy->generateCommonRandomByte() % L1) + jk;
-                uint8_t tmp = proxy->getBuffer1()[ind1];
-                proxy->getBuffer1()[ind1] = proxy->getBuffer1()[ind2];
-                proxy->getBuffer1()[ind2] = tmp;
-            }*/
-
-            uint8_t isWrap = 0;
-            if (z[i]<z_1[i])
-                isWrap = 1;
-            z_1[i] =  z_1[i] + proxy->getPRole()*isWrap*N1;
-            addVal2CharArray(proxy->getPRole()*f*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
-            addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
-            buffer_index +=16;
+        thread thr[SCKNUM];
+        int start_index = 0;
+        int end_index = block_size;
+        int thr_num = 0;
+        for (int i = 0; i < SCKNUM; i++) {
+            uint8_t rnd = proxy->generateCommonRandomByte();
+            thr[i] = thread(MSB_SUB, proxy, x, z, z_1, yb, ya, f, rnd, start_index,end_index);
+            thr_num +=1;
+            start_index += block_size;
+            end_index += block_size;
+            if (start_index >= sz)
+                break;
+            if (end_index > sz)
+                end_index = sz;
         }
+        for (int i = 0; i < thr_num; i++) {
+            thr[i].join();
+        }
+
         delete [] yb;
         delete [] ya;
         delete [] z_1;
-        delete [] z;
 
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (16 + L_BIT -1));
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);
+        Receive(proxy->getSocketHelper(), proxy->getBuffer2(), sz * 16);
 
-        ptr = proxy->getBuffer1();
+        ptr = proxy->getBuffer2();
         uint64_t *m = new uint64_t[sz];
         uint64_t val[2];
         for (int i = 0; i < sz; i++) {

@@ -33,8 +33,8 @@ add_executable(proxy_auroc_tie apps/auroctie/proxy.cpp core/Party.h utils/consta
 add_executable(proxy_aupr apps/aupr/proxy.cpp core/Party.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES} core/auc.h)
 
 # Test
-#add_executable(proxy_test apps/test/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
-#target_link_libraries(proxy_test PRIVATE Threads::Threads)
+add_executable(proxy_test apps/test/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+target_link_libraries(proxy_test PRIVATE Threads::Threads)
 
 # Benchmark
 #add_executable(benchmark apps/benchmark/main.cpp)

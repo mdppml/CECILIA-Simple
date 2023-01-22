@@ -346,20 +346,11 @@ uint64_t ROCNOTIE(Party *proxy, client_data *c_data, uint32_t size) {
         uint64_t FN = TP;
         uint64_t TN = proxy->createShare( (uint64_t) 0);
         TN = proxy->getPRole() * convert2uint64(size) - TP;
-//    uint64_t TN = 0;
-//    if (proxy->getPRole() == P1)
-//        TN = size - TP;
-//    else
-//        TN = 0 - TP;
 
-//    cout << "MUL is being called... Again!" << endl;
-//        cout << convert2double(REC(proxy, TN)) << "\t" << convert2double(REC(proxy, FN)) << endl;
         uint64_t denominator = MUL(proxy, FN, TN);
 
-//    cout << "NORM is being called..." << endl;
         uint64_t num[1] = {numerator};
         uint64_t den[1] = {denominator};
-//        cout << convert2double(REC(proxy, numerator)) << "\t" << convert2double(REC(proxy, denominator)) << endl;
         uint64_t *auc = NORM(proxy, num, den, 1);
 
         delete[] labels;
@@ -367,13 +358,9 @@ uint64_t ROCNOTIE(Party *proxy, client_data *c_data, uint32_t size) {
         return auc[0];
     }
     else if(proxy->getPRole() == HELPER) {
-        cout << "Calling ROCNOTIE..." << endl;
         MUL(proxy, 0, 0, size);
-        cout << "First MUL is over." << endl;
         MUL(proxy, 0, 0);
-        cout << "Second MUL is over." << endl;
         NORM(proxy, 0, 0, 1);
-        cout << "Returning from ROCNOTIE..." << endl;
     }
     return -1;
 }
@@ -710,6 +697,7 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 
 void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+        int cnt = 0;
         int tmp_delta = delta;
         while (nstation != 1) {
 //        cout << "nstation: " << nstation << endl;
@@ -733,7 +721,6 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
                 uint64_t tmp_sample_size[100];
                 client_data data[2];
                 // sort
-                int cnt = 0;
                 bool flag = false;
                 while (!c_data[fl_index].empty() && !c_data[ll_index].empty()) {
 //                cout << "fl_index: " << fl_index << "\tll_index: " << ll_index << endl;
@@ -765,6 +752,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 
                     uint32_t params[1] = {(uint32_t) diff_size};
                     proxy->SendBytes(CORE_MMSB, params, 1);
+                    cnt++;
                     uint64_t *diff_res = MSB(proxy, diff, diff_size);
 //                cout << "check 3" << endl;
 
@@ -777,6 +765,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //                mux_res = proxy->MSelectShare(mux_val1, mux_val2, diff, 2 * diff_size);
                     params[0] = 2 * diff_size;
                     proxy->SendBytes(CORE_MMUX, params, 1);
+                    cnt++;
                     mux_res = MUX(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
                     for (int j = 0; j < diff_size; j++) {
                         c_data[fl_index][j].val = mux_res[j];
@@ -786,6 +775,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 
                     params[0] = 2 * diff_size;
                     proxy->SendBytes(CORE_MMUX, params, 1);
+                    cnt++;
                     mux_res = MUX(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
 //                cout << "check 5.5" << endl;
                     for (int j = 0; j < diff_size; j++) {
@@ -828,6 +818,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
                             diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
                             params[0] = 1;
                             proxy->SendBytes(CORE_MMSB, params, 1);
+                            cnt++;
                             uint64_t *diff_res = MSB(proxy, diff, 1);
                             uint64_t cmp = REC(proxy, diff_res[0]);
                             if (cmp == 0) {
@@ -931,10 +922,12 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //        cout << "=========================================" << endl;
 
         }
+        cout<<"cnt "<<cnt<<endl;
     }
     else if(proxy->getPRole() == HELPER) {
 
     }
+
 }
 
 //uint64_t *SORT(Party *proxy, client_data *c_data, uint64_t size, int delta, int nstation) {

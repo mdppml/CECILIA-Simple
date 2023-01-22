@@ -19,7 +19,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 16384;
+constexpr int sz = 1000000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -394,9 +394,13 @@ void MMSB_Test(Party *proxy) {
     for (int i = 0; i < sz; i++) {
         x[i] = proxy->generateRandom();
     }
+    uint64_t *r;
     auto start = chrono::high_resolution_clock::now();
-    proxy->SendBytes(CORE_MMSB, params, 1);
-    uint64_t *r = MSB(proxy, x, sz);
+    for (int i=0;i<60;i++){
+        proxy->SendBytes(CORE_MMSB, params, 1);
+        r = MSB(proxy, x, sz);
+    }
+
     auto end = chrono::high_resolution_clock::now();
     double time_taken =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
