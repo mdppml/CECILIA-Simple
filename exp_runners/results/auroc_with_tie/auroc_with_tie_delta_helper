@@ -30,3 +30,19 @@ Bytes Received:	313119185
 Receive Time	1289.324378 sec
 Send Time	1.895931339 sec
 Paper	262.615782000	313.119185000	974.642950625
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	134637654
+Bytes Received:	159320977
+Receive Time	1280.401075 sec
+Send Time	1.790870111 sec
+Paper	134.637654000	159.320977000	965.862371166
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	71975130
+Bytes Received:	83958402
+Receive Time	1286.586456 sec
+Send Time	1.752618120 sec
+Paper	71.975130000	83.958402000	969.004235000

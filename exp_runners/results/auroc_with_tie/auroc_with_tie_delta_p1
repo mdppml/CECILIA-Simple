@@ -93,3 +93,34 @@ Number of parties: 8
 1000	
 1000	
 1000	
+Confidence mapping was calculated
+AUC :	0.494141
+AUC was calculated
+Time taken by program is : 965.728361 sec
+Paper	85.029086000	72.476868000	965.728361084
+Bytes Sent:	85029087
+Bytes Received:	72476868
+Receive Time	948.422281440 sec
+Send Time	1.839727947 sec
+*****************************
+Helper is connected
+P2 is connected
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Confidence mapping was calculated
+AUC :	0.50293
+AUC was calculated
+Time taken by program is : 968.875273 sec
+Paper	45.264179000	39.044358000	968.875273333
+Bytes Sent:	45264180
+Bytes Received:	39044358
+Receive Time	952.064391077 sec
+Send Time	1.817915041 sec
+*****************************
