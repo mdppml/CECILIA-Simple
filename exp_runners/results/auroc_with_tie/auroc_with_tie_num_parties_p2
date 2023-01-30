@@ -1,0 +1,54 @@
+Number of stations must be between 2 and 1000.
+Helper is connected
+P1 is connected
+Number of parties: 2
+1000	
+1000	
+Confidence mapping was calculated
+AUC :	0.511719
+AUC was calculated
+Time taken by program is : 173.665396 sec
+Paper	75.807583000	64.132213000	173.665396417
+Bytes Sent:	75807583
+Bytes Received:	64132213
+Receive Time	170.712416404 sec
+Send Time	0.213147956 sec
+*****************************
+Helper is connected
+P1 is connected
+Number of parties: 4
+1000	
+1000	
+1000	
+1000	
+Confidence mapping was calculated
+AUC :	0.495117
+AUC was calculated
+Time taken by program is : 522.936368 sec
+Paper	453.815964000	382.318762000	522.936368250
+Bytes Sent:	453815964
+Bytes Received:	382318762
+Receive Time	509.571687678 sec
+Send Time	0.693633776 sec
+*****************************
+Helper is connected
+P1 is connected
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Confidence mapping was calculated
+AUC :	0.491211
+AUC was calculated
+Time taken by program is : 1404.480146 sec
+Paper	2115.992465000	1780.872247000	1404.480146000
+Bytes Sent:	2115992465
+Bytes Received:	1780872247
+Receive Time	1355.456059025 sec
+Send Time	2.123107075 sec
+*****************************

@@ -61,8 +61,8 @@ void EIG(Party *proxy, uint32_t size, double epsilon = 0.01) {
      * Perform eigenvalue decomposition of a single Gram matrix
      */
     int p_role = proxy->getPRole();
-    int socket_p1 = proxy->getSocketP1();
-    int socket_p2 = proxy->getSocketP2();
+    int *socket_p1 = proxy->getSocketP1();
+    int *socket_p2 = proxy->getSocketP2();
 
     if (p_role == HELPER) {
         // receive the shares of the masked Gram matrix
@@ -173,8 +173,8 @@ void EIG(Party* proxy, uint32_t n_gms, uint32_t size, double epsilon = 0.01) {
 //    cout << "EIG:Size: " << size << endl;
 //    cout << "EIG:n_gms: " << n_gms << endl;
     int p_role = proxy->getPRole();
-    int socket_p1 = proxy->getSocketP1();
-    int socket_p2 = proxy->getSocketP2();
+    int *socket_p1 = proxy->getSocketP1();
+    int *socket_p2 = proxy->getSocketP2();
 
     if (p_role == HELPER) {
         // receive the shares of the masked Gram matrix

@@ -32,17 +32,13 @@ public:
     Party(role r, uint16_t hport=7777, const string hip="127.0.0.1", uint16_t cport=8888,const string cip="127.0.0.1") {
         p_role = r;
         if (p_role == P1) {
-            socket_helper = connect2helper(cip, hip, cport, hport, r);
-            socket_p2 = open_P1(cip, cport);
+            connect2helper(hip, hport,socket_helper);
+            open_P0(cip, cport,socket_p1);
         } else if (p_role == P2) {
-            socket_helper = connect2helper(cip, hip, cport, hport + 1, r);
-            socket_p1 = connect2P1(cip, cport);
+            connect2helper(hip, hport + SCKNUM,socket_helper);
+            connect2P0(cip, cport,socket_p0);
         } else if (p_role == HELPER) {
-            int client_socket[2];
-            open_helper(hip, hport, hport + 1, client_socket);
-
-            socket_p1 = client_socket[0];
-            socket_p2 = client_socket[1];
+            open_helper(hip, hport, socket_p0,socket_p1);
         }
         initialiseRBG();
 
@@ -84,25 +80,25 @@ public:
 
     ~Party() {
         if (p_role == P1) {
-            close(socket_helper);
-            close(socket_p2);
+            closesocket(socket_helper);
+            closesocket(socket_p1);
         } else if (p_role == P2) {
-            close(socket_helper);
-            close(socket_p1);
+            closesocket(socket_helper);
+            closesocket(socket_p0);
         } else if (p_role == HELPER) {
-            close(socket_p1);
-            close(socket_p2);
+            closesocket(socket_p0);
+            closesocket(socket_p1);
         }
     }
 
     void initialiseRBG() {
         if (p_role == P1) {
             OS_GenerateRandomBlock(false, buffer, 32);
-            Send(socket_p2, buffer, 32);
+            Send(&socket_p1[0], buffer, 32);
             common_rbg = new AES_CTR_RBG(buffer, 32);
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
         } else if (p_role == P2) {
-            Receive(socket_p1, buffer, 32);
+            Receive(&socket_p0[0], buffer, 32);
             unsigned char *ptr = &buffer[0];
             common_rbg = new AES_CTR_RBG(ptr, 32);
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
@@ -111,109 +107,43 @@ public:
         rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
     }
 
-    /*uint64_t generateRandom() {
-        srand(seed);
-        uint64_t a = rand();
-        srand(seed + 1);
-        uint64_t val = rand() ^ (a << 32);
-        seed += 2;
-        return val;
-    }
-    uint8_t generateRandomByte() {
-        srand(seed);
-        uint8_t val = rand() >> 24;
-        seed += 1;
-        return val;
-    }*/
 
     uint64_t generateRandom() {
-        auto start = chrono::high_resolution_clock::now();
         if (used_random_bytes + 7 >= BUFFER_SIZE) {
             rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
             used_random_bytes = 0;
         }
         uint64_t val = *(uint64_t *)(random_buffer + used_random_bytes);
         used_random_bytes += 8;
-        auto end = chrono::high_resolution_clock::now();
-        double time_taken =
-                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-        time_taken *= 1e-9;
-        kk += time_taken;
         return val;
     }
     uint8_t generateRandomByte() {
-        auto start = chrono::high_resolution_clock::now();
         if (used_random_bytes >= BUFFER_SIZE) {
             rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
             used_random_bytes = 0;
         }
         uint8_t val = random_buffer[used_random_bytes];
         used_random_bytes++;
-        auto end = chrono::high_resolution_clock::now();
-        double time_taken =
-                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-        time_taken *= 1e-9;
-        kk += time_taken;
         return val;
     }
-
-    void piK(){
-        cout<< kk << setprecision(9)<<endl;
-    }
-
-    /*uint64_t generateCommonRandom() {
-        srand(common_seed);
-        uint64_t a = rand();
-        srand(common_seed + 1);
-        uint64_t val = rand() ^ (a << 32);
-        common_seed += 2;
-        return val;
-    }
-
-    uint8_t generateCommonRandomByte() {
-        srand(common_seed);
-        uint8_t val = rand() >> 24;
-        common_seed += 1;
-        return val;
-    }
-
-    uint8_t generateCommonRandomOddByte() {
-        srand(common_seed);
-        uint8_t val = (rand() & 0xfe) + 1;
-        common_seed += 1;
-        return val;
-    }*/
-
 
     uint64_t generateCommonRandom() {
-        auto start = chrono::high_resolution_clock::now();
         if (used_common_random_bytes + 7 >= BUFFER_SIZE) {
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
             used_common_random_bytes = 0;
         }
         uint64_t val = *(uint64_t *)(common_random_buffer + used_common_random_bytes);
         used_common_random_bytes += 8;
-        auto end = chrono::high_resolution_clock::now();
-        double time_taken =
-                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-        time_taken *= 1e-9;
-        kk += time_taken;
         return val;
     }
 
     uint8_t generateCommonRandomByte() {
-        auto start = chrono::high_resolution_clock::now();
         if (used_common_random_bytes >= BUFFER_SIZE) {
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
             used_common_random_bytes = 0;
         }
         uint8_t val = common_random_buffer[used_common_random_bytes];
         used_common_random_bytes++;
-        auto end = chrono::high_resolution_clock::now();
-        double time_taken =
-                chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-        time_taken *= 1e-9;
-        kk += time_taken;
         return val;
     }
 
@@ -275,7 +205,7 @@ public:
 
     int ReadByte() {
         if (p_role == HELPER) {
-            Receive(socket_p1, buffer, 1);
+            Rcv(socket_p0[0], buffer, 1);
             return (int) buffer[0];
         } else
             return -1;
@@ -283,7 +213,7 @@ public:
 
     uint32_t ReadInt() {
         if (p_role == HELPER) {
-            Receive(socket_p1, buffer, 4);
+            Rcv(socket_p0[0], buffer, 4);
             unsigned char *ptr = &buffer[0];
             return convert2Int(&ptr);
         } else
@@ -328,7 +258,7 @@ public:
                     s += 4; // one 32 bit value requires 2^4 bits; if we were to store 64 bit values --> += 8
                 }
             }
-            Send(socket_helper, buffer, s);
+            Snd(socket_helper[0], buffer, s);
         }
     }
 
@@ -337,19 +267,23 @@ public:
         PBytes();
     }
 
+    void PrintPaperFriendly(double time_taken) {
+        cout << "Paper\t" << (bytesSend / 1e6) << "\t" << (bytesReceived / 1e6) << "\t" << fixed << time_taken << setprecision(9) << endl;
+    }
+
     role getPRole() const {
         return p_role;
     }
 
-    int getSocketP1() const {
+    int *getSocketP1(){
+        return socket_p0;
+    }
+
+    int *getSocketP2(){
         return socket_p1;
     }
 
-    int getSocketP2() const {
-        return socket_p2;
-    }
-
-    int getSocketHelper() const {
+    int *getSocketHelper(){
         return socket_helper;
     }
 
@@ -398,7 +332,7 @@ public:
     }
 private:
     role p_role;
-    int socket_p1,socket_p2,socket_helper;
+    int socket_p0[SCKNUM],socket_p1[SCKNUM],socket_helper[SCKNUM];
     uint8_t buffer[BUFFER_SIZE];
     uint8_t buffer2[BUFFER_SIZE];
     CryptoPP::byte random_buffer[BUFFER_SIZE];

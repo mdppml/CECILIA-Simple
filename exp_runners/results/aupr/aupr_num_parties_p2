@@ -1,0 +1,59 @@
+2,1000,1000
+2,1000,1000
+Helper is connected
+P1 is connected
+Number of parties: 2
+1000	
+1000	
+AUPR :	0.524414
+Time taken by program is : 174.037286 sec
+Paper	78.187124000	67.631792000	174.037286292
+Time taken by SORT is : 90.916430834 sec
+Time taken by AUC computation is : 83.120855458 sec
+Bytes Sent:	78187124
+Bytes Received:	67631792
+Receive Time	171.006629729 sec
+Send Time	0.212458605 sec
+*****************************
+4,1000,1000,1000,1000
+4,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+Number of parties: 4
+1000	
+1000	
+1000	
+1000	
+AUPR :	0.49707
+Time taken by program is : 523.260819 sec
+Paper	458.568615000	389.312523000	523.260819167
+Time taken by SORT is : 357.856897375 sec
+Time taken by AUC computation is : 165.403921792 sec
+Bytes Sent:	458568615
+Bytes Received:	389312523
+Receive Time	509.869146683 sec
+Send Time	0.699736476 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+AUPR :	0.50293
+Time taken by program is : 1404.094554 sec
+Paper	2125.514422000	1794.873858000	1404.094554333
+Time taken by SORT is : 1073.929989417 sec
+Time taken by AUC computation is : 330.164564916 sec
+Bytes Sent:	2125514422
+Bytes Received:	1794873858
+Receive Time	1355.054734811 sec
+Send Time	2.120074105 sec
+*****************************

@@ -184,6 +184,35 @@ uint64_t* ADD(Party* proxy, uint64_t **a, int n_vectors, int size) {
 
 
 /**
+ * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param size the number of multiplication triples that will be generated
+ */
+ void GenerateMultiplicationTriple(Party* proxy, uint64_t **mt1, uint64_t **mt2, uint32_t size) {
+
+    srand(time(NULL));
+    for (int i = 0; i < size; i++) {
+        uint64_t tmp_a = proxy->generateRandom();
+        uint64_t tmp_b = proxy->generateRandom();
+        uint64_t tmp_c = tmp_a * tmp_b; // mod operation here?
+
+        // a
+        mt1[0][i] = proxy->generateRandom();
+        mt2[0][i] = tmp_a - mt1[0][i];
+
+        // b
+        mt1[1][i] = proxy->generateRandom();
+        mt2[1][i] = tmp_b - mt1[1][i];
+
+        // c
+        mt1[2][i] = proxy->generateRandom();
+        mt2[2][i] = tmp_c - mt1[2][i];
+
+        // cout << mt1[0][i] << " " << mt2[0][i] << " " <<  mt1[1][i] << " " << mt2[1][i] << " " << mt1[2][i] << " " << mt2[2][i] << endl;
+    }
+}
+
+/**
  * Adds values of all matrices in a at equal position to calculate their sum (sum over all matrices in a).
  * @param proxy
  * @param a 3-dmatrix containing several 2-d matrices in dimension rows x cols. Values of all matrices at same position shall be summed up.
@@ -206,35 +235,6 @@ uint64_t** ADD(Party* proxy, uint64_t ***a, int n_matrices, int rows, int cols) 
         }
     }
     return res;
-}
-
-/**
- * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
- * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
- * @param size the number of multiplication triples that will be generated
- */
-void GenerateMultiplicationTriple(Party* proxy, uint64_t **mt1, uint64_t **mt2, uint32_t size) {
-
-    srand(time(NULL));
-    for (int i = 0; i < size; i++) {
-        uint64_t tmp_a = proxy->generateRandom();
-        uint64_t tmp_b = proxy->generateRandom();
-        uint64_t tmp_c = tmp_a * tmp_b; // mod operation here?
-
-        // a
-        mt1[0][i] = proxy->generateRandom();
-        mt2[0][i] = tmp_a - mt1[0][i];
-
-        // b
-        mt1[1][i] = proxy->generateRandom();
-        mt2[1][i] = tmp_b - mt1[1][i];
-
-        // c
-        mt1[2][i] = proxy->generateRandom();
-        mt2[2][i] = tmp_c - mt1[2][i];
-
-        // cout << mt1[0][i] << " " << mt2[0][i] << " " <<  mt1[1][i] << " " << mt2[1][i] << " " << mt1[2][i] << " " << mt2[2][i] << endl;
-    }
 }
 
 uint64_t MUX(Party* proxy, uint64_t x, uint64_t y, uint64_t b) {
@@ -758,6 +758,43 @@ uint64_t MSB(Party *proxy, uint64_t x) {
     return -1;
 }
 
+void MSB_SUB(Party *proxy, uint64_t *x, uint64_t *z, uint64_t *z_1, uint8_t *yb, uint64_t *ya, uint8_t f, uint8_t rnd, int start_index, int end_index){
+    //auto start = std::chrono::high_resolution_clock::now();
+    int L1 = L_BIT - 1;
+    unsigned char *ptr_out = proxy->getBuffer1();
+    ptr_out += (start_index * (L1+16));
+    int buffer_index = (start_index * (L1+16));
+    int y_index = (start_index * L1);
+    for (int i = start_index; i < end_index; i++) {
+        uint8_t w_sum = 0;
+        for (int t = L1 - 1; t >= 0; t--) {
+            uint8_t a_bit = bit(z[i], t);
+            int bi = buffer_index + t;
+            int yi = y_index + t;
+            uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
+            proxy->getBuffer1()[bi] = (mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((rnd % (LP - 1)) + 1)) % LP;
+            rnd += 7;
+            w_sum = (w_sum + w) % LP;
+        }
+        buffer_index += L1;
+        y_index += L1;
+        ptr_out += L1;
+
+
+        uint8_t isWrap = 0;
+        if (z[i]<z_1[i])
+            isWrap = 1;
+        z_1[i] =  z_1[i] + proxy->getPRole()*isWrap*N1;
+        addVal2CharArray(proxy->getPRole()*f*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
+        addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
+        buffer_index +=16;
+    }
+    /*auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(stop - start);
+    cout << "duration MSB_SUB " << duration.count() << endl;*/
+}
+
+
 // MSB has 4 communication round. MOC and PC are hardcoded in MSB to reduce the number of communication rounds of MSB calls.
 uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -777,53 +814,37 @@ uint64_t *MSB(Party* proxy, uint64_t *x, uint32_t sz, bool format = true) {
         }
 
         uint64_t *z = REC(proxy, z_1, sz, N1_MASK);
+        int block_size = (int)ceil(sz*1.0/SCKNUM);
+        if (block_size == 0)
+            block_size = sz;
 
-        unsigned char *ptr_out = proxy->getBuffer1();
-        int buffer_index = 0;
-        int y_index = 0;
-        int L1 = L_BIT - 1;
-        for (int i = 0; i < sz; i++) {
-            uint8_t w_sum = 0;
-            for (int t = L1 - 1; t >= 0; t--) {
-                uint8_t a_bit = bit(z[i], t);
-                int bi = buffer_index + t;
-                int yi = y_index + t;
-//                uint8_t w = yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi];
-//                proxy->getBuffer1()[bi] = (proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum) * proxy->generateCommonRandomOddByte();
-//                w_sum = (w_sum + w);
-                uint8_t w = mod((yb[yi] +  proxy->getPRole() * a_bit - 2 * a_bit * yb[yi]) % LP, LP);
-                proxy->getBuffer1()[bi] = (mod(( proxy->getPRole() * a_bit - yb[yi] +  proxy->getPRole() + w_sum), LP) * ((proxy->generateCommonRandomByte() % (LP - 1)) + 1)) % LP;
-                w_sum = (w_sum + w) % LP;
-            }
-            buffer_index += L1;
-            y_index += L1;
-            ptr_out += L1;
-
-            /*for (int t = 0; t < L1; t++) {
-                int ind1 = (proxy->generateCommonRandomByte() % L1) + jk;
-                int ind2 = (proxy->generateCommonRandomByte() % L1) + jk;
-                uint8_t tmp = proxy->getBuffer1()[ind1];
-                proxy->getBuffer1()[ind1] = proxy->getBuffer1()[ind2];
-                proxy->getBuffer1()[ind2] = tmp;
-            }*/
-
-            uint8_t isWrap = 0;
-            if (z[i]<z_1[i])
-                isWrap = 1;
-            z_1[i] =  z_1[i] + proxy->getPRole()*isWrap*N1;
-            addVal2CharArray(proxy->getPRole()*f*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
-            addVal2CharArray(proxy->getPRole()*(1-f)*N1 - x[i] + z_1[i] - ya[i], &ptr_out);
-            buffer_index +=16;
+        thread thr[SCKNUM];
+        int start_index = 0;
+        int end_index = block_size;
+        int thr_num = 0;
+        for (int i = 0; i < SCKNUM; i++) {
+            uint8_t rnd = proxy->generateCommonRandomByte();
+            thr[i] = thread(MSB_SUB, proxy, x, z, z_1, yb, ya, f, rnd, start_index,end_index);
+            thr_num +=1;
+            start_index += block_size;
+            end_index += block_size;
+            if (start_index >= sz)
+                break;
+            if (end_index > sz)
+                end_index = sz;
         }
+        for (int i = 0; i < thr_num; i++) {
+            thr[i].join();
+        }
+
         delete [] yb;
         delete [] ya;
         delete [] z_1;
-        delete [] z;
 
         Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * (16 + L_BIT -1));
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);
+        Receive(proxy->getSocketHelper(), proxy->getBuffer2(), sz * 16);
 
-        ptr = proxy->getBuffer1();
+        ptr = proxy->getBuffer2();
         uint64_t *m = new uint64_t[sz];
         uint64_t val[2];
         for (int i = 0; i < sz; i++) {
@@ -1012,15 +1033,8 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 
         uint64_t* rec_e_f = REC(proxy,e_f, 2);
 
-//        uint64_t z = proxy->getPRole() * e * f + f * mt[0] + e * mt[1] + mt[2];
         uint64_t z = proxy->getPRole() * rec_e_f[0] * rec_e_f[1] + rec_e_f[1] * mt[0] + rec_e_f[0] * mt[1] + mt[2];
-//        uint64_t rec_z = REC(proxy, z);
-//        cout << "    z: " << bitset<64>(z) << endl;
-//        cout << "rec_z: " << bitset<64>(rec_z) << endl;
-//        cout << "Bitwise divided or shifted z: " << bitset<64>(rec_z >> FRAC) << endl;
-//        cout << "Converted z by 2 * FRAC: " << convert2double(rec_z, 2 * FRAC) << endl;
 
-        // restore the fractional part - refer to SecureNN for more details
         z = truncate(proxy, z);
 
         delete [] rec_e_f;
@@ -1032,8 +1046,14 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
         return -1;
     }
 }
-
-uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+/** Multiplication of two arrays of numbers.
+ *
+ * @param a one of the vectors of shares of the multiplicands
+ * @param b the other vector of shares of the multiplicands
+ * @param size the size of the vectors @p a and @p b
+ * @return a vector containing the share of the result of the multiplication
+ */
+uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
@@ -1047,31 +1067,23 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
 
         // send the multiplication triples to P1
         unsigned char *ptr_out = proxy->getBuffer1();
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < size; j++) {
-                addVal2CharArray(mt1[i][j], &ptr_out);
-            }
-        }
-        //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
-        // send the multiplication triples to P2
         unsigned char *ptr_out2 = proxy->getBuffer2();
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < size; j++) {
+                addVal2CharArray(mt1[i][j], &ptr_out);
                 addVal2CharArray(mt2[i][j], &ptr_out2);
             }
         }
-
-
-        //addVal2CharArray(mt2, &ptr_out2, 3, size);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), size * 3 * 8);
+        //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
+        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
+        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), size * 3 * 8);
+        thr1.join();
+        thr2.join();
 
         for (int i = 0; i < 3; i++) {
             delete[] mt1[i];
             delete[] mt2[i];
         }
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 1);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 1);
         if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
@@ -1080,20 +1092,22 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         //total_mul += size;
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), size * 3 * 8);
         unsigned char *ptr = proxy->getBuffer1();
+        unsigned char *ptr1 = ptr + (size*8);
+        unsigned char *ptr2 = ptr + 2*(size*8);
         // uint64_t **mt = new uint64_t*[3];
         uint64_t *mt[3];
-        for (int i = 0; i < 3; i++) {
-            mt[i] = new uint64_t[size];
-            for (int j = 0; j < size; j++) {
-                mt[i][j] = convert2Long(&ptr);
-            }
-        }
-        // concatenated form of e and f shares
+        mt[0] = new uint64_t[size];
+        mt[1] = new uint64_t[size];
+        mt[2] = new uint64_t[size];
         uint64_t *concat_e_f = new uint64_t[size * 2];
-        for (int i = 0; i < size; i++) {
-            concat_e_f[i] = a[i] - mt[0][i];
-            concat_e_f[i + size] = b[i] - mt[1][i];
+        for (int j = 0; j < size; j++) {
+            mt[0][j] = convert2Long(&ptr);
+            mt[1][j] = convert2Long(&ptr1);
+            mt[2][j] = convert2Long(&ptr2);
+            concat_e_f[j] = a[j] - mt[0][j];
+            concat_e_f[j + size] = b[j] - mt[1][j];
         }
+
         uint64_t *e_f = REC(proxy, concat_e_f, size * 2);
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
@@ -1108,8 +1122,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         for (auto &i : mt) {
             delete[] i;
         }
-        proxy->getBuffer1()[0] = 0; //TODO this is only sent by p2 not by p1
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
         if(DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return z;
@@ -1118,50 +1130,6 @@ uint64_t *PMUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     }
 }
 
-/** Multiplication of two arrays of numbers.
- *
- * @param a one of the vectors of shares of the multiplicands
- * @param b the other vector of shares of the multiplicands
- * @param size the size of the vectors @p a and @p b
- * @return a vector containing the share of the result of the multiplication
- */
-uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
-    if(DEBUG_FLAG >= 1)
-        cout << "************************************************************\nMNF_MUL is called" << endl;
-    if (proxy->getPRole() == HELPER) {
-        int filled_size = 0;
-        size_t partial_size = MAXMUL;
-        while (filled_size < size) {
-            if ((size - filled_size) < MAXMUL) {
-                partial_size = (size - filled_size);
-            }
-            PMUL(proxy,0, 0, partial_size);
-            filled_size += partial_size;
-        }
-    } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-
-        uint64_t *result = new uint64_t[size];
-        int filled_size = 0;
-        size_t partial_size = MAXMUL;
-        while (filled_size < size) {
-            if ((size - filled_size) < MAXMUL) {
-                partial_size = (size - filled_size);
-            }
-            uint64_t *partial_result = PMUL(proxy, a, b, partial_size);
-            std::copy(partial_result, partial_result + partial_size, result + filled_size);
-            delete[] partial_result;
-            filled_size += partial_size;
-            a += partial_size;
-            b += partial_size;
-        }
-        if(DEBUG_FLAG >= 1)
-            cout << "Returning from MNF_MUL...\n************************************************************" << endl;
-        return result;
-    }
-    if(DEBUG_FLAG >= 1)
-        cout << "Returning from MNF_MUL...\n************************************************************" << endl;
-    return nullptr;
-}
 
 /** Exponential. Note that this function considers only the specific number of least significant bits not to cause
  * overflow. This is different for positive and negative powers.
@@ -2110,7 +2078,16 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, bool first_
     return NULL;
 }
 
-
+/** Perform division operation, or more specifically normalization operation, of two given inputs. The operation is
+ * taken from SecureNN, but it is implemented by using the building blocks of CECILIA. Note that there is an implicit
+ * assumption for NORM to work correctly: the elements of a must be less than the corresponding elements of b.
+ *
+ * @param proxy
+ * @param a: the nominators
+ * @param b: the denominators
+ * @param size: the number of elements in a and b
+ * @return div: uint64_t vector consisting of elementwise division of a/b
+ */
 uint64_t* NORM(Party *proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *u = new uint64_t[size]; // holds how much needs to be subtracted from the nominator

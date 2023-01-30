@@ -1,0 +1,40 @@
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	1960922
+Bytes Received:	1986367
+Receive Time	31.103891 sec
+Send Time	0.040546733 sec
+Paper	1.960922000	1.986367000	24.412062250
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	6609650
+Bytes Received:	7202145
+Receive Time	61.266135 sec
+Send Time	0.078470152 sec
+Paper	6.609650000	7.202145000	48.046775416
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	24442628
+Bytes Received:	27884048
+Receive Time	121.611465 sec
+Send Time	0.163500808 sec
+Paper	24.442628000	27.884048000	95.647001708
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	93231932
+Bytes Received:	108989369
+Receive Time	243.990601 sec
+Send Time	0.335027379 sec
+Paper	93.231932000	108.989369000	191.554713875
+P1 is connected
+P2 is connected
+helper MRound
+Bytes Sent:	359670184
+Bytes Received:	426116580
+Receive Time	459.633724 sec
+Send Time	0.713768172 sec
+Paper	359.670184000	426.116580000	355.319885167

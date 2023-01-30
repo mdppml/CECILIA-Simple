@@ -8,7 +8,6 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
-#include "../cnn/model_parser.h"
 #include "../cnn/mnist_data/mnist_reader.hpp"
 #include <bitset>
 #include <unordered_map>
@@ -19,7 +18,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 1;
+constexpr int sz = 2000000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -276,7 +275,8 @@ bool MUL_Test(Party *proxy){
 bool MMUL_Test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling MMUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-    uint64_t x[sz], y[sz],z[sz];
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];
     uint32_t* params = new uint32_t[1];
     params[0] = sz;
     for (int i=0;i<sz;i++){
@@ -286,7 +286,14 @@ bool MMUL_Test(Party *proxy){
         y[i] = proxy->createShare(yd);
     }
     proxy->SendBytes(CORE_MMUL, params, 1);
+    auto start = chrono::high_resolution_clock::now();
     uint64_t *r = MUL(proxy, x, y, sz);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken =
+            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout<<"MUL Time:\t" << fixed
+        << time_taken << setprecision(9) << " sec" << endl;
     // checking the result
     unordered_map<string, int> umap;
     bool flag = true;
@@ -309,6 +316,8 @@ bool MMUL_Test(Party *proxy){
         }
     }
 
+    delete [] x;
+    delete [] y;
     delete [] params;
     delete [] r;
 
@@ -394,8 +403,19 @@ void MMSB_Test(Party *proxy) {
     for (int i = 0; i < sz; i++) {
         x[i] = proxy->generateRandom();
     }
-    proxy->SendBytes(CORE_MMSB, params, 1);
-    uint64_t *r = MSB(proxy, x, sz);
+    uint64_t *r;
+    auto start = chrono::high_resolution_clock::now();
+    for (int i=0;i<60;i++){
+        proxy->SendBytes(CORE_MMSB, params, 1);
+        r = MSB(proxy, x, sz);
+    }
+
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken =
+            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout<<"MSB Time:\t" << fixed
+        << time_taken << setprecision(9) << " sec" << endl;
     //uint64_t *r = MSBv2(proxy,x,sz);
     // checking the result
     uint64_t *x_reconstructed = REC(proxy, x, sz);
@@ -599,7 +619,6 @@ void MAX_Test(Party *proxy) {
 
 }
 
-
 void MAX_Specific_Test(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling MAX with specific input";
     cout << setfill('*') << setw(49) << "*" << endl;
@@ -727,7 +746,7 @@ void MAX_Specific_Test(Party *proxy) {
                 computed_max[win] = matrixVal;
             }
         }
-        if (abs(computed_max[win] - convert2double(reconstructed_max[win]) > 0.001)) {
+        if (computed_max[win] - convert2double(reconstructed_max[win]) > 0.001) {
             flag = false;
         }
     }
@@ -785,7 +804,7 @@ void MMAX_Test(Party *proxy) {
                 computed_max[win] = matrixVal;
             }
         }
-        if (abs(computed_max[win] - convert2double(reconstructed_max[win]) > 0.001)) {
+        if (computed_max[win] - convert2double(reconstructed_max[win]) > 0.001) {
             flag = false;
         }
     }
@@ -2996,7 +3015,6 @@ void ADD_Test(Party *proxy) {
 //}
 
 
-
 bool NETWORK_TEST(Party *proxy) {
     cout << setfill('*') << setw(50) << "Calling LeNet Test";
     cout << setfill('*') << setw(49) << "*" << endl;
@@ -3511,7 +3529,8 @@ int main(int argc, char *argv[]) {
 //        MMOC_Test(proxy);
 //
 //        MSB_Test(proxy);
-//        MMSB_Test(proxy);
+        //MMSB_Test(proxy);
+        MMUL_Test(proxy);
 //
 //        CMP_Test(proxy);
 //        MCMP_Test(proxy);
@@ -3533,7 +3552,7 @@ int main(int argc, char *argv[]) {
 //        DIV_Test(proxy, cnt);
 //        MDIV_Test(proxy, cnt);
 //
-            NORM_Test(proxy, cnt, true);
+//        NORM_Test(proxy, cnt, true);
 //
 //        INC_Test(proxy);
 //        FLT_Test(proxy);
@@ -3575,10 +3594,10 @@ int main(int argc, char *argv[]) {
     proxy->PrintBytes();
 
     auto end = chrono::high_resolution_clock::now();
-    double time_taken =
-            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-    cout<<"Total Time\t"<<fixed
-        << tt << setprecision(9) << " sec" << endl;
+//    double time_taken =
+//            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//    cout<<"Total Time\t"<<fixed
+//        << time_taken << setprecision(9) << " sec" << endl;
 
     delete proxy;
 

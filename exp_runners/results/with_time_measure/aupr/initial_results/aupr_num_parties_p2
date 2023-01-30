@@ -1,0 +1,84 @@
+2,1000,1000
+2,1000,1000
+Helper is connected
+P1 is connected
+AUPR :	0.486328
+Time taken by program is : 195.083582 sec
+Paper	78.187275000	67.631919000	195.083581750
+Time taken by SORT is : 105.839912167 sec
+Time taken by AUC computation is : 89.243669583 sec
+Bytes Sent:	78187275
+Bytes Received:	67631919
+Receive Time	186.325975104 sec
+Send Time	0.290031750 sec
+*****************************
+4,1000,1000,1000,1000
+4,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+AUPR :	0.523438
+Time taken by program is : 601.706478 sec
+Paper	458.561518000	389.306554000	601.706478417
+Time taken by SORT is : 426.951024500 sec
+Time taken by AUC computation is : 174.755453917 sec
+Bytes Sent:	458561518
+Bytes Received:	389306554
+Receive Time	559.971939090 sec
+Send Time	0.905205134 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+AUPR :	0.506836
+Time taken by program is : 1584.126390 sec
+Paper	2125.515367000	1794.874699000	1584.126390458
+Time taken by SORT is : 1252.600041542 sec
+Time taken by AUC computation is : 331.526348916 sec
+Bytes Sent:	2125515367
+Bytes Received:	1794874699
+Receive Time	1464.339581276 sec
+Send Time	2.012752204 sec
+*****************************
+2,1000,1000
+2,1000,1000
+Helper is connected
+P1 is connected
+AUPR :	0.486328
+Time taken by program is : 185.457939 sec
+Paper	78.190088000	67.634308000	185.457938917
+Time taken by SORT is : 99.439768334 sec
+Time taken by AUC computation is : 86.018170583 sec
+Bytes Sent:	78190088
+Bytes Received:	67634308
+Receive Time	178.964649284 sec
+Send Time	0.217185677 sec
+*****************************
+4,1000,1000,1000,1000
+4,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+AUPR :	0.504883
+Time taken by program is : 564.904793 sec
+Paper	458.569331000	389.313079000	564.904793500
+Time taken by SORT is : 397.735944959 sec
+Time taken by AUC computation is : 167.168848541 sec
+Bytes Sent:	458569331
+Bytes Received:	389313079
+Receive Time	534.780606186 sec
+Send Time	0.676520942 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+AUPR :	0.494141
+Time taken by program is : 1668.651261 sec
+Paper	2125.513158000	1794.872818000	1668.651261334
+Time taken by SORT is : 1301.410693709 sec
+Time taken by AUC computation is : 367.240567625 sec
+Bytes Sent:	2125513158
+Bytes Received:	1794872818
+Receive Time	1521.917241357 sec
+Send Time	2.861851344 sec
+*****************************

@@ -1,0 +1,22 @@
+8,12,18,32,58,107,258,507,1008
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+12	
+18	
+32	
+58	
+107	
+258	
+507	
+1008	
+Size: 2000
+AUC :	0.491211
+Time taken by program is : 297.444098 sec
+Paper	76.384489000	64.526806000	297.444097791
+Bytes Sent:	76384489
+Bytes Received:	64526806
+Receive Time	293.966561605 sec
+Send Time	0.274985082 sec
+*****************************

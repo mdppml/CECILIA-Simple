@@ -1,0 +1,23 @@
+8,12,18,32,58,107,258,507,1008
+8,12,18,32,58,107,258,507,1008
+Helper is connected
+P1 is connected
+Number of parties: 8
+12	
+18	
+32	
+58	
+107	
+258	
+507	
+1008	
+AUPR :	0.518555
+Time taken by program is : 379.850615 sec
+Paper	81.601215000	70.549283000	379.850614833
+Time taken by SORT is : 296.678064833 sec
+Time taken by AUC computation is : 83.172550000 sec
+Bytes Sent:	81601215
+Bytes Received:	70549283
+Receive Time	375.452667696 sec
+Send Time	0.379058861 sec
+*****************************

@@ -1,0 +1,80 @@
+Helper is connected
+P1 is connected
+Number of parties: 3
+64	
+64	
+64	
+Confidence mapping was calculated
+AUC :	0.514648
+AUC was calculated
+Time taken by program is : 24.601297 sec
+Paper	0.881998000	0.924396000	24.601297125
+Bytes Sent:	881998
+Bytes Received:	924396
+Receive Time	24.506641869 sec
+Send Time	0.023583079 sec
+*****************************
+Helper is connected
+P1 is connected
+Number of parties: 3
+128	
+128	
+128	
+Confidence mapping was calculated
+AUC :	0.491211
+AUC was calculated
+Time taken by program is : 48.835116 sec
+Paper	3.548216000	3.188774000	48.835116292
+Bytes Sent:	3548216
+Bytes Received:	3188774
+Receive Time	48.512045673 sec
+Send Time	0.048101577 sec
+*****************************
+Helper is connected
+P1 is connected
+Number of parties: 3
+256	
+256	
+256	
+Confidence mapping was calculated
+AUC :	0.512695
+AUC was calculated
+Time taken by program is : 97.518652 sec
+Paper	14.107987000	12.113961000	97.518652042
+Bytes Sent:	14107987
+Bytes Received:	12113961
+Receive Time	96.623306226 sec
+Send Time	0.096999292 sec
+*****************************
+Helper is connected
+P1 is connected
+Number of parties: 3
+512	
+512	
+512	
+Confidence mapping was calculated
+AUC :	0.501953
+AUC was calculated
+Time taken by program is : 193.127101 sec
+Paper	55.309153000	46.854247000	193.127100583
+Bytes Sent:	55309153
+Bytes Received:	46854247
+Receive Time	190.412252714 sec
+Send Time	0.226152962 sec
+*****************************
+Helper is connected
+P1 is connected
+Number of parties: 3
+1024	
+1024	
+1024	
+Confidence mapping was calculated
+AUC :	0.496094
+AUC was calculated
+Time taken by program is : 356.186137 sec
+Paper	223.862589000	188.792963000	356.186136792
+Bytes Sent:	223862589
+Bytes Received:	188792963
+Receive Time	348.468245111 sec
+Send Time	0.471045761 sec
+*****************************

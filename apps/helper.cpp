@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
     uint32_t sz, n_gms, size1, size2;
     uint64_t params [9];
     op operation;
+    auto start = chrono::high_resolution_clock::now();
     while (keep_looping){
         operation = static_cast<op>(helper->ReadByte());
         switch(operation) {
@@ -200,7 +201,15 @@ int main(int argc, char* argv[]) {
             case AUC_ROCNOTIE:
                 sz = helper->ReadInt();
                 cout << "Sz: " << sz << endl;
-                AUCNOTIE(helper, 0, sz);
+                ROCNOTIE(helper, 0, sz);
+                break;
+            case AUC_ROCWITHTIE:
+                sz = helper->ReadInt();
+                ROCWITHTIE(helper, 0, sz);
+                break;
+            case AUC_PR:
+                sz = helper->ReadInt();
+                PRCURVE(helper, 0, sz);
                 break;
             case RKN_EIG:
                 sz = helper->ReadInt();
@@ -216,7 +225,12 @@ int main(int argc, char* argv[]) {
                 break;
         }
     }
+    auto end = chrono::high_resolution_clock::now();
     helper->PrintBytes();
+
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    helper->PrintPaperFriendly(time_taken);
     delete helper;
     return 0;
 }
