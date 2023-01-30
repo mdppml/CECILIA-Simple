@@ -17,7 +17,6 @@
 #include <chrono>
 #include <string>
 #include <map>
-#include "../../utils/AES_CTR_RBG.h"
 
 using namespace std::chrono;
 
@@ -253,10 +252,6 @@ public:
         MUL(this, _vector, _vector, _count);
     }
 
-    void partial_multiplication() {
-        PMUL(this, _vector, _vector, _count);
-    }
-
     void division_cnn() {
         DIV(this, _number, _number);
     }
@@ -304,13 +299,13 @@ public:
 
     void generate_random() {
         uint64_t a = rand();
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < (BUFFER_SIZE/2); i++) {
             a = rand();
         }
     }
 
     void aes_random() {
-        rbg->GenerateBlock(buffer, 10000);
+        rbg->GenerateBlock(buffer, BUFFER_SIZE);
     }
 
     void matrix_vector_multiplication() {
@@ -381,7 +376,6 @@ private:
         std::map<std::string, void(Party_BM::*)()> map;
         map["PSUM"] = &Party_BM::partial_summation;
         map["MUL"] = &Party_BM::multiplication;
-        map["PMUL"] = &Party_BM::partial_multiplication;
         map["DIV"] = &Party_BM::division_cnn;
         map["MDIVISION"] = &Party_BM::division_auc;
         map["MUX"] = &Party_BM::mmux;
@@ -418,7 +412,7 @@ private:
     uint64_t **_vector_of_vectors, **_matrix_MATVECMUL, **_matrix_fcl_weights;
     uint64_t ***_vector_of_matrices, ***_matrix_MATMATMUL, ***_vector_of_gram_matrices, ***_matrix_kernel;
     double** _double_matrix;
-    unsigned char* buffer = new unsigned char[10000];
+    unsigned char* buffer = new unsigned char[BUFFER_SIZE];
     AES_CTR_RBG* rbg;
 };
 
