@@ -19,14 +19,10 @@ using namespace std;
 #include "../utils/flib.h"
 #include "../utils/connection.h"
 #include "../utils/AES_CTR_RBG.h"
-#include <cryptopp/secblock.h>
-using CryptoPP::FixedSizeSecBlock;
 #include <cryptopp/osrng.h>
 using CryptoPP::OS_GenerateRandomBlock;
 
 class Party {
-private:
-    double kk = 0.0;
 public:
 
     Party(role r, uint16_t hport=7777, const string hip="127.0.0.1", uint16_t cport=8888,const string cip="127.0.0.1") {
