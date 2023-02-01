@@ -459,14 +459,20 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
 //
 //            area = MUL(proxy, area, c_data[0][i].val);
 //            numerator2 = ADD(proxy, numerator2, area);
-
-            areas = MUL(proxy, (uint64_t[]) {pre_TP, TP - pre_TP}, (uint64_t[]) {FP - pre_FP, FP - pre_FP}, 2);
-            parts = MUL(proxy, (uint64_t[]) {c_data[0][i].val, c_data[0][i].val}, areas, 2);
+            uint64_t a[2] = {pre_TP, TP - pre_TP};
+            uint64_t b[2] = {FP - pre_FP, FP - pre_FP};
+            areas = MUL(proxy, a, b, 2);
+            a[0] = a[1] = c_data[0][i].val;
+            parts = MUL(proxy, a, areas, 2);
             numerator = ADD(proxy, numerator, parts[0]);
             numerator2 = ADD(proxy, numerator2, parts[1]);
 
-            uint64_t *tmp = MUX(proxy, (uint64_t[]) {pre_FP, pre_TP}, (uint64_t[]) {FP, TP},
-                                (uint64_t[]) {c_data[0][i].val, c_data[0][i].val}, 2);
+            a[0] = pre_FP;
+            a[1] = pre_TP;
+            uint64_t y[2] = {FP, TP};
+            b[0] = b[1] = c_data[0][i].val;
+            uint64_t *tmp = MUX(proxy, a, y,
+                                b, 2);
             pre_FP = tmp[0];
             pre_TP = tmp[1];
             //pre_TP = proxy->SelectShare(pre_TP,TP,c_data[0][i].val);
@@ -484,7 +490,9 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
         numerator = 2 * numerator + numerator2;
 
     //    uint64_t auc = proxy->DIVISION(numerator, denominator);
-        uint64_t auc = NORM(proxy, (uint64_t[]) {numerator}, (uint64_t[]) {denominator}, 1)[0];
+        uint64_t a[1] = {numerator};
+        uint64_t b[1] = {denominator};
+        uint64_t auc = NORM(proxy, a, b, 1)[0];
 
         delete[] labels;
 
@@ -636,18 +644,25 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 //            cout << "reca - pre_reca: " << convert2double(REC(proxy, reca - pre_reca)) << endl;
 //            cout << "prec - pre_prec: " << convert2double(REC(proxy, prec - pre_prec)) << endl;
 //            cout << "c_data.val: " << convert2double(REC(proxy, c_data[0][i].val)) << endl;
-            uint64_t *areas = MUL(proxy, (uint64_t[]) {pre_prec, reca - pre_reca}, (uint64_t[]) {reca - pre_reca, prec - pre_prec}, 2);
+            uint64_t a[2] = {pre_prec, reca - pre_reca};
+            uint64_t b[2] = {reca - pre_reca, prec - pre_prec};
+            uint64_t *areas = MUL(proxy, a, b, 2);
 //            print1DArray("MUL 1: areas", convert2double(REC(proxy, areas, 2), 2), 2);
 //            cout << "at " << i << endl;
-            parts = MUL(proxy, (uint64_t[]) {c_data[0][i].val, c_data[0][i].val}, areas, 2);
+            a[0] = c_data[0][i].val;
+            a[1] = c_data[0][i].val;
+            parts = MUL(proxy, a, areas, 2);
 //            print1DArray("MUL 2: parts", convert2double(REC(proxy, parts, 2), 2), 2);
 //            cout << "kafa " << i << endl;
             numerator = ADD(proxy, numerator, parts[0]);
             numerator2 = ADD(proxy, numerator2, parts[1]);
 
 //            cout << "check 5.2." << i << endl;
-            uint64_t *tmp2 = MUX(proxy, (uint64_t[]) {pre_prec, pre_reca}, (uint64_t[]) {prec, reca},
-                                 (uint64_t[]) {c_data[0][i].val, c_data[0][i].val}, 2);
+            uint64_t x[2] = {pre_prec, pre_reca};
+            uint64_t y[2] = {prec, reca};
+            b[0] = c_data[0][i].val;
+            b[1] = c_data[0][i].val;
+            uint64_t *tmp2 = MUX(proxy, x, y, b, 2);
 //            print1DArray("MUX result", convert2double(REC(proxy, tmp2, 2), 2), 2);
             pre_prec = tmp2[0];
             pre_reca = tmp2[1];
@@ -665,7 +680,9 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 //        proxy->SendBytes(AUC_TDIV);
 //        uint64_t prc = DIVISION(proxy, numerator, denominator);
 //        cout << "check 6" << endl;
-        uint64_t prc = NORM(proxy, (uint64_t []) {numerator}, (uint64_t []) {denominator}, 1)[0];
+        uint64_t a[1] = {numerator};
+        uint64_t b[1] = {denominator};
+        uint64_t prc = NORM(proxy, a, b, 1)[0];
 //        cout << "check 7" << endl;
 
         delete [] precs;
