@@ -6,6 +6,7 @@
 #include "../core/cnn.h"
 #include "../core/rkn.h"
 #include "../core/auc.h"
+#include "../core/sort.h"
 
 
 int main(int argc, char* argv[]) {
@@ -219,6 +220,10 @@ int main(int argc, char* argv[]) {
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
                 EIG(helper, n_gms, sz);
+                break;
+            case CORE_SORT:
+                sz = helper->ReadInt();
+                SORT(helper,0, sz);
                 break;
             case CORE_END:
                 keep_looping = false;

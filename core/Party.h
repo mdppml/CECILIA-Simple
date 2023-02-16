@@ -39,7 +39,7 @@ public:
         initialiseRBG();
 
         // pre-compute the truncation mask for negative values based on FRAC
-        neg_truncation_mask = (((uint64_t) 1 << FRAC) - 1) << (L_BIT - FRAC);
+        neg_truncation_mask = ((1UL << FRAC) - 1) << (L_BIT - FRAC);
 
         // compute the number of bits for exponential
         // for positive power
@@ -106,6 +106,7 @@ public:
 
     uint64_t generateRandom() {
         if (used_random_bytes + 7 >= BUFFER_SIZE) {
+            cout << "New  random Gen.\n";
             rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
             used_random_bytes = 0;
         }
@@ -115,6 +116,7 @@ public:
     }
     uint8_t generateRandomByte() {
         if (used_random_bytes >= BUFFER_SIZE) {
+            cout << "New random byteGen.\n";
             rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
             used_random_bytes = 0;
         }
@@ -125,6 +127,7 @@ public:
 
     uint64_t generateCommonRandom() {
         if (used_common_random_bytes + 7 >= BUFFER_SIZE) {
+            cout << "New common random Gen.\n";
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
             used_common_random_bytes = 0;
         }

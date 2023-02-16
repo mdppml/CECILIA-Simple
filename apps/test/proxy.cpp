@@ -3520,7 +3520,7 @@ int main(int argc, char *argv[]) {
 //        local_MMUL_Test(proxy, cnt);
 
 //        result = TRUNCATE_Test(proxy, cnt, umap);
-//        ADD_Test(proxy);
+        ADD_Test(proxy);
 //        result = MUL_Test(proxy);
 //        result = MMUL_Test(proxy);
         //MAX_Specific_Test(proxy);
@@ -3530,7 +3530,7 @@ int main(int argc, char *argv[]) {
 //
 //        MSB_Test(proxy);
         //MMSB_Test(proxy);
-        MMUL_Test(proxy);
+//        MMUL_Test(proxy);
 //
 //        CMP_Test(proxy);
 //        MCMP_Test(proxy);

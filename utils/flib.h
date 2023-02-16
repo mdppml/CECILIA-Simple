@@ -257,7 +257,40 @@ double *straighten2DArray(double** x, uint32_t n_row, uint32_t n_col) {
     }
     return str_x;
 }
+long long getModularInverse_n(long long a, long long m)
+{
+    long long m0 = m;
+    long long y = 0, x = 1;
 
+    if (m == 1)
+        return 0;
+
+    while (a > 1) {
+        long long q = a / m;
+        long long t = m;
+        m = a % m, a = t;
+        t = y;
+        y = x - q * y;
+        x = t;
+
+    }
+
+    if (x < 0)
+        x += m0;
+    return x;
+}
+
+long long multMod(long long x, long long y, long long m) {
+    long long res = 0;
+    x = x % m;
+    while (y > 0) {
+        if (y % 2 == 1)
+            res = (res + x) % m;
+        x = (x * 2) % m;
+        y /= 2;
+    }
+    return res % m;
+}
 uint64_t getModularInverse(uint64_t a){
     /**
      * Get the MoDular Inverse (MDI) of a given number a with specified modulo. For the resulting/returned value b must hold
