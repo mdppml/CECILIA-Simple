@@ -24,11 +24,11 @@
  * @param neg_flag allow negative values as default, set to false if they shall not be allowed
  * @return
  */
-static double* random_1D_data(Party *proxy, int size, double max_num=10, bool neg_flag=true) {
+static double* random_1D_data(Party *proxy, size_t size, double max_num=10, bool neg_flag=true) {
     double* mat_data = new double[size];
     for (int i = 0; i < size; i++) {
         mat_data[i] = max_num * (static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
-        if (neg_flag == true && rand() % 2 == 0) {
+        if (neg_flag && rand() % 2 == 0) {
             mat_data[i] *= -1;
         }
     }
@@ -46,16 +46,16 @@ static double* random_1D_data(Party *proxy, int size, double min_num, double max
     return mat_data;
 }
 
-static double** random_2D_data(Party *proxy, int n_row, int n_col, double min_num, double max_num) {
+static double** random_2D_data(Party *proxy, size_t n_row, size_t n_col, double min_num, double max_num) {
     double d_tmp1;
     uint64_t tmp1;
     double** mat_data = new double *[n_row];
     random_device rd; // obtain a random number from hardware
     mt19937 gen(rd()); // seed the generator
     uniform_real_distribution<> distr(min_num, max_num); // define the range
-    for (int i = 0; i < n_row; i++) {
+    for (size_t i = 0; i < n_row; i++) {
         mat_data[i] = new double[n_col];
-        for(int j = 0; j < n_col; j++) {
+        for(size_t j = 0; j < n_col; j++) {
             mat_data[i][j] = distr(gen);
         }
     }

@@ -6,14 +6,13 @@ help () {
     echo "This is the benchmarking tool for CECILIA. It can simulate latency, jitter and bandwidth restrictions."
     echo
     echo "positional arguments:"
-    echo "1: number of operations (i.e. vector length for vectorised operations)"
-    echo "2: vector length (for operations on vectors)"
-    echo "3 & 4: matrix size (x, y) (gram matrix has size x*x) (for operations on matrices, not vectorised vector operations)"
-    echo "5: window size (used in CNN)"
-    echo "6: kernel size (used in CNN)"
-    echo "7: number of kernel (used in CNN)"
-    echo "8: number of cycles (how often to run each function for the benchmark)"
-    echo "(9+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
+    echo "1: vector length (for operations involving vectors)"
+    echo "2 & 3: matrix size (x, y) (gram matrix has size x*x) (for operations on matrices and vectorised vector operations)"
+    echo "4: window size (used in CNN)"
+    echo "5: kernel size (used in CNN)"
+    echo "6: number of kernels (used in CNN)"
+    echo "7: repeats (how often to run each function for the benchmark)"
+    echo "(8+: which functions to run (e.g. MUL, MUX; MAXPOOL for MAX on windows); without this, all functions are run)"
     echo
     echo "options (with defaults included):"
     echo "  -h,   --help            show this help message and exit"
@@ -59,7 +58,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 # make sure that enough positional arguments were provided:
-if [[ ${#POSITIONAL_ARGS[@]} -lt 8 ]]
+if [[ ${#POSITIONAL_ARGS[@]} -lt 7 ]]
 then
   echo "Positional arguments were not provided. Call this tool with -h to see which ones are required."
   exit 1
@@ -102,35 +101,48 @@ then
   # initialise toxiproxy:
   "./$TOXI_SERVER" &>toxi.log &
   sleep 1
-  "./$TOXI_CLI" create \
-  -l localhost:"$PORT_PHELPER" \
-  -u localhost:"$PORT_HELPERP" \
-  helper_p1 &>toxi.log
-  "./$TOXI_CLI" create \
-  -l localhost:"$((PORT_PHELPER + 1))" \
-  -u localhost:"$((PORT_HELPERP + 1))" \
-  helper_p2 &>toxi.log
-  "./$TOXI_CLI" create \
-  -l localhost:"$PORT_P2P1" \
-  -u localhost:"$PORT_P1P2" \
-  p1_p2 &>toxi.log
+  for PORT in {0..7}
+  do
+    "./$TOXI_CLI" create \
+    -l localhost:"$((PORT_PHELPER + PORT))" \
+    -u localhost:"$((PORT_HELPERP + PORT))" \
+    "helper_p1_${PORT}" &>toxi.log
+    "./$TOXI_CLI" create \
+    -l localhost:"$((PORT_PHELPER + PORT + 8))" \
+    -u localhost:"$((PORT_HELPERP + PORT + 8))" \
+    "helper_p2_${PORT}" &>toxi.log
+    "./$TOXI_CLI" create \
+    -l localhost:"$((PORT_P2P1 + PORT))" \
+    -u localhost:"$((PORT_P1P2 + PORT))" \
+    "p1_p2_${PORT}" &>toxi.log
+  done
+
   if [[ "$LATENCY" ]]
   then
-    "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --downstream helper_p1 &>toxi.log
-    "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --upstream helper_p1 &>toxi.log
-    "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --downstream helper_p2 &>toxi.log
-    "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --upstream helper_p2 &>toxi.log
-    "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --downstream p1_p2 &>toxi.log
-    "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --upstream p1_p2 &>toxi.log
+    echo "Added Latency: ${LATENCY}"
+    echo "Jitter: ${JITTER}"
+    for PORT in {0..7}
+    do
+      "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --downstream "helper_p1_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --upstream "helper_p1_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --downstream "helper_p2_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --upstream "helper_p2_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --downstream "p1_p2_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t latency -a latency="$LATENCY" -a jitter="$JITTER" --upstream "p1_p2_${PORT}" &>toxi.log
+    done
   fi
   if [[ "$BANDWIDTH" ]]
   then
-    "./$TOXI_CLI" toxic add -t bandwith -a rate="$BANDWIDTH" --downstream helper_p1 &>toxi.log
-    "./$TOXI_CLI" toxic add -t bandwith -a rate="$BANDWIDTH" --upstream helper_p1 &>toxi.log
-    "./$TOXI_CLI" toxic add -t bandwith -a rate="$BANDWIDTH" --downstream helper_p2 &>toxi.log
-    "./$TOXI_CLI" toxic add -t bandwith -a rate="$BANDWIDTH" --upstream helper_p2 &>toxi.log
-    "./$TOXI_CLI" toxic add -t bandwith -a rate="$BANDWIDTH" --downstream p1_p2 &>toxi.log
-    "./$TOXI_CLI" toxic add -t bandwith -a rate="$BANDWIDTH" --upstream p1_p2 &>toxi.log
+    echo "Added Bandwidth: ${BANDWIDTH}"
+    for PORT in {0..7}
+    do
+      "./$TOXI_CLI" toxic add -t bandwidth -a rate="$BANDWIDTH" --downstream "helper_p1_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t bandwidth -a rate="$BANDWIDTH" --upstream "helper_p1${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t bandwidth -a rate="$BANDWIDTH" --downstream "helper_p2_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t bandwidth -a rate="$BANDWIDTH" --upstream "helper_p2_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t bandwidth -a rate="$BANDWIDTH" --downstream "p1_p2_${PORT}" &>toxi.log
+      "./$TOXI_CLI" toxic add -t bandwidth -a rate="$BANDWIDTH" --upstream "p1_p2_${PORT}" &>toxi.log
+    done
   fi
 fi
 # run benchmarks:
