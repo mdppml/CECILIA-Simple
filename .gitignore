@@ -2,3 +2,4 @@
 /cmake-build-release/
 /CMakeFiles/
 */correctness/*
+/apps/benchmark/toxi*
