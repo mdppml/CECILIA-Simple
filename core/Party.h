@@ -120,39 +120,24 @@ public:
             common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
         }
         rbg = new AES_CTR_RBG();
-        rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
+        rbg->GenerateBlock(random_bytes, 1);
     }
 
 
     uint64_t generateRandom() {
-        if (used_random_bytes + 7 >= BUFFER_SIZE) {
-            cout << "New  random Gen.\n";
-            rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
-            used_random_bytes = 0;
-        }
-        uint64_t val = *(uint64_t *)(random_buffer + used_random_bytes);
-        used_random_bytes += 8;
-        return val;
-    }
-    uint8_t generateRandomByte() {
-        if (used_random_bytes >= BUFFER_SIZE) {
-            cout << "New random byteGen.\n";
-            rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
-            used_random_bytes = 0;
-        }
-        uint8_t val = random_buffer[used_random_bytes];
-        used_random_bytes++;
+        rbg->GenerateBlock(random_bytes, 8);
+        uint64_t val = *(uint64_t *)(random_bytes);
         return val;
     }
 
+    uint8_t generateRandomByte() {
+        rbg->GenerateBlock(random_bytes, 1);
+        return random_bytes[0];
+    }
+
     uint64_t generateCommonRandom() {
-        if (used_common_random_bytes + 7 >= BUFFER_SIZE) {
-            cout << "New common random Gen.\n";
-            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
-            used_common_random_bytes = 0;
-        }
-        uint64_t val = *(uint64_t *)(common_random_buffer + used_common_random_bytes);
-        used_common_random_bytes += 8;
+        common_rbg->GenerateBlock(random_bytes, 8);
+        uint64_t val = *(uint64_t *)(random_bytes);
         return val;
     }
 
@@ -168,13 +153,8 @@ public:
     }
 
     uint8_t generateCommonRandomByte() {
-        if (used_common_random_bytes >= BUFFER_SIZE) {
-            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
-            used_common_random_bytes = 0;
-        }
-        uint8_t val = common_random_buffer[used_common_random_bytes];
-        used_common_random_bytes++;
-        return val;
+        common_rbg->GenerateBlock(random_bytes, 1);
+        return random_bytes[0];
     }
 
     uint64_t createShare(uint64_t val){
@@ -375,6 +355,7 @@ private:
     AES_CTR_RBG* common_rbg;
     AES_CTR_RBG* common_rbg2; // with helper
     AES_CTR_RBG* rbg;
+    CryptoPP::byte random_bytes[8];
     int n_bits = FRAC; // number of bits of a value to consider in the exponential computation
     int neg_n_bits = FRAC; // number of bits of a negative value to consider in the exponential computation
     double max_power = 0;
