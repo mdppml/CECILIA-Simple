@@ -11,7 +11,7 @@
 
 using namespace std;
 
-constexpr int sz = 100000;
+constexpr int sz = 400000;
 
 void SORT_test(Party *proxy){
     ofstream txt;

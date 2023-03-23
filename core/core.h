@@ -188,27 +188,16 @@ uint64_t* ADD(Party* proxy, uint64_t **a, int n_vectors, int size) {
  * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
  * @param size the number of multiplication triples that will be generated
  */
- void GenerateMultiplicationTriple(Party* proxy, uint64_t **mt1, uint64_t **mt2, uint32_t size) {
+ void GenerateMultiplicationTriple(Party* proxy, uint64_t *c1, uint32_t size) {
 
-    srand(time(NULL));
-    for (int i = 0; i < size; i++) {
-        uint64_t tmp_a = proxy->generateRandom();
-        uint64_t tmp_b = proxy->generateRandom();
-        uint64_t tmp_c = tmp_a * tmp_b; // mod operation here?
+     for (int i = 0; i < size; i++) {
+        uint64_t a0 = proxy->generateCommonRandom();
+        uint64_t a1 = proxy->generateCommonRandom2();
+        uint64_t b0 = proxy->generateCommonRandom();
+        uint64_t b1 = proxy->generateCommonRandom2();
+        uint64_t c0=  proxy->generateCommonRandom();
+        c1[i] = ((a0+a1)*(b0+b1)) - c0; //(a0+a1)*(b0+b1) - c0
 
-        // a
-        mt1[0][i] = proxy->generateRandom();
-        mt2[0][i] = tmp_a - mt1[0][i];
-
-        // b
-        mt1[1][i] = proxy->generateRandom();
-        mt2[1][i] = tmp_b - mt1[1][i];
-
-        // c
-        mt1[2][i] = proxy->generateRandom();
-        mt2[2][i] = tmp_c - mt1[2][i];
-
-        // cout << mt1[0][i] << " " << mt2[0][i] << " " <<  mt1[1][i] << " " << mt2[1][i] << " " << mt1[2][i] << " " << mt2[2][i] << endl;
     }
 }
 
@@ -986,48 +975,36 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
     if(DEBUG_FLAG >= 1)
         cout << "************************************************************\nNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
-        uint64_t *mt1[3];
-        uint64_t *mt2[3];
-        for (int i = 0; i < 3; i++) {
-            mt1[i] = new uint64_t[1];
-            mt2[i] = new uint64_t[1];
-        }
-        GenerateMultiplicationTriple(proxy, mt1, mt2, 1);
+        uint64_t *a1 = new uint64_t[1]; //a1
+
+        GenerateMultiplicationTriple(proxy, a1, 1);
 
         // send the multiplication triples to P1
-        unsigned char *ptr_out = proxy->getBuffer1();
-        for (auto &i : mt1) {
-            addVal2CharArray(i[0], &ptr_out);
-        }
+        unsigned char *ptr_out = proxy->getBuffer2();
+        addVal2CharArray(a1[0], &ptr_out);
 
-        // addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), 3 * 8);
 
-        // send the multiplication triples to P2
-        unsigned char *ptr_out2 = proxy->getBuffer2();
-        for (auto &i : mt2) {
-            addVal2CharArray(i[0], &ptr_out2);
-        }
-        // addVal2CharArray(mt2, &ptr_out2, 3, size);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), 3 * 8);
+        Send(proxy->getSocketP2(), proxy->getBuffer2(),  8);
 
-        for (int i = 0; i < 3; i++) {
-            delete[] mt1[i];
-            delete[] mt2[i];
-        }
+
+        delete[] a1;
         if(DEBUG_FLAG >= 1)
             cout << "Returning from NF_MUL...\n************************************************************" << endl;
         return 0;
 
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
-        unsigned char *ptr = proxy->getBuffer1();
-        uint64_t mt[3];
-        for (auto &i : mt) {
-            i = convert2Long(&ptr);
-        }
-
         uint64_t e_f[2];
+        uint64_t mt[3];
+
+        if(proxy->getPRole() == P2) {
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
+            unsigned char *ptr = proxy->getBuffer1();
+            mt[0] = convert2Long(&ptr);
+        }
+        else mt[0] = proxy->generateCommonRandom();
+
+        mt[1] = proxy->generateCommonRandom();
+        mt[2] = proxy->generateCommonRandom();
         e_f[0] = a - mt[0];
         e_f[1] = b - mt[1];
 
@@ -1057,55 +1034,53 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
-        uint64_t *mt1[3];
-        uint64_t *mt2[3];
-        for (int i = 0; i < 3; i++) {
-            mt1[i] = new uint64_t[size];
-            mt2[i] = new uint64_t[size];
-        }
-        GenerateMultiplicationTriple(proxy, mt1, mt2, size);
+        uint64_t *c1 = new uint64_t[size];
 
-        // send the multiplication triples to P1
-        unsigned char *ptr_out = proxy->getBuffer1();
+        GenerateMultiplicationTriple(proxy, c1, size);
+
         unsigned char *ptr_out2 = proxy->getBuffer2();
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < size; j++) {
-                addVal2CharArray(mt1[i][j], &ptr_out);
-                addVal2CharArray(mt2[i][j], &ptr_out2);
-            }
+        for (int j = 0; j < size; j++) {
+            addVal2CharArray(c1[j], &ptr_out2);
         }
-        //addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), size * 3 * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), size * 3 * 8);
-        thr1.join();
-        thr2.join();
 
-        for (int i = 0; i < 3; i++) {
-            delete[] mt1[i];
-            delete[] mt2[i];
-        }
+        Send( proxy->getSocketP2(), proxy->getBuffer2(), size * 8);
+
+        delete[] c1;
+
         if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
 
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         //total_mul += size;
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), size * 3 * 8);
-        unsigned char *ptr = proxy->getBuffer1();
-        unsigned char *ptr1 = ptr + (size*8);
-        unsigned char *ptr2 = ptr + 2*(size*8);
-        // uint64_t **mt = new uint64_t*[3];
         uint64_t *mt[3];
-        mt[0] = new uint64_t[size];
-        mt[1] = new uint64_t[size];
-        mt[2] = new uint64_t[size];
+        mt[0] = new uint64_t[size]; //a
+        mt[1] = new uint64_t[size]; //b
+        mt[2] = new uint64_t[size]; //c
         uint64_t *concat_e_f = new uint64_t[size * 2];
-        for (int j = 0; j < size; j++) {
-            mt[0][j] = convert2Long(&ptr);
-            mt[1][j] = convert2Long(&ptr1);
-            mt[2][j] = convert2Long(&ptr2);
-            concat_e_f[j] = a[j] - mt[0][j];
-            concat_e_f[j + size] = b[j] - mt[1][j];
+
+        if (proxy->getPRole() == P2) {
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), size * 8);
+            unsigned char *ptr = proxy->getBuffer1();
+            for (int i = 0; i < size; ++i) {
+                mt[0][i] = proxy->generateCommonRandom2();
+                mt[1][i] = proxy->generateCommonRandom2();
+                mt[2][i] = convert2Long(&ptr);
+
+
+                concat_e_f[i] = a[i] - mt[0][i];
+                concat_e_f[i + size] = b[i] - mt[1][i];
+            }
+        }
+        else {
+            for (int i = 0; i < size; ++i) {
+                mt[0][i] = proxy->generateCommonRandom2();
+                mt[1][i] = proxy->generateCommonRandom2();
+                mt[2][i] = proxy->generateCommonRandom2();
+
+                concat_e_f[i] = a[i] - mt[0][i];
+                concat_e_f[i + size] = b[i] - mt[1][i];
+            }
         }
 
         uint64_t *e_f = REC(proxy, concat_e_f, size * 2);

@@ -93,11 +93,31 @@ public:
             Send(&socket_p1[0], buffer, 32);
             common_rbg = new AES_CTR_RBG(buffer, 32);
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
+            OS_GenerateRandomBlock(false, buffer, 32);
+            Send(&socket_helper[0], buffer, 32);
+            common_rbg2 = new AES_CTR_RBG(buffer, 32);
+            common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
         } else if (p_role == P2) {
             Receive(&socket_p0[0], buffer, 32);
             unsigned char *ptr = &buffer[0];
             common_rbg = new AES_CTR_RBG(ptr, 32);
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
+
+            OS_GenerateRandomBlock(false, buffer, 32);
+            Send(&socket_helper[0], buffer, 32);
+            common_rbg2 = new AES_CTR_RBG(buffer, 32);
+            common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
+        }
+        else if (p_role == HELPER) {
+            Receive(&socket_p0[0], buffer, 32);
+            unsigned char *ptr = &buffer[0];
+            common_rbg = new AES_CTR_RBG(ptr, 32);
+            common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
+
+            Receive(&socket_p1[0], buffer, 32);
+            ptr = &buffer[0];
+            common_rbg2 = new AES_CTR_RBG(ptr, 32);
+            common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
         }
         rbg = new AES_CTR_RBG();
         rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
@@ -133,6 +153,17 @@ public:
         }
         uint64_t val = *(uint64_t *)(common_random_buffer + used_common_random_bytes);
         used_common_random_bytes += 8;
+        return val;
+    }
+
+    uint64_t generateCommonRandom2() {
+        if (used_common_random_bytes2 + 7 >= BUFFER_SIZE) {
+            cout << "New common random Gen.\n";
+            common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
+            used_common_random_bytes2 = 0;
+        }
+        uint64_t val = *(uint64_t *)(common_random_buffer2 + used_common_random_bytes2);
+        used_common_random_bytes2 += 8;
         return val;
     }
 
@@ -209,6 +240,7 @@ public:
         } else
             return -1;
     }
+
 
     uint32_t ReadInt() {
         if (p_role == HELPER) {
@@ -336,9 +368,12 @@ private:
     uint8_t buffer2[BUFFER_SIZE];
     CryptoPP::byte random_buffer[BUFFER_SIZE];
     CryptoPP::byte common_random_buffer[BUFFER_SIZE];
+    CryptoPP::byte common_random_buffer2[BUFFER_SIZE]; // with helper
     size_t used_random_bytes = 0;
     size_t used_common_random_bytes = 0;
+    size_t used_common_random_bytes2 = 0;
     AES_CTR_RBG* common_rbg;
+    AES_CTR_RBG* common_rbg2; // with helper
     AES_CTR_RBG* rbg;
     int n_bits = FRAC; // number of bits of a value to consider in the exponential computation
     int neg_n_bits = FRAC; // number of bits of a negative value to consider in the exponential computation

@@ -18,7 +18,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 2000000;
+constexpr int sz = 400000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -404,12 +404,11 @@ void MMSB_Test(Party *proxy) {
         x[i] = proxy->generateRandom();
     }
     uint64_t *r;
+    proxy->SendBytes(CORE_MMSB, params, 1);
     auto start = chrono::high_resolution_clock::now();
-    for (int i=0;i<60;i++){
-        proxy->SendBytes(CORE_MMSB, params, 1);
+    for (int i=0;i<1;i++){
         r = MSB(proxy, x, sz);
     }
-
     auto end = chrono::high_resolution_clock::now();
     double time_taken =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
@@ -3490,6 +3489,7 @@ bool NETWORK_M_INPUTS_TEST(Party *proxy) {
 
 }
 
+
 // Main function to run the experiments
 int main(int argc, char *argv[]) {
     uint8_t role = atoi(argv[1]);
@@ -3520,7 +3520,7 @@ int main(int argc, char *argv[]) {
 //        local_MMUL_Test(proxy, cnt);
 
 //        result = TRUNCATE_Test(proxy, cnt, umap);
-        ADD_Test(proxy);
+//        ADD_Test(proxy);
 //        result = MUL_Test(proxy);
 //        result = MMUL_Test(proxy);
         //MAX_Specific_Test(proxy);
@@ -3529,8 +3529,8 @@ int main(int argc, char *argv[]) {
 //        MMOC_Test(proxy);
 //
 //        MSB_Test(proxy);
-        //MMSB_Test(proxy);
-//        MMUL_Test(proxy);
+          MMSB_Test(proxy);
+ //       MMUL_Test(proxy);
 //
 //        CMP_Test(proxy);
 //        MCMP_Test(proxy);

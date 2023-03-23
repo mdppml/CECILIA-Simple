@@ -89,6 +89,11 @@ uint8_t mod(int k, int n) {
     return ((k %= n) < 0) ? k+n : k;
 }
 
+uint8_t MersenneMod(uint64_t k, uint8_t p, uint8_t s) {
+    uint64_t i = (k & p) + (k >> s);
+    return (i >= p) ? i - p : i;
+}
+
 double convert2double(uint64_t x, int precision=FRAC) {
 //    double tmp = (uint64_t) 1 << (precision - 1);
     double tmp = (double)((uint64_t) 1 << precision);
@@ -280,16 +285,24 @@ long long getModularInverse_n(long long a, long long m)
     return x;
 }
 
+/** Get modular multiplication of given numbers
+ * @param a, b are multiplicants
+ * @param m modulus
+ * @return a*b%n
+ *
+ * Modulo operation is done by MersenneMod Method
+ * 3rd parameter of MersenneMod should be log(m). In this case it is 61 since 2^61-1
+ * */
 long long multMod(long long x, long long y, long long m) {
     long long res = 0;
-    x = x % m;
+    x = MersenneMod(x, m, 61);
     while (y > 0) {
-        if (y % 2 == 1)
-            res = (res + x) % m;
-        x = (x * 2) % m;
-        y /= 2;
+        if (y & 0x1 )
+            res = MersenneMod((res + x), m, 61);
+        x = MersenneMod((x * 2), m, 61);
+        y = y >> 1;
     }
-    return res % m;
+    return MersenneMod(res , m, 61);
 }
 uint64_t getModularInverse(uint64_t a){
     /**

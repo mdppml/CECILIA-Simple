@@ -70,7 +70,6 @@ uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size) {
 }
 
 uint64_t *getRandomPermutation(uint64_t randoms[], uint32_t size){
-
     uint64_t to_permute[size];
     for(int i = 0; i < size; i++)  to_permute[i] = i+1;
     uint64_t* result = new uint64_t[size];
@@ -85,6 +84,7 @@ uint64_t *getRandomPermutation(uint64_t randoms[], uint32_t size){
 }
 
 uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi, uint32_t size) {
+ //   double tt1, tt2, tt3, tt4, tt5=0;
 
     // paperdaki ikinci algoritma, sortlanmis v nin sharelarini verecek
     auto* r = new uint64_t[size];
@@ -96,17 +96,19 @@ uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
     auto* pr_inv = new uint64_t[size];
     long long x;   //pointer lazım mı?
     long long n = (long long) (((long long)1 << 61) - 1);
-    x = proxy->generateCommonRandom() % n;
 
+//    using namespace std::chrono;
+//    auto microseconds_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+//    cout << microseconds_since_epoch << endl;
     if (proxy->getPRole() == P1) {
         for (int i = 0; i < size; i++) {
-            r[i] = proxy->generateRandom() % n;   //need to be smaller than n
+            r[i] = MersenneMod(proxy->generateRandom(), n, 61);   //need to be smaller than n
             v[i] += r[i];
         }
     }
 
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-
+        x = MersenneMod(proxy->generateCommonRandom(), n, 61); // 61 is log n
         for (int i = 0; i < size; i++) {
             pip[i] = p[pi[i]-1];
             piv[i] = v[pi[i]-1];
@@ -117,16 +119,15 @@ uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
             addVal2CharArray(pip[i], &ptr);
             addVal2CharArray(piv[i], &ptr);
         }
+
         thread thr1 = thread(Send, proxy->getSocketHelper(), proxy->getBuffer1(), size * 16);
         thread thr2 = thread( Receive, proxy->getSocketHelper(),proxy->getBuffer2(),size * 8); //receives a share from pv_inv
         thr1.join();
         thr2.join();
         if(proxy->getPRole() == P1) {
-
             for (int i = 0; i < size; i++) {
                 r[i] = (uint64_t) multMod((long long) r[i], x, n);
             }
-
             for (int i = 0; i < size; i++) {
                 pir[i] = r[pi[i]-1];
             }
@@ -155,6 +156,7 @@ uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
                 pv_inv[i] = pv_inv[i] - pr_inv[i];
             }
 
+
         }
     }
     else { // HELPER
@@ -166,14 +168,12 @@ uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
         thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), size * 16);
         thr1.join();
         thr2.join();
-
         for (int i = 0; i < size; i++) {
             pip[i] = convert2Long(&ptr1);
             piv[i] = convert2Long(&ptr1);
             pip[i] += convert2Long(&ptr2);
             piv[i] += convert2Long(&ptr2);
         }
-
         for(int i = 0; i < size; i++){  //applying inverse permutation, check
             pv_inv[pip[i]-1] = piv[i];   //-1 because permutation starts from 1
         }
@@ -234,7 +234,7 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
         return 0;
     }
     else {  //P1 or P2
-        double tt1, tt2, tt3, tt4, tt5=0;
+        double tt0 = 0, tt1 = 0, tt2 = 0, tt3=0, tt4=0, tt5=0;
         auto *randoms = new uint64_t[size];
         auto* res = new uint64_t[size];
         auto* to_shift = new uint64_t[size];
@@ -244,29 +244,33 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
         }
 
         for(int i = 0; i < LT; ++i) {
+            auto start = chrono::high_resolution_clock::now();
             for (int k = 0; k < size; ++k) {
                 to_shift[k] <<=(LT-1-i);
             }
-            auto start = chrono::high_resolution_clock::now();
-            uint64_t* msb_array = MSB(proxy, to_shift, size);   //obtain msb from shifted array
             auto end = chrono::high_resolution_clock::now();
+            tt0 = tt0 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+
+            start = chrono::high_resolution_clock::now();
+            uint64_t* msb_array = MSB(proxy, to_shift, size);   //obtain msb from shifted array
+            end = chrono::high_resolution_clock::now();
             tt1 = tt1 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
             uint64_t* perm = generatePermutation(proxy, msb_array, size);  //obtain permutation for msb
             end = chrono::high_resolution_clock::now();
-            tt2 = tt2 +chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+            tt2 = tt2 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
             for (int j = 0; j < size ; j++)
                 randoms[j] = proxy->generateCommonRandom();
             end = chrono::high_resolution_clock::now();
-            tt3 = tt3 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+            tt3 =  tt3 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
             uint64_t* pi = getRandomPermutation(randoms, size);
             end = chrono::high_resolution_clock::now();
-            tt4 = tt4 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+            tt4 = tt4+ chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
             uint64_t* temp = applyPermutation(proxy,perm,res, pi, size);  //apply the permutation to the current array
@@ -281,12 +285,14 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
             delete[] temp;
             delete[] pi;
         }
-        cout << "MSBs\t" << tt1*1e-9 << " sec\n";
-        cout << "GenSortPermt\t" << tt2*1e-9 << " sec\n";
-        cout << "GenComRan\t" << tt3*1e-9 << " sec\n";
-        cout << "GenComPerm\t" << tt4*1e-9 << " sec\n";
-        cout << "ApplyPerm\t"<< tt5*1e-9 << " sec\n";
+        cout << "to shift\t" << tt0*1e-6 << " msec\n";
+        cout << "MSBs\t" << tt1*1e-6 << " msec\n";
+        cout << "GenSortPermt\t" << tt2*1e-6 << " msec\n";
+        cout << "GenComRan\t" << tt3*1e-6 << " msec\n";
+        cout << "GenComPerm\t" << tt4*1e-6 << " msec\n";
+        cout << "ApplyPerm\t"<< tt5*1e-6 << " msec\n";
         delete[] randoms;
+        delete[] to_shift;
         return res;
     }
     return 0;

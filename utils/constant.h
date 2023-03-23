@@ -6,7 +6,8 @@
 #define PML_CONSTANT_H
 
 #define L_BIT 64
-#define LP 67
+#define LP 127
+#define SP 7
 #define FRAC 0
 #define RING_N 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
