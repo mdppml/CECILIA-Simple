@@ -38,6 +38,12 @@ target_link_libraries(helper PRIVATE Threads::Threads cryptopp::cryptopp)
 # Sort
 add_executable(sort_test apps/sort/proxy.cpp core/sort.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
 target_link_libraries(sort_test PRIVATE Threads::Threads cryptopp::cryptopp)
+
+# Boolean
+add_executable(bool_test apps/boolean/proxy.cpp booleancore/core.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+target_link_libraries(bool_test PRIVATE Threads::Threads cryptopp::cryptopp)
+
+
 # ppAURORA
 #add_executable(proxy_auroc apps/auroc/proxy.cpp core/Party.h utils/constant.h utils/auc_utils.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
 #target_link_libraries(proxy_auroc PRIVATE Threads::Threads cryptopp::cryptopp)

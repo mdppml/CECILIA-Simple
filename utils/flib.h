@@ -47,6 +47,28 @@ void convert2Array(unsigned char **ptr, uint64_t *&arr, uint32_t size){
         arr[i] = convert2Long(ptr);
     }
 }
+
+void addBit2CharArray(uint8_t val, uint8_t **ptr, uint8_t *bit_index){
+    (**ptr)=(**ptr)^(val<<(*bit_index));
+    if ((*bit_index) == 0){
+        (*bit_index) = 7;
+        (*ptr)++;
+        (**ptr)=0;
+    }
+    else
+        (*bit_index)-=1;
+}
+
+uint8_t convert2Byte(uint8_t **ptr, uint8_t *bit_index){
+    uint8_t val = ((**ptr)>>(*bit_index))&0x1;
+    if ((*bit_index) == 0){
+        (*bit_index) = 7;
+        (*ptr)++;
+    }
+    else
+        (*bit_index)-=1;
+    return val;
+}
 void addVal2CharArray(uint64_t val,unsigned char **ptr){
     for (int i=56;i>=0;i-=8){
         (**ptr)=(val>>i)&0xff;

@@ -18,7 +18,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 400000;
+constexpr int sz = 1000000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************

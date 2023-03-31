@@ -156,6 +156,15 @@ public:
         common_rbg->GenerateBlock(random_bytes, 1);
         return random_bytes[0];
     }
+    uint8_t generateCommonRandomByte2() {
+        if (used_common_random_bytes2 >= BUFFER_SIZE) {
+            common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
+            used_common_random_bytes2 = 0;
+        }
+        uint8_t val = common_random_buffer2[used_common_random_bytes2];
+        used_common_random_bytes2++;
+        return val;
+    }
 
     uint64_t createShare(uint64_t val){
         uint64_t share;

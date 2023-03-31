@@ -144,6 +144,7 @@ uint64_t** REC(Party *proxy, uint64_t **a, uint32_t n_row, uint32_t n_col) {
     return b;
 }
 
+
 uint64_t ADD(Party* proxy, uint64_t a, uint64_t b) {
     return a + b;
 }

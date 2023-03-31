@@ -7,6 +7,7 @@
 #include "../core/rkn.h"
 #include "../core/auc.h"
 #include "../core/sort.h"
+#include "../booleancore/core.h"
 
 
 int main(int argc, char* argv[]) {
@@ -224,6 +225,14 @@ int main(int argc, char* argv[]) {
             case CORE_SORT:
                 sz = helper->ReadInt();
                 SORT(helper,0, sz);
+                break;
+            case CORE_AND:
+                sz = helper->ReadInt();
+                AND(helper,0,0, sz);
+                break;
+            case CORE_BSUB:
+                sz = helper->ReadInt();
+                BooleanSubstract(helper,0,0, sz);
                 break;
             case CORE_END:
                 keep_looping = false;
