@@ -79,7 +79,7 @@ void SUB_test(Party *proxy){
     auto* y =new uint64_t[size];
 
     for (int i = 0; i <size ; ++i) {
-        x[i] = std::rand();
+        x[i] = std::rand();     // This is not working with proxy->generateRandom() -> FIX?
         y[i] = std::rand();
 //        if (proxy->getPRole()==P1){
 //            x[i] = 1;
