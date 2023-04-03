@@ -5,6 +5,7 @@
 #include <iostream>
 #include <chrono>
 #include <tuple>
+#include <random>
 #include <iomanip>
 #include "../../core/core.h"
 #include "../../core/sort.h"
@@ -12,7 +13,7 @@
 
 using namespace std;
 
-constexpr int sz = 1;
+constexpr int sz = 100;
 
 void AND_test(Party *proxy){
     ofstream txt;
@@ -49,11 +50,18 @@ void AND_test(Party *proxy){
     uint8_t* anded = RECB(proxy,s,size);
     uint8_t* x_rec = RECB(proxy,x,size);
     uint8_t* y_rec = RECB(proxy,y,size);
-    for(int i = 0;i<size;i++){
-        auto z_correct = x_rec[i]&y_rec[i];
-        if((int)anded[i] != (int)z_correct)
-            cout  << s[i] << " "<< "calculated z: " << (int)anded[i] << "\tcorrect z: " << (int)z_correct <<"\tx_rec: " << (int) x_rec[i] <<"\ty_rec: " << (int) y_rec[i] << "\tx: " << (int) x[i] <<"\ty: " << (int) y[i] <<endl;
+    int numCorrect = sz;
+    for(int i = 0;i<size;i++) {
+        auto z_correct = x_rec[i] & y_rec[i];
+        if ((int) anded[i] != (int) z_correct) {
+            numCorrect--;
+            cout << s[i] << " " << "calculated z: " << (int) anded[i] << "\tcorrect z: " << (int) z_correct
+                 << "\tx_rec: " << (int) x_rec[i] << "\ty_rec: " << (int) y_rec[i] << "\tx: " << (int) x[i] << "\ty: "
+                 << (int) y[i] << endl;
+        }
     }
+
+    cout  << numCorrect << " out of " << sz << " are calculated correctly" << endl;
     delete [] x;
     delete [] y;
     delete [] s;
@@ -71,21 +79,21 @@ void SUB_test(Party *proxy){
     auto* y =new uint64_t[size];
 
     for (int i = 0; i <size ; ++i) {
-//        x[i] = proxy->generateRandom();
-//        y[i] = proxy->generateRandom();
-        if (proxy->getPRole()==P1){
-            x[i] = 1;
-            y[i] = 4;
-        }
-        else {
-            x[i] =2;
-            y[i] =2;
-        }
+        x[i] = std::rand();
+        y[i] = std::rand();
+//        if (proxy->getPRole()==P1){
+//            x[i] = 1;
+//            y[i] = 4;
+//        }
+//        else {
+//            x[i] =2;
+//            y[i] =2;
+//        }
     }
 
     auto x_rec = RECB(proxy, x, size);
     auto y_rec = RECB(proxy, y, size);
-    cout << "recreated x and y " << x_rec[0] << " " << y_rec[0] << endl;
+    //cout << "recreated x and y " << x_rec[0] << " " << y_rec[0] << endl;
     std::uint64_t * z_correct =new std::uint64_t [size];
     for (int i = 0; i < size; ++i) {
         z_correct[i] =x_rec[i]-y_rec[i];
@@ -106,11 +114,15 @@ void SUB_test(Party *proxy){
 
     cout << "Callng REC..\n";
     auto sub = RECB(proxy, s, size);
-
-    for(int i = 0;i<size;i++){
-
-        cout << "calculated z: " << (uint64_t)sub[i] << "\tcorrect z: " << (uint64_t)z_correct[i] <<endl;
+    int numCorrect = sz;
+    for(int i = 0;i<size;i++) {
+        if ((uint64_t) sub[i] != (uint64_t) z_correct[i]) {
+            numCorrect--;
+            cout << "calculated z: " << (uint64_t) sub[i] << "\tcorrect z: " << (uint64_t) z_correct[i] << endl;
+        }
     }
+    cout  << numCorrect << " out of " << sz << " are calculated correctly" << endl;
+
 
 }
 

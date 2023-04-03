@@ -24,10 +24,7 @@ using CryptoPP::NotCopyable;
 #include <cryptopp/config_int.h>
 using CryptoPP::lword;
 
-#include <thread>
-
-static long long RESEED_INTERVAL = 1LL << 48;
-static int RANDOM_BUFFER_SIZE = BUFFER_SIZE;
+static long long reseed_interval = 1LL << 48;
 
 class AES_CTR_RBG : public RandomNumberGenerator, public NotCopyable
 {
@@ -36,15 +33,7 @@ public:
     : m_pCipher(new CTR_Mode<AES>::Encryption)
     {
         m_keyed = false;
-        _buffer_usable = false;
         EntropyHelper(seed, length, true);
-        _current_buffer = new CryptoPP::byte[RANDOM_BUFFER_SIZE];
-        _unused_buffer = new CryptoPP::byte[RANDOM_BUFFER_SIZE];
-    }
-
-    ~AES_CTR_RBG() override {
-        delete[] _current_buffer;
-        delete[] _unused_buffer;
     }
     
     [[nodiscard]] bool CanIncorporateEntropy() const override
@@ -61,33 +50,15 @@ public:
         EntropyHelper(input, length, false);
     }
 
-    /**Does not keep track of whether the cipher has to be reseeded. Therefore, this must be done outside of this class.
-     * @param output the buffer where the block should be stored
-     * @param size the number of bytes to generate
-     */
+    // Does not keep track of whether the cipher has to be reseeded.
+    //   Therefore, this must be done outside of this class.
     void GenerateBlock(CryptoPP::byte *output, size_t size) override
     {
         if (!m_keyed) {
             m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
             m_keyed = true;
         }
-        if (!_buffer_usable) {
-            _fillUnusedBuffer();
-            _replenishBuffer();
-            _buffer_usable = true;
-        }
-        size_t remaining_bytes = size;
-        size_t transferred_bytes = 0;
-        size_t bytes_in_buffer = RANDOM_BUFFER_SIZE - _buffer_position;
-        while (bytes_in_buffer < remaining_bytes) {
-            ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, bytes_in_buffer);
-            transferred_bytes += bytes_in_buffer;
-            remaining_bytes -= bytes_in_buffer;
-            _replenishBuffer();
-            bytes_in_buffer = RANDOM_BUFFER_SIZE;
-        }
-        ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, remaining_bytes);
-        _buffer_position += remaining_bytes;
+        m_pCipher->GenerateBlock(output, size);
     }
 
 protected:
@@ -127,31 +98,8 @@ protected:
     }
     
 private:
-    /**\brief swaps unused and used buffer; replenishes unused buffer in the background
-     *
-     */
-    void _replenishBuffer() {
-        if (_buffer_thread.joinable()) {
-            _buffer_thread.join();
-        }
-        CryptoPP::byte* swap = _current_buffer;
-        _current_buffer = _unused_buffer;
-        _unused_buffer = swap;
-        _buffer_position = 0;
-        _buffer_thread = thread(&AES_CTR_RBG::_fillUnusedBuffer, this);
-    }
-
-    void _fillUnusedBuffer() {
-        m_pCipher->GenerateBlock(_unused_buffer, RANDOM_BUFFER_SIZE);
-    }
-
-    thread _buffer_thread{};
-    CryptoPP::byte* _current_buffer;
-    CryptoPP::byte* _unused_buffer;
-    size_t _buffer_position = 0;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_key;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_iv;
     member_ptr<CTR_Mode<AES>::Encryption> m_pCipher;
     bool m_keyed;
-    bool _buffer_usable;
 };
