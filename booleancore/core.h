@@ -10,6 +10,12 @@
 #include <mutex>
 #include <bitset>
 
+
+/**
+ * This function is for testing boolean subtraction
+ * Sorting protocol will no use it directly
+ * */
+
 uint64_t *RECB(Party* proxy, uint64_t *a, uint32_t sz) {
 
     uint64_t *b = new uint64_t[sz];
@@ -114,7 +120,12 @@ void GenerateBoolMultiplicationTriple(Party* proxy, uint8_t *c1, uint32_t sz) {
 
     }
 }
-/** a^b = c
+/** Vectorized AND operation for XOR shared numbers
+ * @param a first operand in and operation
+ * @param b second operand in and operation
+ * @param size number of elements in a and b arrays
+ * Each bit is represented with 1 byte so values of a[i] (or b[i]) is either 1 or 0
+ * Multiplication triples formulation: a^b = c and mt[0]=a,  mt[1]=b, mt[2]:c
  *
  * */
 uint8_t *AND(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
@@ -234,6 +245,70 @@ uint64_t *BooleanSubstract(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) 
         for (int j = 0; j<64; j++){
             AND(proxy, 0,0, sz);
         }
+    }
+}
+
+uint64_t *Convert2XOR(Party* proxy, uint64_t *a, uint32_t sz) {
+
+    if ( proxy->getPRole() == HELPER ) {
+        auto *ar = new uint64_t[sz];
+        unsigned char *ptr1 = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
+
+        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+        thr1.join();
+        thr2.join();
+        for (int i = 0; i < sz; i++) {      //Receive (a+r) shares and add them
+            ar[i] = convert2Long(&ptr1);
+            ar[i] += convert2Long(&ptr2);
+        }
+
+
+        //we need to create shares to send
+        ptr1 = proxy->getBuffer1();
+        ptr2 = proxy->getBuffer2();
+        uint64_t tempShare;
+        for (int i = 0; i < sz; i++) {
+            tempShare = proxy->generateRandom();
+            addVal2CharArray(tempShare, &ptr1);     // XOR share of (a+r) for P0
+            addVal2CharArray(ar[i]^tempShare, &ptr2);   //P1 share
+        }
+        thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+        thr2 = thread( Send, proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
+        thr1.join();
+        thr2.join();
+
+        return nullptr;
+    }
+    else { //P0 or P1
+        unsigned char *ptr = proxy->getBuffer1();
+        uint64_t *r = new uint64_t[sz];
+        uint64_t *ar = new uint64_t[sz];  //a+r_i
+        uint64_t *r_i = new uint64_t[sz];
+        for (int i = 0; i < sz; ++i) {
+            r[i] = proxy->generateCommonRandom();
+            r_i[i] = proxy->createShare(r[i]);
+            ar[i] = a[i] +r_i[i];
+        }
+        ptr = proxy->getBuffer1();
+        for (int i = 0; i < sz; i++) {
+            addVal2CharArray(ar[i], &ptr);
+        }
+
+        Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8);  //sent ar to helper
+
+        Receive(proxy->getSocketHelper(),proxy->getBuffer1(),sz*8);   // receive XOR share of (a+r)
+
+        ptr = proxy->getBuffer1();
+        for (int i = 0; i < sz; i++) {
+            ar[i] = convert2Long(&ptr);
+        }
+
+        if (proxy->getPRole() == P1)
+            ar = BooleanSubstract(proxy, ar, r, sz);  //eliminate r
+        return ar;
+
     }
 }
 

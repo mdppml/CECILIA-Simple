@@ -93,7 +93,7 @@ void SUB_test(Party *proxy){
 
     auto x_rec = RECB(proxy, x, size);
     auto y_rec = RECB(proxy, y, size);
-    //cout << "recreated x and y " << x_rec[0] << " " << y_rec[0] << endl;
+
     std::uint64_t * z_correct =new std::uint64_t [size];
     for (int i = 0; i < size; ++i) {
         z_correct[i] =x_rec[i]-y_rec[i];
