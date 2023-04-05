@@ -13,14 +13,14 @@
 
 using namespace std;
 
-constexpr int sz = 100;
+constexpr int sz = 2000000;
 
 void AND_test(Party *proxy){
     ofstream txt;
     cout<<setfill ('*')<<setw(50)<<"Calling Boolean AND";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     uint32_t size = sz;
-
+    cout << "size " << sz << endl;
     auto* x =new uint8_t[size];
     auto* y =new uint8_t[size];
 
@@ -37,7 +37,7 @@ void AND_test(Party *proxy){
     cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(CORE_AND, params, 1);
+    proxy->SendBytes(BCORE_AND, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
     uint8_t* s = AND(proxy, x, y, size);
@@ -82,12 +82,12 @@ void SUB_test(Party *proxy){
         x[i] = std::rand();     // This is not working with proxy->generateRandom() -> FIX?
         y[i] = std::rand();
 //        if (proxy->getPRole()==P1){
-//            x[i] = 1;
-//            y[i] = 4;
+//            x[i] = 9723820186448424737;
+//            y[i] = 3;
 //        }
 //        else {
-//            x[i] =2;
-//            y[i] =2;
+//            x[i] =9723820186448424749;
+//            y[i] =1;
 //        }
     }
 
@@ -102,7 +102,7 @@ void SUB_test(Party *proxy){
     cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(CORE_BSUB, params, 1);
+    proxy->SendBytes(BCORE_SUB, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
 
@@ -123,6 +123,36 @@ void SUB_test(Party *proxy){
     }
     cout  << numCorrect << " out of " << sz << " are calculated correctly" << endl;
 
+}
+void Conversion_test(Party *proxy){
+    ofstream txt;
+    cout<<setfill ('*')<<setw(50)<<"Calling Arithmetic to XOR Conversion";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    uint32_t size = sz;
+
+    auto* x =new uint64_t[size];
+    cout << "size " << sz << endl;
+    for (int i = 0; i <size ; ++i) {
+        x[i] = 5;
+    }
+
+    cout << "Calling SendBytes..\n";
+    uint32_t params[1];
+    params[0] = size;
+    proxy->SendBytes(BCORE_A2B, params, 1);
+
+    auto start = chrono::high_resolution_clock::now();
+
+    uint64_t* s = Arithmetic2XOR(proxy, x, size);
+    auto end = chrono::high_resolution_clock::now();
+    double totaltime =
+            chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+    cout<<totaltime<<endl;
+
+    cout << "Callng REC..\n";
+//    for(int i = 0;i<size;i++) {
+//        cout << s[i] << endl;
+//    }
 
 }
 
@@ -139,7 +169,8 @@ int main(int argc, char* argv[]) {
     else
         proxy = new Party(P2, hport, haddress, cport, caddress);
 
-    SUB_test(proxy);
+    Conversion_test(proxy);
+    //SUB_test(proxy);
     //AND_test(proxy);
 
     proxy->SendBytes(CORE_END);

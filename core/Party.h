@@ -197,6 +197,17 @@ public:
         return share;
     }
 
+    uint64_t createXORShare(uint64_t val){
+        uint64_t share;
+        if (p_role ==P1) {
+            share = generateCommonRandom();
+        }
+        else{
+            share = val ^ generateCommonRandom();
+        }
+        return share;
+    }
+
     uint64_t createShare(double val){
         uint64_t v = convert2uint64(val);
         uint64_t share;
