@@ -8,6 +8,7 @@
 #endif //CECILIA_SORT_H
 
 #include "core.h"
+#include "../booleancore/core.h"
 #include "../utils/flib.h"
 #include "bitset"
 #include "string.h"
@@ -297,3 +298,66 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
     }
     return 0;
 }
+
+///** Sorting algorithm that uses XOR share for bit decomposition
+// **
+// ***/
+//uint64_t *SORTv2(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of array
+//    int LT= 64;
+//    if (proxy->getPRole() == HELPER) {
+//        for(int i = 0; i < LT; ++i) {
+//            generatePermutation(proxy, 0, size);
+//            applyPermutation(proxy,0,0, 0, size);
+//        }
+//        return 0;
+//    }
+//    else {  //P1 or P2
+//        double tt0 = 0, tt1 = 0, tt2 = 0, tt3=0, tt4=0, tt5=0;
+//        auto *randoms = new uint64_t[size];
+//        auto* res = new uint64_t[size];
+//        auto a_xor = Arithmetic2XOR(proxy, a, size);
+//        for(int i = 0; i < LT; ++i) {
+//            auto start = chrono::high_resolution_clock::now();
+//            auto end = chrono::high_resolution_clock::now();
+//            tt0 = tt0 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//            start = chrono::high_resolution_clock::now();
+//            uint64_t* perm = generatePermutation(proxy, msb_array, size);  //obtain permutation for msb
+//            end = chrono::high_resolution_clock::now();
+//            tt2 = tt2 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//
+//            start = chrono::high_resolution_clock::now();
+//            for (int j = 0; j < size ; j++)
+//                randoms[j] = proxy->generateCommonRandom();
+//            end = chrono::high_resolution_clock::now();
+//            tt3 =  tt3 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//
+//            start = chrono::high_resolution_clock::now();
+//            uint64_t* pi = getRandomPermutation(randoms, size);
+//            end = chrono::high_resolution_clock::now();
+//            tt4 = tt4+ chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//
+//            start = chrono::high_resolution_clock::now();
+//            uint64_t* temp = applyPermutation(proxy,perm,res, pi, size);  //apply the permutation to the current array
+//            end = chrono::high_resolution_clock::now();
+//            tt5 = tt5 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+//            for (int j = 0; j < size ; ++j) {
+//                res[j] = temp[j];  //res always keeps the permuted version
+//            }
+//            for (int j = 0; j < size ; ++j) {    //we need to backup res but also have a copy of it to shift and obtain msbs
+//                to_shift[j] = res[j];
+//            }
+//            delete[] temp;
+//            delete[] pi;
+//        }
+//        cout << "to shift\t" << tt0*1e-6 << " msec\n";
+//        cout << "MSBs\t" << tt1*1e-6 << " msec\n";
+//        cout << "GenSortPermt\t" << tt2*1e-6 << " msec\n";
+//        cout << "GenComRan\t" << tt3*1e-6 << " msec\n";
+//        cout << "GenComPerm\t" << tt4*1e-6 << " msec\n";
+//        cout << "ApplyPerm\t"<< tt5*1e-6 << " msec\n";
+//        delete[] randoms;
+//        delete[] to_shift;
+//        return res;
+//    }
+//    return 0;
+//}

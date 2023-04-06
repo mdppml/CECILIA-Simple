@@ -228,14 +228,18 @@ int main(int argc, char* argv[]) {
                 break;
             case BCORE_AND:
                 sz = helper->ReadInt();
-                AND(helper,0,0, sz);
+                AND2(helper,0,0, sz);
                 break;
             case BCORE_SUB:
                 sz = helper->ReadInt();
-                BooleanSubstract(helper,0,0, sz);
+                BooleanSubstract2(helper,0,0, sz);
             case BCORE_A2B:
                 sz = helper->ReadInt();
                 Arithmetic2XOR(helper,0, sz);
+                break;
+            case BCORE_B2A:
+                sz = helper->ReadInt();
+                XOR2Arithmetic(helper,0, sz);
                 break;
             case CORE_END:
                 keep_looping = false;

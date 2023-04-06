@@ -13,7 +13,7 @@
 
 using namespace std;
 
-constexpr int sz = 2000000;
+constexpr int sz = 4;
 
 void AND_test(Party *proxy){
     ofstream txt;
@@ -136,23 +136,39 @@ void Conversion_test(Party *proxy){
         x[i] = 5;
     }
 
-    cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
     proxy->SendBytes(BCORE_A2B, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
-
     uint64_t* s = Arithmetic2XOR(proxy, x, size);
     auto end = chrono::high_resolution_clock::now();
-    double totaltime =
-            chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+    double totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+    cout<<totaltime<<endl;
+
+    cout<<setfill ('*')<<setw(50)<<"Calling Arithmetic to XOR Conversion";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+
+
+    params[0] = size;
+    proxy->SendBytes(BCORE_B2A, params, 1);
+
+    start = chrono::high_resolution_clock::now();
+    uint64_t* t = XOR2Arithmetic(proxy, x, size);
+    end = chrono::high_resolution_clock::now();
+    totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
     cout << "Callng REC..\n";
-//    for(int i = 0;i<size;i++) {
-//        cout << s[i] << endl;
-//    }
+    auto t_rec = REC(proxy, t, size);
+    auto x_rec = REC(proxy, x, size);
+    int  counter = 0;
+    for(int i = 0;i<size;i++) {
+        if (t_rec[i]!= x_rec[i]) cout << t_rec[i] << endl;
+        else counter++;
+    }
+    if(counter == sz) cout << "Conversion works correctly \n";
+    else cout << "Conversion is not correct!\n Only " << counter << " out of " << sz << " elements converted correctly\n";
 
 }
 
