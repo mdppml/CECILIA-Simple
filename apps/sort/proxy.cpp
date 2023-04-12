@@ -34,10 +34,11 @@ void SORT_test(Party *proxy){
     cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(CORE_SORT, params, 1);
+    //proxy->SendBytes(CORE_SORT, params, 1);
+    proxy->SendBytes(CORE_SORT2, params, 1);
     cout << "Calling SORT..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SORT(proxy, x, size);
+    uint64_t* s = SORTv2(proxy, x, size);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;

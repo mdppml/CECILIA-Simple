@@ -9,7 +9,7 @@
 #include <thread>
 #include <mutex>
 #include <bitset>
-
+#include <climits>
 
 /**
  * This function is for testing boolean subtraction
@@ -185,7 +185,7 @@ uint8_t *AND(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
 
         Send( proxy->getSocketP2(), proxy->getBuffer2(), sz);
         delete[] c1;
-        return NULL;
+        return nullptr;
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint8_t *mt[3];
         mt[0] = new uint8_t[sz*8]; //a
@@ -241,7 +241,7 @@ uint8_t *AND(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
         }
         return z;
     }
-    return NULL;
+    return nullptr;
 }
 
 uint8_t *AND2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
@@ -255,7 +255,7 @@ uint8_t *AND2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
         }
         Send( proxy->getSocketP2(), proxy->getBuffer2(), size);
         delete[] c1;
-        return NULL;
+        return nullptr;
     } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint8_t *mt[3];
         mt[0] = new uint8_t[size]; //a
@@ -300,7 +300,7 @@ uint8_t *AND2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
         }
         return z;
     }
-    return NULL;
+    return nullptr;
 }
 
 
@@ -347,6 +347,7 @@ uint64_t *BooleanSubstract(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) 
         for (int j = 0; j<64; j++){
             AND(proxy, 0,0, sz);
         }
+        return nullptr;
     }
 }
 
@@ -404,6 +405,7 @@ uint64_t *BooleanSubstract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz)
         for (int j = 0; j<64; j++){
             AND2(proxy, 0,0, sz/8+1);
         }
+        return nullptr;
     }
 }
 
@@ -483,28 +485,28 @@ uint64_t *Arithmetic2XOR(Party* proxy, uint64_t *a, uint32_t sz) {
  * @param sz number of elements in the share
  * */
 uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
-
     if ( proxy->getPRole() == HELPER ) {
         auto *a2 = new uint64_t[sz];
         auto *a1 = new uint64_t[sz];
         unsigned char *ptr1 = proxy->getBuffer1();
         unsigned char *ptr2 = proxy->getBuffer2();
-        cout << "Helper 1 " << endl;
-        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz * 16);   //it will receive 2 things from P0
+        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz * 16);//it will receive 2 things from P0
         thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
         thr1.join();
         thr2.join();
+
         for (int i = 0; i < sz; i++) {      //Receive the first batch
             a2[i] = convert2Long(&ptr2);
-            a1[i] ^= convert2Long(&ptr1);   //Recreate and store first possibility in a1
         }
-        cout << "Helper 2 " << endl;
 
-        for (int i = 0; i < sz; i++) {      //
+
+        for (int i = 0; i < sz; i++) {
+            a1[i] = convert2Long(&ptr1)^a2[i];   //Recreate and store first possibility in a1
+            cout << a1[i] << endl;
             a2[i] = convert2Long(&ptr1)^a2[i];  //get the second batch and recreate it in a2
-        }
-        cout << "Helper 3 " << endl;
+            cout << a2[i] << endl;
 
+        }
         //we need to create shares to send
         ptr1 = proxy->getBuffer1();
         ptr2 = proxy->getBuffer2();
@@ -517,49 +519,48 @@ uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
             addVal2CharArray(tempShare, &ptr1);     // Arithmetic share of second one for P0
             addVal2CharArray(a2[i]-tempShare, &ptr2);   //P1 share
         }
-        cout << "Helper 4 " << endl;
 
         Send( proxy->getSocketP1(), proxy->getBuffer1(), sz * 16);
         Send( proxy->getSocketP2(), proxy->getBuffer2(), sz * 16);
-        cout << "Helper 5 " << endl;
 
         return nullptr;
     }
     else { //P0 or P1
-
         unsigned char *ptr = proxy->getBuffer1();
         uint64_t *r = new uint64_t[sz];
-        uint64_t *a1 = a;
+        uint64_t *a1 = a;   //DO: DEEP COPY BABY
         uint64_t *a2 = a;
         uint64_t *result = new uint64_t[sz];
 
         if (proxy->getPRole() == P1) {
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz; ++i) {
-                r[i] = proxy->generateCommonRandomByte();
-                if (r[i] & 0x1) a1[i] = 0xFFFF ^ a1[i];     //if r is odd first one is complemented
-                else a2[i] = 0xFFFF ^ a2[i];                //if r is even second one is the complemented one
+                cout << a1[i] << "\t" << (a2[i]) << endl;
+                r[i] = 0;//proxy->generateCommonRandomByte();
+                if (r[i] & 0x1) {
+                    a1[i] = (ULLONG_MAX ^ a1[i]); //if r is odd first one is complemented
+                }
+                else {
+                    a2[i] = (ULLONG_MAX ^ a2[i]);
+                }
+
+                cout << a1[i] << "\t" << (a2[i]) << "\t" << (ULLONG_MAX ^ a2[i]) << "\t" << a[i] << endl;//if r is even second one is the complemented one
                 addVal2CharArray(a1[i], &ptr);
                 addVal2CharArray(a2[i], &ptr);
             }
-            cout << "Here 1 " << endl;
             Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);  //sent ar to helper
-            cout << "Here 2 " << endl;
+
         }
         else {  //P2
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz; i++) {
-                r[i] = proxy->generateCommonRandomByte();
+                cout << "P1 sends " << a1[i] << " " << a[i] <<endl;
+                r[i] = 0;//proxy->generateCommonRandomByte();
                 addVal2CharArray(a1[i], &ptr);
             }
-            cout << "Here 1 " << endl;
             Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8);  //sent ar to helper
-            cout << "Here 2 " << endl;
         }
-        cout << "Here 3 " << endl;
-
         Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);   // receive XOR share of (a+r)
-        cout << "Here 4 " << endl;
 
         ptr = proxy->getBuffer1();
         for (int i = 0; i < sz; i++) {
@@ -567,9 +568,7 @@ uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
             a2[i] = convert2Long(&ptr);
             result[i] = (r[i] & 0x1) * a2[i]+ (1- r[i] & 0x1) * a1[i];
         }
-        cout << "Here 5 " << endl;
 
-        cout << "Here 6 " << endl;
         return result;
 
     }

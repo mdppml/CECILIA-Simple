@@ -13,7 +13,7 @@
 
 using namespace std;
 
-constexpr int sz = 4;
+constexpr int sz = 1;
 
 void AND_test(Party *proxy){
     ofstream txt;
@@ -105,7 +105,6 @@ void SUB_test(Party *proxy){
     proxy->SendBytes(BCORE_SUB, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
-
     uint64_t* s = BooleanSubstract(proxy, x, y, size);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
@@ -126,8 +125,7 @@ void SUB_test(Party *proxy){
 }
 void Conversion_test(Party *proxy){
     ofstream txt;
-    cout<<setfill ('*')<<setw(50)<<"Calling Arithmetic to XOR Conversion";
-    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    cout<<setfill ('*')<<setw(50)<<"Calling Arithmetic to XOR Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
     uint32_t size = sz;
 
     auto* x =new uint64_t[size];
@@ -146,28 +144,36 @@ void Conversion_test(Party *proxy){
     double totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout<<setfill ('*')<<setw(50)<<"Calling Arithmetic to XOR Conversion";
-    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    auto s_rec = RECB(proxy, s, size);
+    auto x_rec = REC(proxy, x, size);
+    auto x_rec_b = RECB(proxy, x, size);
+    int  counter = 0;
+    for(int i = 0;i<size;i++) {
+        if (s_rec[i]!= x_rec[i]) break;//cout << "A2B not working " << endl;
+        else counter++;
+    }
+    if(counter == sz) cout << "A2B Conversion works correctly \n";
+    else cout << "A2B Conversion is INCORRECT \n";
 
-
+    cout<<setfill ('*')<<setw(50)<<"Calling XOR to Arithmetic Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
+    cout << "Calling SendBytes..\n";
     params[0] = size;
     proxy->SendBytes(BCORE_B2A, params, 1);
 
     start = chrono::high_resolution_clock::now();
-    uint64_t* t = XOR2Arithmetic(proxy, x, size);
+    uint64_t* t = XOR2Arithmetic(proxy, s, size);
     end = chrono::high_resolution_clock::now();
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
     cout << "Callng REC..\n";
     auto t_rec = REC(proxy, t, size);
-    auto x_rec = REC(proxy, x, size);
-    int  counter = 0;
+    counter = 0;
     for(int i = 0;i<size;i++) {
-        if (t_rec[i]!= x_rec[i]) cout << t_rec[i] << endl;
+        if (t_rec[i]!= x_rec[i]) cout << t_rec[i] << "\t " << x_rec[i] << endl;
         else counter++;
     }
-    if(counter == sz) cout << "Conversion works correctly \n";
+    if(counter == sz) cout << "B2A Conversion works correctly \n";
     else cout << "Conversion is not correct!\n Only " << counter << " out of " << sz << " elements converted correctly\n";
 
 }

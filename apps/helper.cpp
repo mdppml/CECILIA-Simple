@@ -226,6 +226,10 @@ int main(int argc, char* argv[]) {
                 sz = helper->ReadInt();
                 SORT(helper,0, sz);
                 break;
+            case CORE_SORT2:
+                sz = helper->ReadInt();
+                SORTv2(helper,0, sz);
+                break;
             case BCORE_AND:
                 sz = helper->ReadInt();
                 AND2(helper,0,0, sz);
@@ -233,6 +237,7 @@ int main(int argc, char* argv[]) {
             case BCORE_SUB:
                 sz = helper->ReadInt();
                 BooleanSubstract2(helper,0,0, sz);
+                break;
             case BCORE_A2B:
                 sz = helper->ReadInt();
                 Arithmetic2XOR(helper,0, sz);
