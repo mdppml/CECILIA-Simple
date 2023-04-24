@@ -92,38 +92,31 @@ public:
             OS_GenerateRandomBlock(false, buffer, 32);
             Send(&socket_p1[0], buffer, 32);
             common_rbg = new AES_CTR_RBG(buffer, 32);
-            common_rbg->GenerateBlock(random_bytes, 1);
+            common_rbg->initialise();
         } else if (p_role == P2) {
             Receive(&socket_p0[0], buffer, 32);
-            unsigned char *ptr = &buffer[0];
-            common_rbg = new AES_CTR_RBG(ptr, 32);
-            common_rbg->GenerateBlock(random_bytes, 1);
+            common_rbg = new AES_CTR_RBG(buffer, 32);
+            common_rbg->initialise();
         }
         rbg = new AES_CTR_RBG();
-        rbg->GenerateBlock(random_bytes, 1);
+        rbg->initialise();
     }
 
 
     uint64_t generateRandom() {
-        rbg->GenerateBlock(random_bytes, 8);
-        uint64_t val = *(uint64_t *)(random_bytes);
-        return val;
+        return rbg->GenerateLongLong();
     }
 
     uint8_t generateRandomByte() {
-        rbg->GenerateBlock(random_bytes, 1);
-        return random_bytes[0];
+        return rbg->GenerateByte();
     }
 
     uint64_t generateCommonRandom() {
-        common_rbg->GenerateBlock(random_bytes, 8);
-        uint64_t val = *(uint64_t *)(random_bytes);
-        return val;
+        return common_rbg->GenerateLongLong();
     }
 
     uint8_t generateCommonRandomByte() {
-        common_rbg->GenerateBlock(random_bytes, 1);
-        return random_bytes[0];
+        return common_rbg->GenerateByte();
     }
 
     uint64_t createShare(uint64_t val){

@@ -35,8 +35,7 @@ public:
     explicit AES_CTR_RBG(const CryptoPP::byte *seed = nullptr, size_t length = 0)
     : m_pCipher(new CTR_Mode<AES>::Encryption)
     {
-        m_keyed = false;
-        _buffer_usable = false;
+        initialised = false;
         EntropyHelper(seed, length, true);
         _current_buffer = new CryptoPP::byte[RANDOM_BUFFER_SIZE];
         _unused_buffer = new CryptoPP::byte[RANDOM_BUFFER_SIZE];
@@ -67,15 +66,7 @@ public:
      */
     void GenerateBlock(CryptoPP::byte *output, size_t size) override
     {
-        if (!m_keyed) {
-            m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
-            m_keyed = true;
-        }
-        if (!_buffer_usable) {
-            _fillUnusedBuffer();
-            _replenishBuffer();
-            _buffer_usable = true;
-        }
+        initialise();
         size_t remaining_bytes = size;
         size_t transferred_bytes = 0;
         size_t bytes_in_buffer = RANDOM_BUFFER_SIZE - _buffer_position;
@@ -88,6 +79,39 @@ public:
         }
         ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, remaining_bytes);
         _buffer_position += remaining_bytes;
+    }
+
+    CryptoPP::byte GenerateByte() override
+    {
+        initialise();
+        if (_buffer_position == RANDOM_BUFFER_SIZE) {
+            _replenishBuffer();
+        }
+        CryptoPP::byte byte = _current_buffer[_buffer_position];
+        _buffer_position += 1;
+        return byte;
+    }
+
+    uint64_t GenerateLongLong() {
+        initialise();
+        if (_buffer_position+8 > RANDOM_BUFFER_SIZE) {
+            _replenishBuffer();
+        }
+        uint64_t random = *(uint64_t *)(_current_buffer +_buffer_position);
+        _buffer_position += 8;
+        return random;
+    }
+
+    /**\brief makes sure that everything is initialised
+     *
+     */
+    void initialise() {
+        if (!initialised) {
+            m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
+            _fillUnusedBuffer();
+            _replenishBuffer();
+            initialised = true;
+        }
     }
 
 protected:
@@ -123,7 +147,7 @@ protected:
         
         memcpy(m_key.data(), seed.data() + 0, 16);
         memcpy(m_iv.data(), seed.data() + 16, 16);
-        m_keyed = false;
+        initialised = false;
     }
     
 private:
@@ -152,6 +176,5 @@ private:
     FixedSizeSecBlock<CryptoPP::byte, 16> m_key;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_iv;
     member_ptr<CTR_Mode<AES>::Encryption> m_pCipher;
-    bool m_keyed;
-    bool _buffer_usable;
+    bool initialised;
 };
