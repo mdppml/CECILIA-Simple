@@ -535,13 +535,7 @@ uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
             }
         }
         auto ar = BooleanSubstract2(proxy, a, r_i_xor, sz);
-//        auto ar_rec = RECB(proxy, ar, sz);
-//        auto a_rec = RECB(proxy, a, sz);
-//        auto r_rec = RECB(proxy, r_i_xor, sz);
-//        cout << "After substraction\n";
-//        for (int i = 0; i < sz; ++i) {
-//            cout << ar_rec[i] << "\t"<< a_rec[i] << "\t" << r[i] <<  "\t" << r_rec[i] <<  "\t" << ar_rec[i]+r[i] << endl;
-//        }
+
         ptr = proxy->getBuffer1();
         for (int i = 0; i < sz; i++) {
             addVal2CharArray(ar[i], &ptr);
@@ -598,16 +592,14 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
         ptr2 = proxy->getBuffer2();
         uint64_t tempShare;
         for (int i = 0; i < sz; i++) {
-            tempShare = proxy->generateRandom();
-            addVal2CharArray(tempShare, &ptr1);     // Arithmetic share of first one for P0
-            addVal2CharArray(a1[i]-tempShare, &ptr2);   //P1 share
-            tempShare = proxy->generateRandom();
-            addVal2CharArray(tempShare, &ptr1);     // Arithmetic share of second one for P0
-            addVal2CharArray(a2[i]-tempShare, &ptr2);   //P1 share
+            tempShare = proxy->generateCommonRandom();           //P0 share for 1st possibility
+            addVal2CharArray(a1[i]-tempShare, &ptr2);   //P1 share for 1st possibility
+            tempShare = proxy->generateCommonRandom2();          //P1 share for 2nd possibility
+            addVal2CharArray(a2[i]-tempShare, &ptr1);   //P0 share for 2nd possibility
         }
 
-        Send( proxy->getSocketP1(), proxy->getBuffer1(), sz * 16);
-        Send( proxy->getSocketP2(), proxy->getBuffer2(), sz * 16);
+        Send( proxy->getSocketP1(), proxy->getBuffer1(), sz * 8);
+        Send( proxy->getSocketP2(), proxy->getBuffer2(), sz * 8);
         delete [] a1;
         delete [] a2;
 
@@ -616,39 +608,43 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
     else { //P0 or P1
         unsigned char *ptr = proxy->getBuffer1();
         uint8_t *r = new uint8_t[sz2];
-        uint8_t *a1 = new uint8_t[sz2];   //DO: DEEP COPY BABY
-        uint8_t *a2 = new uint8_t[sz2];
-        uint64_t *result = new uint64_t[sz2];
+        auto **c = new uint8_t *[sz2];
+        uint64_t *result = new uint64_t[sz];
 
         if (proxy->getPRole() == P1) {
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz2; ++i) {
-                a1[i] = a[i];
-                a2[i] = 0xFFFF^a[i];
+                c[i] = new uint8_t [2];
+                c[i][0] = a[i];             //0th index keeps the original
+                c[i][1] = 0xFFFF^a[i];      //1st index keeps the complement
             }
 
             for (int i = 0; i < sz2; ++i) {
                 r[i] = proxy->generateCommonRandomByte();
+                (*ptr) = 0;
+                uint8_t bit_index = 7;
                 for (int j = 0; j < 8; ++j) {
-                    (*ptr) = 0;
-                    uint8_t bit_index = 7;
-                    if((r[i]>>j) &1){       //if random bit is one first send original then complement
-                        addBit2CharArray(a1[i]&0x1, &ptr, &bit_index);
-                        addBit2CharArray(a2[i]&0x1, &ptr, &bit_index);
-                        a1[i] =a1[i] >> 1;
-                        a2[i] =a2[i] >> 1;
-                    }
-                    else{
-                        addBit2CharArray(a2[i]&0x1, &ptr, &bit_index);
-                        addBit2CharArray(a1[i]&0x1, &ptr, &bit_index);
-                        a1[i] =a1[i] >> 1;
-                        a2[i] =a2[i] >> 1;
-                    }
+                        addBit2CharArray(c[i][(r[i]>>j)&1]&0x1, &ptr, &bit_index);
+                        addBit2CharArray(c[i][1-((r[i]>>j)&1)], &ptr, &bit_index);
+                        c[i][0] =c[i][0] >> 1;
+                        c[i][1] =c[i][1] >> 1;
                 }
             }
 
             Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz2*2);  //sent ar to helper
 
+            auto r1 = new uint64_t[sz];
+            for (int i = 0; i < sz; ++i) {
+                r1[i] = proxy->generateCommonRandom2();  //this will be a share of first possibility
+            }
+
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8);   // receive Arithmetic share for second possibility
+
+            ptr = proxy->getBuffer1();
+            for (int i = 0; i < sz; i++) {
+                auto select = ((r[i/8]>>(i%8)) & 0x1);
+                result[i] = (1- select) * r1[i] + select * convert2Long(&ptr);      // if select is 0 take the first possibility else second
+            }
         }
         else {  //P2
             ptr = proxy->getBuffer1();
@@ -661,18 +657,25 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
             }
 
             Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz2);  //sent ar to helper
-        }
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 16);   // receive Arithmetic share of (a+r)
 
-        ptr = proxy->getBuffer1();
-        for (int i = 0; i < sz; i++) {
-            a1[i] = convert2Long(&ptr);
-            a2[i] = convert2Long(&ptr);
-            result[i] = (r[i] & 0x1) * a2[i]+ (1- r[i] & 0x1) * a1[i];
+            auto r1 = new uint64_t[sz];
+            for (int i = 0; i < sz; ++i) {
+                r1[i] = proxy->generateCommonRandom2();  //this will be a share of second possibility
+            }
+
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8);   // receive the share of first possibility
+
+            ptr = proxy->getBuffer1();
+            for (int i = 0; i < sz; i++) {
+                auto select = ((r[i/8]>>(i%8)) & 0x1);
+                result[i] = (1- select) * convert2Long(&ptr) + select * r1[i];      // if select is 0 take the first possibility else second
+            }
+
         }
         delete [] r;
-        delete [] a1;
-        delete [] a2;
+        for (int i = 0; i < sz2; ++i) {
+            delete [] c[i];
+        }
         return result;
 
     }

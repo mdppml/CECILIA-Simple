@@ -246,6 +246,10 @@ int main(int argc, char* argv[]) {
                 sz = helper->ReadInt();
                 XOR2Arithmetic(helper,0, sz);
                 break;
+            case BCORE_B2As:
+                sz = helper->ReadInt();
+                XOR2Arithmetic2(helper,0, sz);
+                break;
             case CORE_END:
                 keep_looping = false;
                 break;
