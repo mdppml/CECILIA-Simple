@@ -227,14 +227,14 @@ uint64_t *applyPermutationB(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
     auto* pv_inv = new uint64_t[size];
     auto* pr_inv = new uint64_t[size];
     long long x;   //pointer lazım mı?
-    long long n = (long long) (((long long)1 << 61) - 1);
+    uint64_t  n =  0x1fffffffffffffff;
 
 //    using namespace std::chrono;
 //    auto microseconds_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
 //    cout << microseconds_since_epoch << endl;
     if (proxy->getPRole() == P1) {
         for (int i = 0; i < size; i++) {
-            r[i] = MersenneMod(proxy->generateRandom(), n, 61);   //need to be smaller than n
+            r[i] = proxy->generateRandom() & n;   //need to be smaller than n
             v[i] ^= r[i];
         }
     }
@@ -287,7 +287,6 @@ uint64_t *applyPermutationB(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
             for (int i = 0; i < size; i++) {
                 pr_inv[i] = (uint64_t) multMod((long long) pr_inv[i], xinv, n);
                 pv_inv[i] = pv_inv[i]^pr_inv[i]; //P2 eliminates r effect
-
             }
         }
     }
