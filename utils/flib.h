@@ -58,7 +58,7 @@ void addBit2CharArray(uint8_t val, uint8_t **ptr, uint8_t *bit_index){
     else
         (*bit_index)-=1;
 }
-
+//This is compatible with addBit2CharArray
 uint8_t convert2Byte(uint8_t **ptr, uint8_t *bit_index){
     uint8_t val = ((**ptr)>>(*bit_index))&0x1;
     if ((*bit_index) == 0){
@@ -111,7 +111,7 @@ uint8_t mod(int k, int n) {
     return ((k %= n) < 0) ? k+n : k;
 }
 
-uint8_t MersenneMod(uint64_t k, uint8_t p, uint8_t s) {
+uint64_t MersenneMod(uint64_t k, uint64_t p, uint8_t s) {
     uint64_t i = (k & p) + (k >> s);
     return (i >= p) ? i - p : i;
 }
@@ -312,19 +312,28 @@ long long getModularInverse_n(long long a, long long m)
  * @param m modulus
  * @return a*b%n
  *
- * Modulo operation is done by MersenneMod Method
+ * Modulo operation is done by eMod Method
  * 3rd parameter of MersenneMod should be log(m). In this case it is 61 since 2^61-1
  * */
 long long multMod(long long x, long long y, long long m) {
+//    long long res = 0;
+//    x = MersenneMod(x, m, 61);
+//    while (y > 0) {
+//        if (y & 0x1 )
+//            res = MersenneMod((res + x), m, 61);
+//        x = MersenneMod((x * 2), m, 61);
+//        y = y >> 1;
+//    }
+//    return MersenneMod(res , m, 61);
     long long res = 0;
-    x = MersenneMod(x, m, 61);
+    x = MersenneMod(x, m, 61);//x % m;
     while (y > 0) {
-        if (y & 0x1 )
-            res = MersenneMod((res + x), m, 61);
-        x = MersenneMod((x * 2), m, 61);
-        y = y >> 1;
+        if (y % 2 == 1)
+            res = (res + x) % m;
+        x = (x * 2) % m;
+        y /= 2;
     }
-    return MersenneMod(res , m, 61);
+    return res % m;
 }
 uint64_t getModularInverse(uint64_t a){
     /**
