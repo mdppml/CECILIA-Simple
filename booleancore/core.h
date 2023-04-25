@@ -561,31 +561,25 @@ uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
  * @param sz number of elements in the share
  * */
 uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
-    uint32_t sz2 = sz/8+1;
+    uint32_t bsz = sz/8 +1;
     if ( proxy->getPRole() == HELPER ) {
         auto *a1 = new uint8_t[sz];
-        auto *a2 = new uint64_t[sz];
+        auto *a2 = new uint8_t[sz];
 
-        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), sz2*2);//it will receive 2 things from P0
-        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz2);
+        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), bsz*2);//it will receive 2 things from P0
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), bsz);
         thr1.join();
         thr2.join();
 
         unsigned char *ptr1 = proxy->getBuffer1();
         unsigned char *ptr2 = proxy->getBuffer2();
 
-        for (int i = 0; i < sz2; i++) {      //Receive from P2
-            a2[i] = convert2uint8(&ptr2);
-        }
-
-        uint8_t bit_index =7;
+        uint8_t bit_index1 =7;
+        uint8_t bit_index2 =7;
         for (int i = 0; i < sz; i++) {
-            a2[i] = convert2Byte(&ptr1, &bit_index);
-        }
-
-        for (int i = 0; i < sz; i++) {
-            a1[i] = convert2Byte(&ptr1, &bit_index)^a2[i];   //Recreate and store first possibility in a1
-            a2[i] = convert2Byte(&ptr1, &bit_index)^a2[i];  //get the second batch and recreate it in a2
+            uint8_t tmp = convert2Byte(&ptr2, &bit_index2);
+            a1[i] = convert2Byte(&ptr1, &bit_index1)^tmp;   //Recreate and store first possibility in a1
+            a2[i] = convert2Byte(&ptr1, &bit_index1)^tmp;
         }
         //we need to create shares to send
         ptr1 = proxy->getBuffer1();
@@ -607,56 +601,49 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
     }
     else { //P0 or P1
         unsigned char *ptr = proxy->getBuffer1();
-        uint8_t *r = new uint8_t[sz2];
-        auto **c = new uint8_t *[sz2];
+        uint8_t *r = new uint8_t[bsz];
         uint64_t *result = new uint64_t[sz];
 
         if (proxy->getPRole() == P1) {
-            ptr = proxy->getBuffer1();
-            for (int i = 0; i < sz2; ++i) {
-                c[i] = new uint8_t [2];
-                c[i][0] = a[i];             //0th index keeps the original
-                c[i][1] = 0xFFFF^a[i];      //1st index keeps the complement
-            }
 
-            for (int i = 0; i < sz2; ++i) {
+            ptr = proxy->getBuffer1();
+            (*ptr) = 0;
+            for (int i = 0; i < bsz; ++i) {
                 r[i] = proxy->generateCommonRandomByte();
-                (*ptr) = 0;
                 uint8_t bit_index = 7;
-                for (int j = 0; j < 8; ++j) {
-                        addBit2CharArray(c[i][(r[i]>>j)&1]&0x1, &ptr, &bit_index);
-                        addBit2CharArray(c[i][1-((r[i]>>j)&1)], &ptr, &bit_index);
-                        c[i][0] =c[i][0] >> 1;
-                        c[i][1] =c[i][1] >> 1;
+                for (int j = 7; j >= 0; j--) {
+                        uint8_t bit = ((a[i]>>j)&0x1)^((r[i]>>j)&0x1);
+                        addBit2CharArray(bit, &ptr, &bit_index);
+                        addBit2CharArray(bit^1, &ptr, &bit_index);
                 }
             }
 
-            Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz2*2);  //sent ar to helper
+            Send(proxy->getSocketHelper(), proxy->getBuffer1(), bsz*2);  //sent ar to helper
 
             auto r1 = new uint64_t[sz];
             for (int i = 0; i < sz; ++i) {
                 r1[i] = proxy->generateCommonRandom2();  //this will be a share of first possibility
             }
 
-            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 8);   // receive Arithmetic share for second possibility
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz*8);   // receive Arithmetic share for second possibility
 
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz; i++) {
-                auto select = ((r[i/8]>>(i%8)) & 0x1);
+                auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
                 result[i] = (1- select) * r1[i] + select * convert2Long(&ptr);      // if select is 0 take the first possibility else second
             }
         }
         else {  //P2
             ptr = proxy->getBuffer1();
-            for (int i = 0; i < sz2; i++) {
+            for (int i = 0; i < bsz; i++) {
                 r[i] = proxy->generateCommonRandomByte();
             }
 
-            for (int i = 0; i < sz2; i++) {
+            for (int i = 0; i < bsz; i++) {
                 addVal2CharArray(a[i], &ptr);
             }
 
-            Send(proxy->getSocketHelper(), proxy->getBuffer1(), sz2);  //sent ar to helper
+            Send(proxy->getSocketHelper(), proxy->getBuffer1(), bsz);  //sent ar to helper
 
             auto r1 = new uint64_t[sz];
             for (int i = 0; i < sz; ++i) {
@@ -667,15 +654,123 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
 
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz; i++) {
-                auto select = ((r[i/8]>>(i%8)) & 0x1);
+                auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
                 result[i] = (1- select) * convert2Long(&ptr) + select * r1[i];      // if select is 0 take the first possibility else second
             }
 
         }
         delete [] r;
-        for (int i = 0; i < sz2; ++i) {
-            delete [] c[i];
+        return result;
+
+    }
+}
+
+/**Protocol for converting XOR shares of bits to Arithmetic shares (1->24)
+ * @param a XOR share
+ * @param sz number of elements in the share
+ * */
+uint64_t *XOR2Arithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
+    uint32_t mask = 0x7fffff;
+    uint32_t bsz = sz/8 +1;
+    if ( proxy->getPRole() == HELPER ) {
+        auto *a1 = new uint8_t[sz];
+        auto *a2 = new uint8_t[sz];
+
+        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), bsz*2);//it will receive 2 things from P0
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), bsz);
+        thr1.join();
+        thr2.join();
+
+        unsigned char *ptr1 = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
+
+        uint8_t bit_index1 =7;
+        uint8_t bit_index2 =7;
+        for (int i = 0; i < sz; i++) {
+            uint8_t tmp = convert2Byte(&ptr2, &bit_index2);
+            a1[i] = convert2Byte(&ptr1, &bit_index1)^tmp;   //Recreate and store first possibility in a1
+            a2[i] = convert2Byte(&ptr1, &bit_index1)^tmp;
         }
+        //we need to create shares to send
+        ptr1 = proxy->getBuffer1();
+        ptr2 = proxy->getBuffer2();
+        uint64_t tempShare;
+        for (int i = 0; i < sz; i++) {
+            tempShare = proxy->generateCommonRandom()&mask;           //P0 share for 1st possibility
+            addVal2CharArray((a1[i]-tempShare)&mask, &ptr2,3);   //P1 share for 1st possibility
+            tempShare = proxy->generateCommonRandom2()&mask;          //P1 share for 2nd possibility
+            addVal2CharArray((a2[i]-tempShare)&mask, &ptr1,3);   //P0 share for 2nd possibility
+
+        }
+
+        Send( proxy->getSocketP1(), proxy->getBuffer1(), sz * 3);
+        Send( proxy->getSocketP2(), proxy->getBuffer2(), sz * 3);
+        delete [] a1;
+        delete [] a2;
+
+        return nullptr;
+    }
+    else { //P0 or P1
+        unsigned char *ptr = proxy->getBuffer1();
+        uint8_t *r = new uint8_t[bsz];
+        uint64_t *result = new uint64_t[sz];
+
+        if (proxy->getPRole() == P1) {
+
+            ptr = proxy->getBuffer1();
+            (*ptr) = 0;
+            for (int i = 0; i < bsz; ++i) {
+                r[i] = proxy->generateCommonRandomByte();
+                uint8_t bit_index = 7;
+                for (int j = 7; j >= 0; j--) {
+                    uint8_t bit = ((a[i]>>j)&0x1)^((r[i]>>j)&0x1);
+                    addBit2CharArray(bit, &ptr, &bit_index);
+                    addBit2CharArray(bit^1, &ptr, &bit_index);
+                }
+            }
+
+            Send(proxy->getSocketHelper(), proxy->getBuffer1(), bsz*2);  //sent ar to helper
+
+            auto r1 = new uint64_t[sz];
+            for (int i = 0; i < sz; ++i) {
+                r1[i] = proxy->generateCommonRandom2()&mask;  //this will be a share of first possibility
+            }
+
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz*3);   // receive Arithmetic share for second possibility
+
+            ptr = proxy->getBuffer1();
+            for (int i = 0; i < sz; i++) {
+                auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
+                result[i] = (1- select) * r1[i] + select * convert2Long(&ptr,3);      // if select is 0 take the first possibility else second
+            }
+        }
+        else {  //P2
+            ptr = proxy->getBuffer1();
+            for (int i = 0; i < bsz; i++) {
+                r[i] = proxy->generateCommonRandomByte();
+            }
+
+            for (int i = 0; i < bsz; i++) {
+                addVal2CharArray(a[i], &ptr);
+            }
+
+            Send(proxy->getSocketHelper(), proxy->getBuffer1(), bsz);  //sent ar to helper
+
+            auto r1 = new uint64_t[sz];
+            for (int i = 0; i < sz; ++i) {
+                r1[i] = proxy->generateCommonRandom2()&mask;  //this will be a share of second possibility
+            }
+
+            Receive(proxy->getSocketHelper(), proxy->getBuffer1(), sz * 3);   // receive the share of first possibility
+
+            ptr = proxy->getBuffer1();
+            for (int i = 0; i < sz; i++) {
+                auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
+                result[i] = (1- select) * convert2Long(&ptr,3) + select * r1[i];      // if select is 0 take the first possibility else second
+            }
+
+        }
+        delete [] r;
         return result;
 
     }

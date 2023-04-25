@@ -16,6 +16,16 @@ uint64_t convert2Long(unsigned char **ptr){
     }
     return val;
 }
+
+uint64_t convert2Long(unsigned char **ptr, int bsz){
+    uint64_t val = 0;
+    int start = (bsz-1)*8;
+    for (int i=start;i>=0;i-=8){
+        val=val+((uint64_t)(**ptr)<<i);
+        (*ptr)++;
+    }
+    return val;
+}
 uint32_t convert2Int(unsigned char **ptr){
     uint32_t val = 0;
     for (int i=24;i>=0;i-=8){
@@ -75,6 +85,14 @@ void addVal2CharArray(uint64_t val,unsigned char **ptr){
         (*ptr)++;
     }
 }
+
+void addVal2CharArray(uint64_t val,unsigned char **ptr, int bsz){
+    int start = 8*(bsz-1);
+    for (int i=start;i>=0;i-=8){
+        (**ptr)=(val>>i)&0xff;
+        (*ptr)++;
+    }
+}
 void addVal2CharArray(uint32_t val,unsigned char **ptr){
     for (int i=24;i>=0;i-=8){
         (**ptr)=(val>>i)&0xff;
@@ -85,6 +103,7 @@ void addVal2CharArray(uint8_t val,unsigned char **ptr){
     (**ptr)=(val)&0xff;
     (*ptr)++;
 }
+
 void addVal2CharArray(uint8_t val[],unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
         (**ptr)=(val[i])&0xff;
@@ -95,6 +114,7 @@ void addVal2CharArray(uint64_t *val, unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
         addVal2CharArray(val[i],ptr);
     }
+
 }
 void addArray2CharArray( uint64_t **val, unsigned char **ptr, uint32_t n_row, uint32_t n_col){
     // Add uint64_t vals in **val to the buffer to send
