@@ -62,6 +62,11 @@ int main(int argc, char* argv[]) {
                 sz = helper->ReadInt();
                 MUL(helper,nullptr, nullptr, sz);
                 break;
+            case CORE_MMUL2:
+                sz = helper->ReadInt();
+                size2 = helper->ReadInt();
+                MUL(helper,nullptr, nullptr, sz, size2);
+                break;
             case CORE_DP:
                 sz = helper->ReadInt();
                 DP(helper, nullptr, nullptr, sz);

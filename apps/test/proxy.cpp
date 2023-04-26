@@ -18,7 +18,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 1000000;
+constexpr int sz = 100000;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -285,9 +285,13 @@ bool MMUL_Test(Party *proxy){
         x[i] = proxy->createShare(xd);
         y[i] = proxy->createShare(yd);
     }
-    proxy->SendBytes(CORE_MMUL, params, 1);
+    uint64_t *r;
     auto start = chrono::high_resolution_clock::now();
-    uint64_t *r = MUL(proxy, x, y, sz);
+    for (int i = 0; i < 1; ++i) {
+        proxy->SendBytes(CORE_MMUL, params, 1);
+        r = MUL(proxy, x, y, sz);
+    }
+
     auto end = chrono::high_resolution_clock::now();
     double time_taken =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
@@ -315,6 +319,71 @@ bool MMUL_Test(Party *proxy){
             break;
         }
     }
+
+    delete [] x;
+    delete [] y;
+    delete [] params;
+    delete [] r;
+
+    if (flag) {
+        cout<<"MMUL works correctly"<<endl;
+        return true;
+    }
+    else {
+        cout<<"MMUL works incorrectly"<<endl;
+        return false;
+    }
+}
+
+bool MMUL2_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling MMUL";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];
+    uint32_t* params = new uint32_t[2];
+    cout<<"SIZE:\t" << sz << endl;
+    auto bsz = 23;
+    params[0] = sz;
+    params[1] = bsz;
+    for (int i=0;i<sz;i++){
+        x[i] = i;
+        y[i] = i;
+    }
+    uint64_t *r;
+    auto start = chrono::high_resolution_clock::now();
+    for (int i = 0; i < 64; ++i) {
+        proxy->SendBytes(CORE_MMUL2, params, 2);
+        r = MUL(proxy, x, y, sz, bsz);
+    }
+
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken =
+            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout<<"MUL Time:\t" << fixed
+        << time_taken << setprecision(9) << " sec" << endl;
+    // checking the result
+    unordered_map<string, int> umap;
+    bool flag = true;
+//    for (int i=0;i<sz;i++) {
+//        uint64_t rec_x = REC(proxy, x[i]);
+//        uint64_t rec_y = REC(proxy, y[i]);
+//        uint64_t rec_r = REC(proxy, r[i]);
+//        cout << rec_r << endl;
+////        double xd = convert2double(rec_x);
+////        double yd = convert2double(rec_y);
+////        double rd = convert2double(rec_r);
+////        double rcd = (xd * yd);
+////        if ((int) (rd - rcd) != 0) {
+////            flag = false;
+////            cout << "Absolute difference of multiplication of " << xd << " and " << yd << ": " << abs(rd - rcd) << endl;
+////            for (auto& it: umap) {
+////                // Do stuff
+////                cout << it.first << ": " << it.second << endl;
+////            }
+////            break;
+////        }
+//    }
 
     delete [] x;
     delete [] y;
@@ -3529,8 +3598,9 @@ int main(int argc, char *argv[]) {
 //        MMOC_Test(proxy);
 //
 //        MSB_Test(proxy);
-          MMSB_Test(proxy);
- //       MMUL_Test(proxy);
+//          MMSB_Test(proxy);
+//        MMUL_Test(proxy);
+        MMUL2_Test(proxy);
 //
 //        CMP_Test(proxy);
 //        MCMP_Test(proxy);
