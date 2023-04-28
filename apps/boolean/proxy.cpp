@@ -13,7 +13,7 @@
 
 using namespace std;
 
-constexpr int sz = 1;
+constexpr int sz = 1000000;
 
 void AND_test(Party *proxy){
     ofstream txt;
@@ -146,7 +146,6 @@ void Conversion_test(Party *proxy){
 
     auto s_rec = RECB(proxy, s, size);
     auto x_rec = REC(proxy, x, size);
-    auto x_rec_b = RECB(proxy, x, size);
     int  counter = 0;
     for(int i = 0;i<size;i++) {
         if (s_rec[i]!= x_rec[i]) break;//cout << "A2B not working " << endl;
@@ -155,7 +154,9 @@ void Conversion_test(Party *proxy){
     if(counter == sz) cout << "A2B Conversion works correctly \n";
     else cout << "A2B Conversion is INCORRECT \n";
 
-    cout<<setfill ('*')<<setw(50)<<"Calling XOR to Arithmetic Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
+
+
+    cout<<setfill ('*')<<setw(50)<<"Calling XOR (64bit) to Arithmetic Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
     cout << "Calling SendBytes..\n";
     params[0] = size;
     proxy->SendBytes(BCORE_B2A, params, 1);
@@ -176,6 +177,35 @@ void Conversion_test(Party *proxy){
     if(counter == sz) cout << "B2A Conversion works correctly \n";
     else cout << "Conversion is not correct!\n Only " << counter << " out of " << sz << " elements converted correctly\n";
 
+
+
+    cout<<setfill ('*')<<setw(50)<<"Calling XOR (1Bit) to Arithmetic Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
+    cout << "Calling SendBytes..\n";
+    params[0] = size;
+    proxy->SendBytes(BCORE_B2Am, params, 1);
+    int sz = size/8 +1;
+    auto* b =new uint8_t[sz];
+    for (int i = 0; i <sz ; ++i) {
+        if(proxy->getPRole()==P1) b[i] = 5;
+        else b[i] = 0;
+    }
+
+    start = chrono::high_resolution_clock::now();
+    t = XOR2Arithmetic3(proxy, b, size);
+    end = chrono::high_resolution_clock::now();
+    totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+    cout<<totaltime<<endl;
+
+//    cout << "Callng REC..\n";
+//    t_rec = REC(proxy, t, size);
+//
+//    counter = 0;
+//    for(int i = 0;i<size;i++) {
+//        cout << t[i] << endl;
+//    }
+//    if(counter == sz) cout << "B2A Conversion works correctly \n";
+//    else cout << "Conversion is not correct!\n Only " << counter << " out of " << sz << " elements converted correctly\n";
+
 }
 
 int main(int argc, char* argv[]) {
@@ -192,8 +222,8 @@ int main(int argc, char* argv[]) {
         proxy = new Party(P2, hport, haddress, cport, caddress);
 
     Conversion_test(proxy);
-    //SUB_test(proxy);
-    //AND_test(proxy);
+//    SUB_test(proxy);
+//    AND_test(proxy);
 
     proxy->SendBytes(CORE_END);
     proxy->PrintBytes();

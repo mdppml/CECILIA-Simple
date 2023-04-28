@@ -18,7 +18,7 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 100000;
+constexpr int sz = 10;
 constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
@@ -346,12 +346,12 @@ bool MMUL2_Test(Party *proxy){
     params[0] = sz;
     params[1] = bsz;
     for (int i=0;i<sz;i++){
-        x[i] = i;
+        x[i] = 0x7fffff-i;
         y[i] = i;
     }
     uint64_t *r;
     auto start = chrono::high_resolution_clock::now();
-    for (int i = 0; i < 64; ++i) {
+    for (int i = 0; i < 2; ++i) {
         proxy->SendBytes(CORE_MMUL2, params, 2);
         r = MUL(proxy, x, y, sz, bsz);
     }
@@ -363,6 +363,10 @@ bool MMUL2_Test(Party *proxy){
     cout<<"MUL Time:\t" << fixed
         << time_taken << setprecision(9) << " sec" << endl;
     // checking the result
+    auto rec_r = RECN(proxy, r, sz, 23);
+    for (int i = 0; i < sz; ++i) {
+        cout << rec_r[i] << endl;
+    }
     unordered_map<string, int> umap;
     bool flag = true;
 //    for (int i=0;i<sz;i++) {
@@ -3599,7 +3603,6 @@ int main(int argc, char *argv[]) {
 //
 //        MSB_Test(proxy);
 //          MMSB_Test(proxy);
-//        MMUL_Test(proxy);
         MMUL2_Test(proxy);
 //
 //        CMP_Test(proxy);

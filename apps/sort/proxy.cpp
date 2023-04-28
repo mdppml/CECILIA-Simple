@@ -11,7 +11,8 @@
 
 using namespace std;
 
-constexpr int sz = 1000;
+constexpr int sz = 5;
+constexpr int ringbits = 23;
 
 void SORT_test(Party *proxy){
     ofstream txt;
@@ -21,7 +22,8 @@ void SORT_test(Party *proxy){
     cout<<"Size: "<<size<<endl;
     auto* a =new uint64_t[size];
     for(int i = 0; i < size; i++) {
-        a[i] = proxy->generateCommonRandom()*proxy->generateCommonRandom();
+        //a[i] = proxy->generateCommonRandom();
+        a[i] = i;
         //cout << a[i] << " ";
     }
 
@@ -32,32 +34,26 @@ void SORT_test(Party *proxy){
     }
 
     cout << "Calling SendBytes..\n";
-    uint32_t params[1];
+    uint32_t params[2];
     params[0] = size;
-    proxy->SendBytes(CORE_SORT, params, 1);
-    //proxy->SendBytes(CORE_SORT2, params, 1);
+    params[1] = ringbits;
+    //proxy->SendBytes(CORE_SORT, params, 1);
+    proxy->SendBytes(CORE_SORT2, params, 2);
     cout << "Calling SORT..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SORT(proxy, x, size);
+    uint64_t* s = SORT(proxy, x, size, ringbits);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
-    txt.open("sorting-timings.txt", ios_base::app);
-    //if (txt.is_open()){
-    txt << sz << "\t" << totaltime << "\n";
-    txt.close();
-    //}
-    //else cout << "Unable to open file";
-    cout << "Callng REC..\n";
-    uint64_t* sorted = REC(proxy,s,size);
 
-    for(int i = 1;i<size;i++){
-        if(sorted[i]<=sorted[i-1]){
-            cout<<"Sort failed"<<endl;
-            break;
-        }
+    cout << "Callng REC..\n";
+    uint64_t* sorted = RECN(proxy,s,size, ringbits);
+
+    for(int i = 1;i<10;i++){
+        cout <<  sorted[i]<< endl;
     }
+
     cout<<"Array successfully sorted"<<endl;
 
 

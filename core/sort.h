@@ -51,6 +51,25 @@ uint64_t* generateP(const uint64_t* t, uint32_t size) {
     return result;
 
 }
+uint64_t* generateF(Party* proxy, const uint64_t* a, uint32_t size, uint64_t mask) {
+    if(proxy->getPRole() == P1) {
+        auto *result = new uint64_t[2 * size];
+        for(int i = 0; i < size; ++i) {
+            result[i] = (1 - a[i])&mask;
+            result[i + size] = a[i];
+        }
+        return result;
+    }
+    else if(proxy->getPRole() == P2) {
+        auto *result = new uint64_t[2 * size];
+        for(int i = 0; i < size; ++i) {
+            result[i] = (0 - a[i])&mask;
+            result[i + size] = a[i];
+        }
+        return result;
+    }
+    else return nullptr;
+}
 
 uint64_t* generateS(const uint64_t* a, uint32_t size, uint64_t mask) {
     auto *result = new uint64_t[size];
@@ -91,9 +110,9 @@ uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size) {
 
 uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size, uint32_t ringbits) {
     // paperdaki ilk algoritma, getbitarray in sonucundaki her eleman x olarak giriyor
-    auto mask =(1<< ringbits) -1;
+    uint64_t mask =(1<< ringbits) -1;
     if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        uint64_t *f = generateF(proxy, x, size);
+        uint64_t *f = generateF(proxy, x, size, mask);
         uint64_t *s = generateS(f, size * 2, mask);
         uint64_t *t = MUL(proxy, f, s, size * 2, ringbits);
         uint64_t *p = generateP(t, size, mask);
@@ -599,6 +618,106 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
     }
     return 0;
 }
+
+/** Sorting algorithm that uses XOR share for bit decomposition
+ **
+ ***/
+uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  //size = size of array
+    int LT= 64;
+    int bsz = ceil(size/8.0);
+    cout << "ringbits" << ringbits <<  endl;
+    if (proxy->getPRole() == HELPER) {
+
+        Arithmetic2XOR(proxy, 0, size);
+        cout << "Helper 1" << endl;
+        for(int i = 0; i < LT; ++i) {
+            XOR2Arithmetic3(proxy, 0, size);
+            cout << "Helper 2" << endl;
+            generatePermutation(proxy, 0, size, ringbits);
+            cout << "Helper 3" << endl;
+            applyPermutationN(proxy,0,0, 0, size, ringbits);
+            cout << "Helper 4" << endl;
+        }
+        return 0;
+    }
+    else {  //P1 or P2
+        auto sz2 = size / 8 + 1;
+        double tt0 = 0, tt1 = 0, tt2 = 0, tt3 = 0, tt4 = 0, tt5 = 0;
+        auto *randoms = new uint64_t[size];
+        auto *res = new uint64_t[size];
+        auto *permG = new uint64_t[size];   //permutation general: stores the combination of permutations
+        auto *dc = new uint8_t[bsz];       //keeps the bits at the current(i) index
+        auto *dn = new uint8_t[bsz];       //keeps the bits at the next(i+1) index
+        auto tmp = new uint64_t[size];
+
+        auto start = chrono::high_resolution_clock::now();
+        auto a_xor = Arithmetic2XOR(proxy, a, size);
+        auto end = chrono::high_resolution_clock::now();
+        tt0 = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+
+        for (int j = 0; j < size; ++j) {
+            res[j] = a[j];
+        }
+        for (int i = 0; i < size; ++i) {
+            if (proxy->getPRole() ==P1) permG[i] =  i+1;
+            else permG[i] =  0;
+        }
+
+        uint8_t bit_index = 7;
+        uint8_t * ptr = &dc[0];
+        for (int j = 0; j < size; ++j) {
+            addBit2CharArray(((a[j])&0x1), &ptr, &bit_index);
+        }
+        for(int i = 0; i < LT; ++i) {
+            //get the ith index of all elements and store them in dc
+            cout << "In for" << endl;
+
+            cout << "1" << endl;
+            auto dca = XOR2Arithmetic3(proxy, dc, size);
+
+            cout << "2" << endl;
+            auto permC = generatePermutation(proxy, dca, size, ringbits);
+            auto permc_rec = RECN(proxy, permC, size, ringbits);
+            for (int j = 0; j < size; ++j) {
+                cout << permc_rec[j] << endl;
+            }
+            cout << "3" << endl;
+            // concat dn and permG bits  this is wrong
+            for (int j = 0; j < size; ++j) {
+                tmp[i] = (permG[j]<<1) + (a[j]>>(i+1))&1;
+            }
+            cout << "4" << endl;
+
+            for (int j = 0; j < size ; j++)
+                randoms[j] = proxy->generateCommonRandom();
+            cout << "5" << endl;
+
+            uint64_t* pi = getRandomPermutation(randoms, size);
+
+            auto tmp2 = applyPermutationN(proxy,permC,tmp, pi, size, ringbits);
+
+
+            cout << "6" << endl;
+
+            bit_index = 7;
+            ptr = &dc[0];
+            for (int j = 0; j < size; ++j) {
+                addBit2CharArray((tmp2[j])&0x1, &ptr, &bit_index);
+                permG[j] = tmp2[j]>>1;
+            }
+            cout << "7" << endl;
+
+        }
+
+        delete[] randoms;
+        delete[] a_xor;
+        delete[] dc;
+        delete[] dn;
+        return permG;
+    }
+    return 0;
+}
+
 
 ///** Sorting algorithm that uses XOR share for bit decomposition
 // **

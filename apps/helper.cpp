@@ -233,7 +233,8 @@ int main(int argc, char* argv[]) {
                 break;
             case CORE_SORT2:
                 sz = helper->ReadInt();
-                SORTv2(helper,0, sz);
+                size1 = helper->ReadInt();
+                SORT(helper,0, sz, size1);
                 break;
             case BCORE_AND:
                 sz = helper->ReadInt();

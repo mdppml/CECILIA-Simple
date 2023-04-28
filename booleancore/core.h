@@ -665,7 +665,7 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
     }
 }
 
-/**Protocol for converting XOR shares of bits to Arithmetic shares (1->24)
+/**Protocol for converting XOR shares of bits to Arithmetic shares (1->23)
  * @param a XOR share
  * @param sz number of elements in the share
  * */

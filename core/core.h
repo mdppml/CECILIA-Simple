@@ -203,6 +203,23 @@ uint64_t* ADD(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     return sum;
 }
 
+/** For smaller ring size
+ * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param size the number of multiplication triples that will be generated
+ */
+void GenerateMultiplicationTriple(Party* proxy, uint64_t *c1, uint32_t size, uint64_t mask) {
+
+    for (int i = 0; i < size; i++) {
+        uint64_t a0 = proxy->generateCommonRandom()&mask;
+        uint64_t a1 = proxy->generateCommonRandom2()&mask;
+        uint64_t b0 = proxy->generateCommonRandom()&mask;
+        uint64_t b1 = proxy->generateCommonRandom2()&mask;
+        uint64_t c0=  proxy->generateCommonRandom()&mask;
+        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
+    }
+}
+
 /**
  * Adds values of all vectors in a at equal position in a row to calculate their sum (sum over column where each row is one vector).
  * @param proxy
@@ -240,23 +257,7 @@ uint64_t* ADD(Party* proxy, uint64_t **a, int n_vectors, int size) {
 
     }
 }
-/** For smaller ring size
- * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
- * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
- * @param size the number of multiplication triples that will be generated
- */
-void GenerateMultiplicationTriple(Party* proxy, uint64_t *c1, uint32_t size, uint64_t mask) {
 
-    for (int i = 0; i < size; i++) {
-        uint64_t a0 = proxy->generateCommonRandom()&mask;
-        uint64_t a1 = proxy->generateCommonRandom2()&mask;
-        uint64_t b0 = proxy->generateCommonRandom()&mask;
-        uint64_t b1 = proxy->generateCommonRandom2()&mask;
-        uint64_t c0=  proxy->generateCommonRandom()&mask;
-        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
-
-    }
-}
 /**
  * Adds values of all matrices in a at equal position to calculate their sum (sum over all matrices in a).
  * @param proxy
@@ -1203,7 +1204,6 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ri
                 mt[1][i] = proxy->generateCommonRandom2()&mask;
                 mt[2][i] = convert2Long(&ptr, bsz);
 
-
                 concat_e_f[i] = (a[i] - mt[0][i])&mask;
                 concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
             }
@@ -1213,6 +1213,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ri
                 mt[0][i] = proxy->generateCommonRandom2()&mask;
                 mt[1][i] = proxy->generateCommonRandom2()&mask;
                 mt[2][i] = proxy->generateCommonRandom2()&mask;
+
 
                 concat_e_f[i] = (a[i] - mt[0][i])&mask;
                 concat_e_f[i + size] = (b[i] - mt[1][i])&mask;

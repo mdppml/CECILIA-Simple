@@ -68,6 +68,8 @@ void addBit2CharArray(uint8_t val, uint8_t **ptr, uint8_t *bit_index){
     else
         (*bit_index)-=1;
 }
+
+
 //This is compatible with addBit2CharArray
 uint8_t convert2Byte(uint8_t **ptr, uint8_t *bit_index){
     uint8_t val = ((**ptr)>>(*bit_index))&0x1;
