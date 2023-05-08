@@ -97,7 +97,7 @@ uint64_t *REC(Party* proxy, uint64_t *a, uint32_t sz, uint64_t mask=RING_N) {
 
 uint64_t *RECN(Party* proxy, uint64_t *a, uint32_t sz, uint64_t ringbits) {
     auto mask = (1<< ringbits)-1;
-    auto bsz = ceil(ringbits/8.0);
+    auto bsz = (uint32_t)ceil(ringbits/8.0);
     uint64_t *b = new uint64_t[sz];
     if ( proxy->getPRole() == P1 ) {
         unsigned char *ptr = proxy->getBuffer1();
@@ -110,8 +110,11 @@ uint64_t *RECN(Party* proxy, uint64_t *a, uint32_t sz, uint64_t ringbits) {
         thr2.join();
 
         ptr = proxy->getBuffer2();
-        for (int i = 0; i < sz; i++) {
-            b[i] = convert2Long(&ptr, bsz);
+        for (int i = 0; i < sz; i+=4) {
+            b[i] = (a[i] + convert2Long(&ptr, bsz)) & mask;
+            b[i+1] = (a[i+1] + convert2Long(&ptr, bsz)) & mask;
+            b[i+2] = (a[i+2] + convert2Long(&ptr, bsz)) & mask;
+            b[i+3] = (a[i+3] + convert2Long(&ptr, bsz)) & mask;
         }
 
     } else if ( proxy->getPRole() == P2) {
@@ -124,12 +127,12 @@ uint64_t *RECN(Party* proxy, uint64_t *a, uint32_t sz, uint64_t ringbits) {
         thr1.join();
         thr2.join();
         ptr = proxy->getBuffer2();
-        for (int i = 0; i < sz; i++) {
-            b[i] = convert2Long(&ptr, bsz);
+        for (int i = 0; i < sz; i+=4) {
+            b[i] = (a[i] + convert2Long(&ptr, bsz)) & mask;
+            b[i+1] = (a[i+1] + convert2Long(&ptr, bsz)) & mask;
+            b[i+2] = (a[i+2] + convert2Long(&ptr, bsz)) & mask;
+            b[i+3] = (a[i+3] + convert2Long(&ptr, bsz)) & mask;
         }
-    }
-    for (int i = 0; i < sz; i++) {
-        b[i] = (a[i] + b[i]) & mask;
     }
     return b;
 }

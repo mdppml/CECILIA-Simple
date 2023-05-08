@@ -11,7 +11,7 @@
 
 using namespace std;
 
-constexpr int sz = 5;
+constexpr int sz = 1000000;
 constexpr int ringbits = 23;
 
 void SORT_test(Party *proxy){
@@ -21,9 +21,9 @@ void SORT_test(Party *proxy){
     uint32_t size = sz;
     cout<<"Size: "<<size<<endl;
     auto* a =new uint64_t[size];
-    for(int i = 0; i < size; i++) {
+    for(int i = 0; i<size; i++) {
         //a[i] = proxy->generateCommonRandom();
-        a[i] = i;
+        a[i] = size-i-1;
         //cout << a[i] << " ";
     }
 
@@ -41,18 +41,18 @@ void SORT_test(Party *proxy){
     proxy->SendBytes(CORE_SORT2, params, 2);
     cout << "Calling SORT..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SORT(proxy, x, size, ringbits);
+    uint64_t* s = SORT(proxy, x, size,ringbits);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout << "Callng REC..\n";
+   /* cout << "Callng REC..\n";
     uint64_t* sorted = RECN(proxy,s,size, ringbits);
 
-    for(int i = 1;i<10;i++){
+    for(int i = 0;i<size;i++){
         cout <<  sorted[i]<< endl;
-    }
+    }*/
 
     cout<<"Array successfully sorted"<<endl;
 

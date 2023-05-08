@@ -131,7 +131,7 @@ public:
             used_random_bytes = 0;
         }
         uint64_t val = *(uint64_t *)(random_buffer + used_random_bytes);
-        used_random_bytes += 8;
+        used_random_bytes += 1;
         return val;
     }
     uint8_t generateRandomByte() {
@@ -152,7 +152,7 @@ public:
             used_common_random_bytes = 0;
         }
         uint64_t val = *(uint64_t *)(common_random_buffer + used_common_random_bytes);
-        used_common_random_bytes += 8;
+        used_common_random_bytes += 1;
         return val;
     }
 
@@ -163,7 +163,7 @@ public:
             used_common_random_bytes2 = 0;
         }
         uint64_t val = *(uint64_t *)(common_random_buffer2 + used_common_random_bytes2);
-        used_common_random_bytes2 += 8;
+        used_common_random_bytes2 += 1;
         return val;
     }
 

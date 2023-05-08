@@ -541,7 +541,7 @@ int openscoket(string address, uint16_t port){
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }
-    SetBufferSizes(sock);
+    //SetBufferSizes(sock);
     close(server_fd);
     return sock;
 }
@@ -572,7 +572,7 @@ int connect2socket(string address, uint16_t port){
     while (connect(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         sleep(1);
     }
-    SetBufferSizes(sock);
+    //SetBufferSizes(sock);
     return sock;
 }
 void Rcv(int socket,uint8_t* buffer, size_t sz){

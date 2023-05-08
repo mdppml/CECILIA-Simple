@@ -292,7 +292,7 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
     auto* pv_inv = new uint64_t[size];
     auto* pr_inv = new uint64_t[size];
     long long x;   //pointer lazım mı?
-    uint64_t  n =  0x7FFFF; //(2^19)-1
+    uint64_t  n =  0x7FFFF; //(2^19)-1 mersenne prime
 
 //    using namespace std::chrono;
 //    auto microseconds_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
@@ -301,10 +301,14 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
     if (proxy->getPRole() == P1) {
         x = proxy->generateCommonRandom() & n;
         for (int i = 0; i < size; i++) {
-            r[i] = proxy->generateRandom() & n;   //need to be smaller than n
-            v[i] = (v[i]+r[i])&mask;
+            r[i] = proxy->generateRandom() & n;   //need to be smaller than nu
+            auto vpart = ((v[i]>>1)+(r[i]>>1))&mask2;
+            auto bpart = (v[i]^r[i])&0x1;
+            v[i] = (vpart<<1)+bpart;
             r[i] = (uint64_t) multMod((long long) r[i], x, n);
         }
+
+
         for (int i = 0; i < size; i++) {
             pip[i] = p[pi[i]-1];
             piv[i] = v[pi[i]-1];
@@ -330,6 +334,7 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
             pip[i] = p[pi[i] - 1];
             piv[i] = v[pi[i] - 1];
         }
+
         unsigned char *ptr = proxy->getBuffer1();
         for (int i = 0; i < size; i++) {
             addVal2CharArray(pip[i], &ptr, bsz);
@@ -348,8 +353,7 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
 
         for (int i = 0; i < size; i++) {
             pr_inv[i] = (uint64_t) multMod((long long) pr_inv[i], xinv, n);
-            pv_inv[i] = (pv_inv[i] - pr_inv[i])&mask;
-
+            pv_inv[i] = ((((pv_inv[i]>>1)-(pr_inv[i]>>1))&mask2)<<1)+((pv_inv[i]^pr_inv[i])&0x1);
         }
     }
     else { // HELPER
@@ -365,7 +369,8 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
             piv[i] = convert2Long(&ptr1,bsz);
             pir[i] = convert2Long(&ptr1,bsz);
             pip[i] = (pip[i]+convert2Long(&ptr2,bsz))&mask2;
-            piv[i] = (piv[i]+convert2Long(&ptr2,bsz))&mask;
+            auto tmp = convert2Long(&ptr2,bsz);
+            piv[i] = ((((piv[i]>>1)+(tmp>>1))&mask2)<<1)+((piv[i]^tmp)&0x1);
         }
         for(int i = 0; i < size; i++){  //applying inverse permutation, check
             pv_inv[pip[i]-1] = piv[i];   //-1 because permutation starts from 1
@@ -375,11 +380,12 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
         //we need to create shares to send
         ptr1 = proxy->getBuffer1();
         ptr2 = proxy->getBuffer2();
-        uint64_t tempShare;
+        uint64_t tempShare,tmpshare2;
         for (int i = 0; i < size; i++) {
             tempShare = proxy->generateRandom()&mask;
             addVal2CharArray(tempShare, &ptr1, bsz);   //aslında sharelar olmalı
-            addVal2CharArray((pv_inv[i] - tempShare)&mask, &ptr2,bsz);
+            tmpshare2 =  ((((pv_inv[i]>>1)-(tempShare>>1))&mask2)<<1)+((pv_inv[i]^tempShare)&0x1);
+            addVal2CharArray(tmpshare2, &ptr2,bsz);
             addVal2CharArray(pr_inv[i], &ptr2, bsz);
 
         }
@@ -397,6 +403,72 @@ uint64_t *applyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
     delete[] pr_inv;
     return pv_inv;
 }
+
+uint64_t *composePermutations(Party *proxy, uint64_t *p, uint64_t *r, uint32_t size,uint64_t ringbits) {
+    auto bsz = ceil((ringbits)/8.0);
+    auto mask = (1<< (ringbits))-1;
+
+    if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
+        uint64_t *randoms = new uint64_t[size];
+        uint64_t *pip = new uint64_t[size];
+        uint64_t *pr = new uint64_t[size];
+        for (int j = 0; j < size; ++j) {
+            randoms[j] = proxy->generateCommonRandom();
+        }
+        uint64_t* pi = getRandomPermutation(randoms, size);
+
+        unsigned char *ptr = proxy->getBuffer1();
+        for (int i = 0; i < size; i++) { //permute p using pi
+            pip[i] = p[pi[i]-1];
+            addVal2CharArray(pip[i], &ptr,bsz);
+            addVal2CharArray(r[i], &ptr,bsz);
+        }
+        thread thr1 = thread(Send, proxy->getSocketHelper(), proxy->getBuffer1(), size * bsz * 2);
+        thread thr2 = thread(Receive, proxy->getSocketHelper(), proxy->getBuffer2(),size * bsz); //receives a share from pv_inv
+        thr1.join();
+        thr2.join();
+
+        ptr = proxy->getBuffer2();
+        for (int i = 0; i < size; i++) {
+            pr[pi[i]-1] = convert2Long(&ptr, bsz); // = pipr[i]
+        }
+        delete [] pip;
+        delete [] randoms;
+        return pr;
+    }else{
+        uint64_t *pip = new uint64_t[size];
+        uint64_t *r_prime = new uint64_t[size];
+        unsigned char *ptr1 = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
+        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), size * bsz*2);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), size * bsz*2);
+        thr1.join();
+        thr2.join();
+        for (int i = 0; i < size; i++) {
+            pip[i] = convert2Long(&ptr1, bsz);
+            r_prime[i] = convert2Long(&ptr1,bsz);
+            pip[i] = (pip[i]+convert2Long(&ptr2,bsz))&mask;
+            r_prime[i] = (r_prime[i]+convert2Long(&ptr2,bsz))&mask;
+        }
+        ptr1 = proxy->getBuffer1();
+        ptr2 = proxy->getBuffer2();
+        for (int i = 0; i < size; i++) {
+            auto pipr_prime = r_prime[pip[i]-1];
+            auto tempShare = proxy->generateRandom()&mask;
+            addVal2CharArray(tempShare, &ptr1, bsz);
+            addVal2CharArray((pipr_prime-tempShare)&mask, &ptr2,bsz);
+        }
+        thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), size * bsz);
+        thr2 = thread( Send, proxy->getSocketP2(), proxy->getBuffer2(), size * bsz);
+        thr1.join();
+        thr2.join();
+        delete [] pip;
+        delete [] r_prime;
+        return NULL;
+    }
+    return NULL;
+}
+
 
 /**ApplyPermutation for Sorting (for XOR shared data)
  * @param p sorting permutation
@@ -491,9 +563,6 @@ uint64_t *applyPermutationB(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
             piv[i] = convert2Long(&ptr1);
             pip[i] += convert2Long(&ptr2);
             piv[i] += convert2Long(&ptr2);
-        }
-        for (int i = 0; i < size; ++i) {
-            cout << pip[i] << endl;
         }
 
         for(int i = 0; i < size; i++){  //applying inverse permutation, check
@@ -616,7 +685,7 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
         delete[] to_shift;
         return res;
     }
-    return 0;
+    return NULL;
 }
 
 /** Sorting algorithm that uses XOR share for bit decomposition
@@ -625,27 +694,22 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
 uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  //size = size of array
     int LT= 64;
     int bsz = ceil(size/8.0);
-    cout << "ringbits" << ringbits <<  endl;
     if (proxy->getPRole() == HELPER) {
-
         Arithmetic2XOR(proxy, 0, size);
-        cout << "Helper 1" << endl;
-        for(int i = 0; i < LT; ++i) {
-            XOR2Arithmetic3(proxy, 0, size);
-            cout << "Helper 2" << endl;
-            generatePermutation(proxy, 0, size, ringbits);
-            cout << "Helper 3" << endl;
+        XOR2Arithmetic3(proxy, 0, size);
+        generatePermutation(proxy, 0, size, ringbits);
+        for(int i = 1; i < LT ; ++i) {
             applyPermutationN(proxy,0,0, 0, size, ringbits);
-            cout << "Helper 4" << endl;
+            XOR2Arithmetic3(proxy, 0, size);
+            generatePermutation(proxy, 0, size, ringbits);
+            composePermutations(proxy,0,0, size, ringbits);
         }
-        return 0;
+        return NULL;
     }
     else {  //P1 or P2
         auto sz2 = size / 8 + 1;
         double tt0 = 0, tt1 = 0, tt2 = 0, tt3 = 0, tt4 = 0, tt5 = 0;
         auto *randoms = new uint64_t[size];
-        auto *res = new uint64_t[size];
-        auto *permG = new uint64_t[size];   //permutation general: stores the combination of permutations
         auto *dc = new uint8_t[bsz];       //keeps the bits at the current(i) index
         auto *dn = new uint8_t[bsz];       //keeps the bits at the next(i+1) index
         auto tmp = new uint64_t[size];
@@ -655,57 +719,31 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
         auto end = chrono::high_resolution_clock::now();
         tt0 = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
-        for (int j = 0; j < size; ++j) {
-            res[j] = a[j];
-        }
-        for (int i = 0; i < size; ++i) {
-            if (proxy->getPRole() ==P1) permG[i] =  i+1;
-            else permG[i] =  0;
-        }
 
         uint8_t bit_index = 7;
         uint8_t * ptr = &dc[0];
         for (int j = 0; j < size; ++j) {
-            addBit2CharArray(((a[j])&0x1), &ptr, &bit_index);
+            addBit2CharArray(((a_xor[j])&0x1), &ptr, &bit_index);
         }
-        for(int i = 0; i < LT; ++i) {
-            //get the ith index of all elements and store them in dc
-            cout << "In for" << endl;
-
-            cout << "1" << endl;
-            auto dca = XOR2Arithmetic3(proxy, dc, size);
-
-            cout << "2" << endl;
-            auto permC = generatePermutation(proxy, dca, size, ringbits);
-            auto permc_rec = RECN(proxy, permC, size, ringbits);
+        auto dca = XOR2Arithmetic3(proxy, dc, size);
+        auto permG = generatePermutation(proxy, dca, size, ringbits);
+        for(int i = 1; i < LT; ++i) {
             for (int j = 0; j < size; ++j) {
-                cout << permc_rec[j] << endl;
-            }
-            cout << "3" << endl;
-            // concat dn and permG bits  this is wrong
-            for (int j = 0; j < size; ++j) {
-                tmp[i] = (permG[j]<<1) + (a[j]>>(i+1))&1;
-            }
-            cout << "4" << endl;
-
-            for (int j = 0; j < size ; j++)
+                tmp[j] = (a_xor[j]>>i)&0x1;
                 randoms[j] = proxy->generateCommonRandom();
-            cout << "5" << endl;
-
+            }
             uint64_t* pi = getRandomPermutation(randoms, size);
-
-            auto tmp2 = applyPermutationN(proxy,permC,tmp, pi, size, ringbits);
-
-
-            cout << "6" << endl;
-
+            auto tmp2 = applyPermutationN(proxy,permG,tmp, pi, size, ringbits);
             bit_index = 7;
             ptr = &dc[0];
+            dc[0] = 0;
             for (int j = 0; j < size; ++j) {
                 addBit2CharArray((tmp2[j])&0x1, &ptr, &bit_index);
-                permG[j] = tmp2[j]>>1;
             }
-            cout << "7" << endl;
+
+            dca = XOR2Arithmetic3(proxy, dc, size);
+            auto permC = generatePermutation(proxy, dca, size, ringbits);
+            permG = composePermutations(proxy,permG,permC, size, ringbits);
 
         }
 
@@ -715,7 +753,7 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
         delete[] dn;
         return permG;
     }
-    return 0;
+    return NULL;
 }
 
 

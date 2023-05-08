@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS_RELEASE  "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_RELEASE "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+
 # Libraries:
 find_package(Threads REQUIRED)
 
