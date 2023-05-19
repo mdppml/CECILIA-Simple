@@ -11,7 +11,7 @@
 
 using namespace std;
 
-constexpr int sz = 1000000;
+constexpr int sz = 5;
 constexpr int ringbits = 23;
 
 void SORT_test(Party *proxy){
@@ -47,14 +47,17 @@ void SORT_test(Party *proxy){
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-   /* cout << "Callng REC..\n";
+   /*cout << "Callng REC..\n";
     uint64_t* sorted = RECN(proxy,s,size, ringbits);
 
     for(int i = 0;i<size;i++){
         cout <<  sorted[i]<< endl;
-    }*/
+    }
 
-    cout<<"Array successfully sorted"<<endl;
+    cout<<"Array successfully sorted"<<endl;*/
+
+   delete []a;
+   delete []x;
 
 
 }
