@@ -801,7 +801,7 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
         Arithmetic2XOR(proxy, 0, size);
         XOR2Arithmetic3(proxy, 0, size);
         generatePermutation(proxy, 0, size, ringbits);
-        for(int i = 1; i < 2 ; ++i) {
+        for(int i = 1; i < LT ; ++i) {
             applyPermutationN2(proxy,0,0, 0, size, ringbits);
             XOR2Arithmetic3(proxy, 0, size);
             generatePermutation(proxy, 0, size, ringbits);
@@ -819,19 +819,13 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
 
         uint8_t bit_index = 7;
         uint8_t *ptr = &dc[0];
+        dc[0] = 0;
         for (int j = 0; j < size; ++j) {
             addBit2CharArray(((a_xor[j])&0x1), &ptr, &bit_index);
-            cout<<((a_xor[j])&0x1)<<"\t";
         }
-        cout<<endl;
         auto dca = XOR2Arithmetic3(proxy, dc, size);
-        uint64_t* recdca = RECN(proxy,dca,size, ringbits);
-        for(int i = 0;i<size;i++){
-            cout <<recdca[i]<<"\t";
-        }
-        cout<<endl;
         auto permG = generatePermutation(proxy, dca, size, ringbits);
-        for(int i = 1; i < 2; ++i) {
+        for(int i = 1; i < LT; ++i) {
             for (int j = 0; j < size; ++j) {
                 tmp[j] = (a_xor[j]>>i)&0x1;
                 randoms[j] = proxy->generateCommonRandom();
@@ -846,16 +840,6 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
             }
             dca = XOR2Arithmetic3(proxy, dc, size);
             auto permC = generatePermutation(proxy, dca, size, ringbits);
-            uint64_t* recC = RECN(proxy,permC,size, ringbits);
-            for(int j = 0;j<size;j++){
-                cout <<recC[j]<<"\t";
-            }
-            cout<<endl;
-            uint64_t* recG = RECN(proxy,permG,size, ringbits);
-            for(int j = 0;j<size;j++){
-                cout <<recG[j]<<"\t";
-            }
-            cout<<endl;
             permG = composePermutations(proxy,permG,permC, size, ringbits);
         }
 

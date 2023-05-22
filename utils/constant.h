@@ -34,7 +34,7 @@
 #define MAXA 0x3fffff
 
 // constants for sockets
-#define SCKNUM 1
+#define SCKNUM 4
 
 enum role {
     P1, P2, HELPER

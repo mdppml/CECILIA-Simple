@@ -670,7 +670,7 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
  * @param sz number of elements in the share
  * */
 uint64_t *XOR2Arithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
-    uint32_t mask = 0x7fffff;
+    uint32_t mask = 0xfffff;
     uint32_t bsz = sz/8 +1;
     if ( proxy->getPRole() == HELPER ) {
         auto *a1 = new uint8_t[sz];
@@ -719,9 +719,9 @@ uint64_t *XOR2Arithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
 
             ptr = proxy->getBuffer1();
             (*ptr) = 0;
+            uint8_t bit_index = 7;
             for (int i = 0; i < bsz; ++i) {
                 r[i] = proxy->generateCommonRandomByte();
-                uint8_t bit_index = 7;
                 for (int j = 7; j >= 0; j--) {
                     uint8_t bit = ((a[i]>>j)&0x1)^((r[i]>>j)&0x1);
                     addBit2CharArray(bit, &ptr, &bit_index);
@@ -741,7 +741,8 @@ uint64_t *XOR2Arithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz; i++) {
                 auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
-                result[i] = (1- select) * r1[i] + select * convert2Long(&ptr,3);      // if select is 0 take the first possibility else second
+                auto tmp = convert2Long(&ptr,3);
+                result[i] = (1- select) * r1[i] + select * tmp;      // if select is 0 take the first possibility else second
             }
         }
         else {  //P2
@@ -766,7 +767,8 @@ uint64_t *XOR2Arithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
             ptr = proxy->getBuffer1();
             for (int i = 0; i < sz; i++) {
                 auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
-                result[i] = (1- select) * convert2Long(&ptr,3) + select * r1[i];      // if select is 0 take the first possibility else second
+                auto tmp = convert2Long(&ptr,3);
+                result[i] = (1- select) * tmp + select * r1[i];      // if select is 0 take the first possibility else second
             }
 
         }
