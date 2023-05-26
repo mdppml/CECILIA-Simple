@@ -13,6 +13,7 @@
 #include "bitset"
 #include "string.h"
 
+double mul_time = 0.0;
 
 uint64_t* generateF(Party* proxy, const uint64_t* a, uint32_t size) {
     if(proxy->getPRole() == P1) {
@@ -114,7 +115,11 @@ uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size, uint32_t
     if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *f = generateF(proxy, x, size, mask);
         uint64_t *s = generateS(f, size * 2, mask);
+        auto start = chrono::high_resolution_clock::now();
         uint64_t *t = MUL(proxy, f, s, size * 2, ringbits);
+        auto end = chrono::high_resolution_clock::now();
+        mul_time +=
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         uint64_t *p = generateP(t, size, mask);
         delete[] f;
         delete[] s;

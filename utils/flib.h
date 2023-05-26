@@ -7,6 +7,11 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <thread>
+
+
+
+
 
 uint64_t convert2Long(unsigned char **ptr){
     uint64_t val = 0;
@@ -481,6 +486,41 @@ uint64_t*** local_MATMATMUL(uint64_t ***a, uint64_t ***b, uint32_t n_mats, uint3
         }
     }
     return result;
+}
+
+void add2Buf(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+    for (int i = 0; i < size; i++) {
+        addVal2CharArray(*(val+i), &ptr, bsz);
+    }
+}
+void write2Buffer(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+    thread thr[SCKNUM];
+    int block_size = (int)ceil(size*1.0/SCKNUM);
+    if (block_size == 0)
+        block_size = size;
+    for (int i=0;i<SCKNUM;i++){
+        thr[i] = thread(add2Buf,val+(i*block_size),ptr+(i*block_size*bsz),block_size,bsz);
+    }
+    for (int i=0;i<SCKNUM;i++){
+        thr[i].join();
+    }
+}
+void readBuf(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+    for (int i = 0; i < size; i++) {
+        *(val+i) = convert2Long(&ptr, bsz);
+    }
+}
+void readBuffer(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+    thread thr[SCKNUM];
+    int block_size = (int)ceil(size*1.0/SCKNUM);
+    if (block_size == 0)
+        block_size = size;
+    for (int i=0;i<SCKNUM;i++){
+        thr[i] = thread(readBuf,val+(i*block_size),ptr+(i*block_size*bsz),block_size,bsz);
+    }
+    for (int i=0;i<SCKNUM;i++){
+        thr[i].join();
+    }
 }
 
 #endif //PML_FLIB_H

@@ -11,6 +11,8 @@
 #include <mutex>
 #include <bitset>
 
+double recn_time = 0;
+
 /**
  * Perform the truncation operation which we use to keep the number of fractional bit consistent after MUL operation
  * @param proxy
@@ -101,31 +103,29 @@ uint64_t *RECN(Party* proxy, uint64_t *a, uint32_t sz, uint64_t ringbits) {
     uint64_t *b = new uint64_t[sz];
     if ( proxy->getPRole() == P1 ) {
         unsigned char *ptr = proxy->getBuffer1();
-        for (int i = 0; i < sz; i++) {
-            addVal2CharArray(a[i], &ptr, bsz);
-        }
+        write2Buffer(a,ptr,sz,bsz);
         thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), sz*bsz);
         thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz*bsz);
         thr1.join();
         thr2.join();
 
         ptr = proxy->getBuffer2();
+        readBuffer(b,ptr,sz,bsz);
         for (int i = 0; i < sz; i++) {
-            b[i] = (a[i] + convert2Long(&ptr, bsz)) & mask;
+            b[i] = (a[i] + b[i]) & mask;
         }
 
     } else if ( proxy->getPRole() == P2) {
         unsigned char *ptr = proxy->getBuffer1();
-        for (int i = 0; i < sz; i++) {
-            addVal2CharArray(a[i], &ptr, bsz);
-        }
-        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz*bsz);
+        write2Buffer(a,ptr,sz,bsz);
         thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), sz*bsz);
-        thr1.join();
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz*bsz);
         thr2.join();
+        thr1.join();
         ptr = proxy->getBuffer2();
+        readBuffer(b,ptr,sz,bsz);
         for (int i = 0; i < sz; i++) {
-            b[i] = (a[i] + convert2Long(&ptr, bsz)) & mask;
+            b[i] = (a[i] + b[i]) & mask;
         }
     }
     return b;
@@ -1175,9 +1175,10 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ri
         GenerateMultiplicationTriple(proxy, c1, size, mask);
 
         unsigned char *ptr_out2 = proxy->getBuffer2();
-        for (int j = 0; j < size; j++) {
+        write2Buffer(c1,ptr_out2,size,bsz);
+        /*for (int j = 0; j < size; j++) {
             addVal2CharArray(c1[j], &ptr_out2, bsz);
-        }
+        }*/
 
         Send( proxy->getSocketP2(), proxy->getBuffer2(), size * bsz);
 
@@ -1217,7 +1218,11 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ri
             }
         }
 
+        auto start = chrono::high_resolution_clock::now();
         uint64_t *e_f = RECN(proxy, concat_e_f, size * 2, ringbits);
+        auto end = chrono::high_resolution_clock::now();
+        recn_time +=
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
 

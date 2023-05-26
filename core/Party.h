@@ -125,62 +125,62 @@ public:
 
 
     uint64_t generateRandom() {
-        if (used_random_bytes + 7 >= BUFFER_SIZE) {
+        /*if (used_random_bytes + 7 >= BUFFER_SIZE) {
             cout << "New  random Gen.\n";
             rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
             used_random_bytes = 0;
-        }
+        }*/
         uint64_t val = *(uint64_t *)(random_buffer + used_random_bytes);
         used_random_bytes += 1;
         return val;
     }
     uint8_t generateRandomByte() {
-        if (used_random_bytes >= BUFFER_SIZE) {
+        /*if (used_random_bytes >= BUFFER_SIZE) {
             cout << "New random byteGen.\n";
             rbg->GenerateBlock(random_buffer, BUFFER_SIZE);
             used_random_bytes = 0;
-        }
+        }*/
         uint8_t val = random_buffer[used_random_bytes];
         used_random_bytes++;
         return val;
     }
 
     uint64_t generateCommonRandom() {
-        if (used_common_random_bytes + 7 >= BUFFER_SIZE) {
+        /*if (used_common_random_bytes + 7 >= BUFFER_SIZE) {
             cout << "New common random Gen.\n";
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
             used_common_random_bytes = 0;
-        }
+        }*/
         uint64_t val = *(uint64_t *)(common_random_buffer + used_common_random_bytes);
         used_common_random_bytes += 1;
         return val;
     }
 
     uint64_t generateCommonRandom2() {
-        if (used_common_random_bytes2 + 7 >= BUFFER_SIZE) {
+        /*if (used_common_random_bytes2 + 7 >= BUFFER_SIZE) {
             cout << "New common random Gen.\n";
             common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
             used_common_random_bytes2 = 0;
-        }
+        }*/
         uint64_t val = *(uint64_t *)(common_random_buffer2 + used_common_random_bytes2);
         used_common_random_bytes2 += 1;
         return val;
     }
 
     uint8_t generateCommonRandomByte() {
-        if (used_common_random_bytes >= BUFFER_SIZE) {
+        /*if (used_common_random_bytes >= BUFFER_SIZE) {
             common_rbg->GenerateBlock(common_random_buffer, BUFFER_SIZE);
             used_common_random_bytes = 0;
-        }
+        }*/
         uint8_t val = common_random_buffer[used_common_random_bytes];
         used_common_random_bytes++;
         return val;
     }
     uint8_t generateCommonRandomByte2() {
-        if (used_common_random_bytes2 >= BUFFER_SIZE) {
+        /*if (used_common_random_bytes2 >= BUFFER_SIZE) {
             common_rbg2->GenerateBlock(common_random_buffer2, BUFFER_SIZE);
             used_common_random_bytes2 = 0;
-        }
+        }*/
         uint8_t val = common_random_buffer2[used_common_random_bytes2];
         used_common_random_bytes2++;
         return val;

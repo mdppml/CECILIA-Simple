@@ -21,7 +21,7 @@
 #define MAX_SAMPLE_MASK 0x7ffff
 
 #define MAX_MATRIX_SIZE 20000
-#define BUFFER_SIZE 400000000
+#define BUFFER_SIZE 600000000
 
 #define DEBUG_FLAG 0
 
@@ -34,7 +34,7 @@
 #define MAXA 0x3fffff
 
 // constants for sockets
-#define SCKNUM 4
+#define SCKNUM 8
 
 enum role {
     P1, P2, HELPER

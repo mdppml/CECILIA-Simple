@@ -21,22 +21,34 @@ void SORT_test(Party *proxy){
     uint32_t size = sz;
     cout<<"Size: "<<size<<endl;
     auto* a =new uint64_t[size];
+    auto* b =new uint64_t[size];
     for(int i = 0; i<size; i++) {
         //a[i] = proxy->generateCommonRandom();
         a[i] = size-i-1;
+        b[i] = i;
         //cout << a[i] << " ";
     }
 
-    a[0] = 5;
-    a[4] = 9;
+    a[0] = 16;
+    a[4] = 20;
 
     cout << "Creating shares...\n";
     auto* x = new uint64_t[size];
+    auto* y = new uint64_t[size];
     for (int i=0;i<size;i++) {
         x[i] = proxy->createShare(a[i]);
+        y[i] = proxy->createShare(b[i]);
     }
 
-    cout << "Calling SendBytes..\n";
+    /*cout << "Calling SendBytes..\n";
+    uint32_t params[2];
+    params[0] = size;
+    params[1] = ringbits;
+    for (int i=0;i<64;i++) {
+        proxy->SendBytes(CORE_MMUL2, params, 2);
+        uint64_t *c = MUL(proxy, x, y, size,ringbits);
+    }*/
+
     uint32_t params[2];
     params[0] = size;
     params[1] = ringbits;
@@ -49,8 +61,10 @@ void SORT_test(Party *proxy){
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
+    cout<<recn_time<<endl;
+    cout<<mul_time<<endl;
 
-  /* cout << "Callng REC..\n";
+    /*cout << "Callng REC..\n";
     uint64_t* sorted = RECN(proxy,s,size, ringbits);
 
     for(int i = 0;i<size;i++){
