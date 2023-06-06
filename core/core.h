@@ -118,8 +118,8 @@ uint64_t *RECN(Party* proxy, uint64_t *a, uint32_t sz, uint64_t ringbits) {
     } else if ( proxy->getPRole() == P2) {
         unsigned char *ptr = proxy->getBuffer1();
         write2Buffer(a,ptr,sz,bsz);
-        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), sz*bsz);
         thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), sz*bsz);
         thr2.join();
         thr1.join();
         ptr = proxy->getBuffer2();

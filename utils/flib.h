@@ -9,26 +9,19 @@
 #include <stdint.h>
 #include <thread>
 
-
+uint64_t b_mask[9]= {0,0xff,0,0xffffff,0,0,0,0,18446744073709551615};
 
 
 
 uint64_t convert2Long(unsigned char **ptr){
-    uint64_t val = 0;
-    for (int i=56;i>=0;i-=8){
-        val=val+((uint64_t)(**ptr)<<i);
-        (*ptr)++;
-    }
+    uint64_t val = (*((uint64_t *)(*ptr)));
+    (*ptr)+=8;
     return val;
 }
 
 uint64_t convert2Long(unsigned char **ptr, int bsz){
-    uint64_t val = 0;
-    int start = (bsz-1)*8;
-    for (int i=start;i>=0;i-=8){
-        val=val+((uint64_t)(**ptr)<<i);
-        (*ptr)++;
-    }
+    uint64_t val = (*((uint64_t *)(*ptr)))&b_mask[bsz];
+    (*ptr)+=bsz;
     return val;
 }
 uint32_t convert2Int(unsigned char **ptr){
@@ -87,18 +80,16 @@ uint8_t convert2Byte(uint8_t **ptr, uint8_t *bit_index){
     return val;
 }
 void addVal2CharArray(uint64_t val,unsigned char **ptr){
-    for (int i=56;i>=0;i-=8){
-        (**ptr)=(val>>i)&0xff;
-        (*ptr)++;
-    }
+    *((uint64_t *)(*ptr)) = val;
+    (*ptr)+=8;
 }
 
 void addVal2CharArray(uint64_t val,unsigned char **ptr, int bsz){
-    int start = 8*(bsz-1);
-    for (int i=start;i>=0;i-=8){
-        (**ptr)=(val>>i)&0xff;
-        (*ptr)++;
-    }
+    *((uint64_t *)(*ptr)) = val;
+    (*ptr)+=bsz;
+}
+void addVal2CharArray2(uint64_t val,unsigned char *ptr, int bsz){
+    *((uint64_t *)(ptr)) = val;
 }
 void addVal2CharArray(uint32_t val,unsigned char **ptr){
     for (int i=24;i>=0;i-=8){
@@ -489,36 +480,64 @@ uint64_t*** local_MATMATMUL(uint64_t ***a, uint64_t ***b, uint32_t n_mats, uint3
 }
 
 void add2Buf(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
-    for (int i = 0; i < size; i++) {
-        addVal2CharArray(*(val+i), &ptr, bsz);
+    unsigned char *ptr_tmp = ptr;
+    for (int i = 0; i<size-2; i++) {
+        addVal2CharArray(*(val+i), &ptr_tmp, bsz);
     }
+    for (int i = 0; i<2*bsz; i++) {
+        *(ptr_tmp+i) = 0;
+    }
+    *((uint64_t *)(ptr_tmp)) += *(val+size-2);
+    ptr_tmp+=bsz;
+    *((uint64_t *)(ptr_tmp)) += *(val+size-1);
 }
 void write2Buffer(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
     thread thr[SCKNUM];
     int block_size = (int)ceil(size*1.0/SCKNUM);
-    if (block_size == 0)
+    if (block_size<50)
         block_size = size;
+    uint32_t written = 0;
+    uint32_t thr_num = 0;
     for (int i=0;i<SCKNUM;i++){
-        thr[i] = thread(add2Buf,val+(i*block_size),ptr+(i*block_size*bsz),block_size,bsz);
+        if ((size-written)<=block_size){
+            block_size = size-written;
+            thr[i] = thread(add2Buf,val+written,ptr+(written*bsz),block_size,bsz);
+            thr_num++;
+            break;
+        }else{
+            thr[i] = thread(add2Buf,val+written,ptr+(written*bsz),block_size,bsz);
+            thr_num++;
+            written+=block_size;
+        }
     }
-    for (int i=0;i<SCKNUM;i++){
+    for (int i=0;i<thr_num;i++){
         thr[i].join();
     }
 }
 void readBuf(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+    unsigned char *ptr_tmp = ptr;
     for (int i = 0; i < size; i++) {
-        *(val+i) = convert2Long(&ptr, bsz);
+        *(val+i) = convert2Long(&ptr_tmp, bsz);
     }
 }
 void readBuffer(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
     thread thr[SCKNUM];
     int block_size = (int)ceil(size*1.0/SCKNUM);
-    if (block_size == 0)
-        block_size = size;
+    uint32_t read = 0;
+    uint32_t thr_num = 0;
     for (int i=0;i<SCKNUM;i++){
-        thr[i] = thread(readBuf,val+(i*block_size),ptr+(i*block_size*bsz),block_size,bsz);
+        if ((size-read)<=block_size){
+            block_size = size-read;
+            thr[i] = thread(readBuf,val+read,ptr+(read*bsz),block_size,bsz);
+            thr_num++;
+            break;
+        }else{
+            thr[i] = thread(readBuf,val+read,ptr+(read*bsz),block_size,bsz);
+            thr_num++;
+            read+=block_size;
+        }
     }
-    for (int i=0;i<SCKNUM;i++){
+    for (int i=0;i<thr_num;i++){
         thr[i].join();
     }
 }
