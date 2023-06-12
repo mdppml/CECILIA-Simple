@@ -1017,6 +1017,22 @@ uint64_t CMP(Party* proxy, uint64_t x, uint64_t y) {
     return -1;
 }
 
+uint64_t* EQU(Party* proxy, uint64_t* x, uint64_t* y, uint32_t size) {
+    uint64_t* k = CMP(proxy, x, y, size);
+    uint64_t* l = CMP(proxy, y, x, size);
+    auto m = new uint64_t[size];
+    for (int i = 0; i < size; i++) {
+        m[i] = 1-k[i]-l[i];
+    }
+    return m;
+}
+
+uint64_t EQU(Party* proxy, uint64_t x, uint64_t y){
+    uint64_t k = CMP(proxy, x, y);
+    uint64_t l = CMP(proxy, y, x);
+    return 1-k-l;
+}
+
  /** Multiplication of two numbers.
   *
   * @param proxy

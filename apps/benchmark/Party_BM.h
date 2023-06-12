@@ -30,8 +30,8 @@ public:
       * @param role either P1 or P2
       * @param helper_port
       * @param helper_ip
-      * @param p1_port
-      * @param p1_ip
+      * @param p0_port
+      * @param p0_ip
       * @param vector_length the vector length for operations involving vectors
       * @param matrix_x the column count for matrices in matrix operations
       * @param matrix_y the row count for matrices in matrix operations
@@ -44,8 +44,8 @@ public:
             role role,
             uint16_t helper_port,
             const string &helper_ip,
-            uint16_t p1_port,
-            const string &p1_ip,
+            uint16_t p0_port,
+            const string &p0_ip,
             int vector_length,
             int matrix_x,
             int matrix_y,
@@ -53,7 +53,7 @@ public:
             int kernel_size,
             int kernel_count,
             int repeats
-            ) : Party(role, helper_port, helper_ip, p1_port, p1_ip) {
+            ) : Party(role, helper_port, helper_ip, p0_port, p0_ip) {
         this->_matrix_x = matrix_x;
         this->_matrix_y = matrix_y;
         this->_vector_length = vector_length;
@@ -64,7 +64,7 @@ public:
         this->_kernel_count = kernel_count;
         this->_kernel_size = kernel_size;
         if (role == HELPER) {
-            throw std::invalid_argument("Tried to call the P1 and P2 constructor with a helper role");
+            throw std::invalid_argument("Tried to call the P0 and P1 constructor with a helper role");
         }
         //generate random data:
         _vector = init_vector(_vector_length);
@@ -90,8 +90,6 @@ public:
       *
       * @param helper_port
       * @param helper_ip
-      * @param p1_port
-      * @param p1_ip
       * @param vector_length the vector length for operations involving vectors
       * @param matrix_x the column count for matrices in matrix operations
       * @param matrix_y the row count for matrices in matrix operations
