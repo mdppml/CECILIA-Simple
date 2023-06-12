@@ -21,33 +21,15 @@ void SORT_test(Party *proxy){
     uint32_t size = sz;
     cout<<"Size: "<<size<<endl;
     auto* a =new uint64_t[size];
-    auto* b =new uint64_t[size];
     for(int i = 0; i<size; i++) {
         //a[i] = proxy->generateCommonRandom();
-        a[i] = size-i-1;
-        b[i] = i;
-        //cout << a[i] << " ";
+        if (proxy->getPRole() == P1){
+            a[i] = size-i-1;
+        }else{
+            a[i] = 0;
+        }
     }
 
-    a[0] = 16;
-    a[4] = 20;
-
-    cout << "Creating shares...\n";
-    auto* x = new uint64_t[size];
-    auto* y = new uint64_t[size];
-    for (int i=0;i<size;i++) {
-        x[i] = proxy->createShare(a[i]);
-        y[i] = proxy->createShare(b[i]);
-    }
-
-    /*cout << "Calling SendBytes..\n";
-    uint32_t params[2];
-    params[0] = size;
-    params[1] = ringbits;
-    for (int i=0;i<64;i++) {
-        proxy->SendBytes(CORE_MMUL2, params, 2);
-        uint64_t *c = MUL(proxy, x, y, size,ringbits);
-    }*/
 
     uint32_t params[2];
     params[0] = size;
@@ -56,27 +38,32 @@ void SORT_test(Party *proxy){
     proxy->SendBytes(CORE_SORT2, params, 2);
     cout << "Calling SORT..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SORT(proxy, x, size,ringbits);
+    uint64_t* s = SORT(proxy, a, size,ringbits);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
-    cout<<recn_time<<endl;
-    cout<<mul_time<<endl;
 
-    /*cout << "Callng REC..\n";
+    cout<<"A2X Time:\t"<<a2x_time<<endl;
+    cout<<"GRP Time:\t"<<grp_time<<endl;
+    cout<<"APP Time:\t"<<app_time<<endl;
+    cout<<"X2A Time:\t"<<x2a_time<<endl;
+    cout<<"GEP Time:\t"<<gp_time<<endl;
+    cout<<"MUL Time:\t"<<mul_time<<endl;
+    cout<<"REC Time:\t"<<recn_time<<endl;
+    cout<<"CCM Time:\t"<<comp_time<<endl;
+    cout<<"TOT Time:\t"<<t_time<<endl;
+
+    cout << "Callng REC..\n";
     uint64_t* sorted = RECN(proxy,s,size, ringbits);
 
-    for(int i = 0;i<size;i++){
+    for(int i = 0;i<20;i++){
         cout <<  sorted[i]<< endl;
     }
 
-    cout<<"Array successfully sorted"<<endl;*/
+    cout<<"Array successfully sorted"<<endl;
 
-   delete []a;
-   delete []x;
-
-
+    delete []a;
 }
 
 int main(int argc, char* argv[]) {

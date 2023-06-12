@@ -14,6 +14,13 @@
 #include "string.h"
 
 double mul_time = 0.0;
+double comp_time = 0.0;
+double x2a_time = 0.0;
+double gp_time = 0.0;
+double grp_time = 0.0;
+double app_time = 0.0;
+double t_time = 0.0;
+double a2x_time = 0.0;
 
 uint64_t* generateF(Party* proxy, const uint64_t* a, uint32_t size) {
     if(proxy->getPRole() == P1) {
@@ -815,17 +822,22 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
         return NULL;
     }
     else {  //P1 or P2
+        auto start1 = chrono::high_resolution_clock::now();
         auto *randoms = new uint64_t[size];
         auto *dc = new uint8_t[bsz];       //keeps the bits at the current(i) index
         auto *dn = new uint8_t[bsz];       //keeps the bits at the next(i+1) index
         auto tmp = new uint8_t[size];
 
+        auto start = chrono::high_resolution_clock::now();
         auto a_xor = Arithmetic2XOR(proxy, a, size);
+        auto end = chrono::high_resolution_clock::now();
+        a2x_time +=
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
 
         uint8_t bit_index = 7;
         uint8_t *ptr = &dc[0];
         dc[0] = 0;
-        for (int j = 0; j < size; ++j) {
+        for (int j = 0; j < size; j++) {
             addBit2CharArray(((a_xor[j])&0x1), &ptr, &bit_index);
         }
         auto dca = XOR2Arithmetic3(proxy, dc, size);
@@ -835,24 +847,57 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
                 tmp[j] = (a_xor[j]>>i)&0x1;
                 randoms[j] = proxy->generateCommonRandom();
             }
+            auto start = chrono::high_resolution_clock::now();
             uint64_t* pi = getRandomPermutation(randoms, size);
+            auto end = chrono::high_resolution_clock::now();
+            grp_time +=
+                    chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+
+
+
+            start = chrono::high_resolution_clock::now();
             auto tmp2 = applyPermutationN2(proxy,permG,tmp, pi, size, ringbits);
+            end = chrono::high_resolution_clock::now();
+            app_time +=
+                    chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+
+
             bit_index = 7;
             ptr = &dc[0];
             dc[0] = 0;
             for (int j = 0; j < size; ++j) {
                 addBit2CharArray((tmp2[j])&0x1, &ptr, &bit_index);
             }
+            start = chrono::high_resolution_clock::now();
             dca = XOR2Arithmetic3(proxy, dc, size);
+            end = chrono::high_resolution_clock::now();
+            x2a_time +=
+                    chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+
+
+            start = chrono::high_resolution_clock::now();
             auto permC = generatePermutation(proxy, dca, size, ringbits);
+            end = chrono::high_resolution_clock::now();
+            gp_time +=
+                    chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+
+
+            start = chrono::high_resolution_clock::now();
             permG = composePermutations(proxy,permG,permC, size, ringbits);
+            end = chrono::high_resolution_clock::now();
+            comp_time +=
+                    chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         }
 
         delete[] randoms;
         delete[] tmp;
         delete[] dc;
         delete[] dn;
+        auto end1 = chrono::high_resolution_clock::now();
+        t_time +=
+                chrono::duration_cast<chrono::nanoseconds>(end1 - start1).count()*1e-9;
         return permG;
+
     }
     return NULL;
 }
