@@ -4,7 +4,7 @@
 #include "../../core/Party.h"
 #include "../../utils/connection.h"
 #include "../../booleancore/core.h"
-#include<numeric>
+#include <numeric>
 #include "../../core/core.h"
 #include "../../core/cnn.h"
 
@@ -109,6 +109,7 @@ public:
    * @param fuzzyFieldCount p_fuzzyFieldCount: The number of FuzzyFields each record has
    * @param exactFieldWeights p_exactFieldWeights: The weights of each ExactField for computing the similarity score
    * @param fuzzyFieldWeights p_fuzzyFieldWeights: The weights of each FuzzyField for computing the similarity score
+   * @param threshold p_threshold: The threshold at which similarity two records are considered matches
    */
   explicit PartyRL(
     role role,
@@ -119,7 +120,8 @@ public:
     int exactFieldCount,
     int fuzzyFieldCount,
     double* exactFieldWeights,
-    double* fuzzyFieldWeights
+    double* fuzzyFieldWeights,
+    double threshold
     ) : Party(role, helperPort, helperIP, p1Port, p1IP) {
       this->exactFieldCount = exactFieldCount;
       this->fuzzyFieldCount = fuzzyFieldCount;
@@ -133,6 +135,7 @@ public:
           this->fuzzyFieldWeights[i] = convert2uint64(fuzzyFieldWeights[i]);
         }
         two = createShare((uint64_t) 2);
+        this->threshold = createShare(threshold);
       }
     }
 
@@ -228,7 +231,53 @@ public:
     }
   }
 
-  /**
+  Match findMatch(Record record, Record* records, int recordCount) {
+    auto* scores = new Score[recordCount];
+    for (int i = 0; i< recordCount; i++) {
+      scores[i] = computeRecordSimilarity(record, records[i]);
+    }
+    MaxScore max = computeMaxScore(scores, recordCount);
+    uint64_t matchScore = DIV(this, max.score.numerator, max.score.denominator);
+    Match match;
+    match.hasMatch = CMP(this, matchScore, threshold);
+    match.matchIndex = MUL(this, match.hasMatch, max.index);
+    return match;
+  }
+
+  Match* findAllMatches(Record* records1, Record* records2, int recordCount1, int recordCount2) {
+    auto *matches = new Match[recordCount1];
+    MaxScore maxScore;
+    auto *scores = new Score[recordCount2];
+    for (int i = 0; i < recordCount1; i++) {
+      matches[i] = findMatch(records1[i], records2, recordCount2);
+    }
+    return matches;
+  }
+
+private:
+  int exactFieldCount, fuzzyFieldCount;
+  uint64_t two;
+  uint64_t threshold;
+  uint64_t *exactFieldWeights, *fuzzyFieldWeights;
+
+  int mapCharToInt(char character) {
+    char lowerCase = tolower(character);
+    if ((97 <= lowerCase) & (lowerCase <= 122)) {
+      return lowerCase - 97;
+    }
+    switch(lowerCase) {
+      case ' ' :
+        return 26;
+      case '-' :
+        return 27;
+      case '\'' :
+        return 28;
+      default:
+        return 29;
+    }
+  }
+
+    /**
    * @brief Compute the Dice coefficient (i.e. similarity score) between two FuzzyField s.
    *
    * @param field1 p_field1: The first FuzzyField
@@ -301,29 +350,6 @@ public:
     }
     return totalScore;
   }
-
-private:
-  int exactFieldCount, fuzzyFieldCount;
-  uint64_t two;
-  uint64_t *exactFieldWeights, *fuzzyFieldWeights;
-
-  int mapCharToInt(char character) {
-    char lowerCase = tolower(character);
-    if ((97 <= lowerCase) & (lowerCase <= 122)) {
-      return lowerCase - 97;
-    }
-    switch(lowerCase) {
-      case ' ' :
-        return 26;
-      case '-' :
-        return 27;
-      case '\'' :
-        return 28;
-      default:
-        return 29;
-    }
-  }
-
   /**
    * @brief Returns 0 if score1 is smaller than score2, 1 otherwise
    *
