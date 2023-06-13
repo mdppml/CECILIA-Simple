@@ -6,9 +6,19 @@
 #include "../../booleancore/core.h"
 #include<numeric>
 #include "../../core/core.h"
+#include "../../core/cnn.h"
 
 #define ARRAY_SIZE 900
 
+/**
+ * @brief A secret shared IDAT field that allows partial matches.
+ *
+ * String-encoded IDAT fields are converted to a boolean array of bigrams, similar to a Bloom filter.
+ * Since we don't want to leak whether a field exists in a record, an empty boolean array is passed for non-existing
+ * fields, which is why there is a value {0, 1} to denote whether the field exists.
+ * Lastly, the Hamming Weight (i.e. the number of set bits in the array) is also stored to be used for Dice coefficient
+ * computation.
+ */
 struct FuzzyField{
   uint64_t hasValue;
   uint64_t hammingWeight;
@@ -24,16 +34,33 @@ struct FuzzyField{
   }
 };
 
+/**
+ * @brief A secret shared IDAT field that only allows exact matches.
+ *
+ * Any field where we only allow exact matches, e.g. date of birth, is stored as an ExactField.
+ * Since we don't want to leak whether a field exists in a record, an empty value is passed for non-existing
+ * fields, which is why there is also a value {0, 1} to denote whether the field exists.
+ */
 struct ExactField{
   uint64_t hasValue;
   uint64_t value;
 };
 
+/**
+ * @brief A simple pair of secret shared values that is returned by the computeMatch function.
+ *
+ * To avoid information leaking we always need to return an index even if no match was found. Therefore, there is a
+ * second value {0, 1} to denote whether a match was found.
+ */
 struct Match{
   uint64_t hasMatch;
   uint64_t matchIndex;
 };
 
+/**
+ * @brief The secret shared IDAT fields of a record. Consists of fields allowing inexact matches and fields only allowing exact matches.
+ *
+ */
 struct Record{
   FuzzyField* fuzzyFields;
   ExactField* exactFields;
@@ -43,46 +70,98 @@ struct Record{
   }
 };
 
+/**
+ * @brief A secret shared match score between two records.
+ *
+ * To avoid having to compute too many expensive divisions, the numerator and denominator are stored separately.
+ * The only time the actual score has to be computed is to determine whether the match threshold was passed.
+ */
 struct Score{
   uint64_t numerator;
   uint64_t denominator;
 };
 
+/**
+ * @brief The secret shared maximum score and its (secret shared) index.
+ *
+ */
+struct MaxScore{
+  Score score;
+  uint64_t index;
+};
+
+/**
+ * @brief An extension of Party implementing the required methods to compute record linkage.
+ *
+ * Since most of the functions required for record linkage are very specific, they are simply member methods.
+ */
 class PartyRL: public Party {
 public:
   /**
-    *
-    * @param role
-    * @param helper_port
-    * @param helper_ip
-    * @param p0_port
-    * @param p0_ip
-    */
+   * @brief Construct a Party for record linkage.
+   *
+   * @param role p_role: The role of the party (P1, P2 or helper)
+   * @param helperPort p_helperPort: The port on which the helper is listening
+   * @param helperIP p_helperIP: The IP address of the helper
+   * @param p1Port p_p1Port: The port on which P1 is listening
+   * @param p1IP p_p1IP: The IP address of P1
+   * @param exactFieldCount p_exactFieldCount: The number of ExactFields each record has
+   * @param fuzzyFieldCount p_fuzzyFieldCount: The number of FuzzyFields each record has
+   * @param exactFieldWeights p_exactFieldWeights: The weights of each ExactField for computing the similarity score
+   * @param fuzzyFieldWeights p_fuzzyFieldWeights: The weights of each FuzzyField for computing the similarity score
+   */
   explicit PartyRL(
     role role,
     uint16_t helperPort,
     const string &helperIP,
-    uint16_t p0Port,
-    const string &p0IP,
+    uint16_t p1Port,
+    const string &p1IP,
     int exactFieldCount,
     int fuzzyFieldCount,
-    uint64_t* exactFieldWeights,
-    uint64_t* fuzzyFieldWeights
-    ) : Party(role, helperPort, helperIP, p0Port, p0IP) {
+    double* exactFieldWeights,
+    double* fuzzyFieldWeights
+    ) : Party(role, helperPort, helperIP, p1Port, p1IP) {
       this->exactFieldCount = exactFieldCount;
       this->fuzzyFieldCount = fuzzyFieldCount;
-      this->exactFieldWeights = exactFieldWeights;
-      this->fuzzyFieldWeights = fuzzyFieldWeights;
-      two = createShare((uint64_t) 2);
+      if (role == P1 || role == P2) {
+        this->exactFieldWeights = new uint64_t[exactFieldCount];
+        for (int i = 0; i < exactFieldCount; i++) {
+          this->exactFieldWeights[i] = convert2uint64(exactFieldWeights[i]);
+        }
+        this->fuzzyFieldWeights = new uint64_t[fuzzyFieldCount];
+        for (int i = 0; i < fuzzyFieldCount; i++) {
+          this->fuzzyFieldWeights[i] = convert2uint64(fuzzyFieldWeights[i]);
+        }
+        two = createShare((uint64_t) 2);
+      }
     }
 
-  int mapBigramToInt(char first_char,  char second_char) {
+    /**
+     * @brief Returns a unique integer ranging from 0 to 899 for each possible bigram of the alphabet considered.
+     *
+     * We only consider the letters a-z, "-", " " and "'". Every other symbol is considered identical.
+     * Unicode characters should be converted to ASCII using unidecode in advance.
+     * @param first_char p_first_char: The first character of the bigram
+     * @param second_char p_second_char: The second character of the bigram
+     * @return int
+     */
+    int mapBigramToInt(char first_char,  char second_char) {
     return mapCharToInt(first_char) * 30 + mapCharToInt(second_char);
   }
 
+  /**
+   * @brief Computes a boolean array similar to a Bloom filter from the given string.
+   *
+   * A uint8_t array of size ARRAY_SIZE is zero-initialised.
+   * Then, a predefined integer i is computed for each bigram contained in the string and the value at the ith index of the array is set to 1.
+   * The bigrams also include space with the first character and the last character with space.
+   *
+   * @param string p_string: The string to be converted
+   * @return std::pair< uint8_t*, int > A pointer to the array and its hamming weight (number of indices set to 1).
+   */
   std::pair<uint8_t*, int> convertStringToBooleanArray(std::string string) {
     auto array = new uint8_t[ARRAY_SIZE]();
-    int hammingWeight = 1;
+    int hammingWeight = 1; // this is set to one so the first bigram does not need to increment it
     array[mapBigramToInt(' ', string[0])] = 1;
     int mappedBigram;
     for (int i = 1; i<string.length(); i++) {
@@ -100,8 +179,17 @@ public:
     return std::make_pair(array,  hammingWeight);
   }
 
+  /**
+   * @brief Share a fuzzy field with the other proxy.
+   *
+   * @param array p_array: the boolean array of the fuzzy field
+   * @param hammingWeight p_hammingWeight: The hamming weight of the boolean array
+   * @param hasValue p_hasValue: A value in {0, 1} denoting whether the field actually exists
+   * @return FuzzyField
+   */
   FuzzyField shareFuzzyField(uint8_t* array, uint64_t hammingWeight, bool hasValue) {
-    uint8_t* booleanArray = new uint8_t[ARRAY_SIZE];
+    if (getPRole() == P1 || getPRole() == P2) {
+      auto* booleanArray = new uint8_t[ARRAY_SIZE];
     for (int i = 0; i < ARRAY_SIZE; i++) {
       booleanArray[i] = array[i] ^ generateCommonRandomByte();
     }
@@ -111,21 +199,42 @@ public:
       booleanArray
     );
     return field;
-  }
-
-  FuzzyField receiveFuzzyField() {
-    uint8_t* array = new uint8_t[ARRAY_SIZE];
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-      array[i] = this->generateCommonRandomByte();
+    } else {
+      FuzzyField field(0, 0, nullptr);
+      return field;
     }
-    FuzzyField field(
-      generateCommonRandom(),
-      generateCommonRandom(),
-      array
-    );
-    return field;
   }
 
+  /**
+   * @brief Receive a fuzzy field from the other proxy.
+   *
+   * @return FuzzyField
+   */
+  FuzzyField receiveFuzzyField() {
+    if (getPRole() == P1 || getPRole() == P2) {
+      uint8_t* array = new uint8_t[ARRAY_SIZE];
+      for (int i = 0; i < ARRAY_SIZE; i++) {
+        array[i] = this->generateCommonRandomByte();
+      }
+      FuzzyField field(
+        generateCommonRandom(),
+        generateCommonRandom(),
+        array
+      );
+      return field;
+    } else {
+      FuzzyField field(0, 0, nullptr);
+      return field;
+    }
+  }
+
+  /**
+   * @brief Compute the Dice coefficient (i.e. similarity score) between two FuzzyField s.
+   *
+   * @param field1 p_field1: The first FuzzyField
+   * @param field2 p_field2: The second FuzzyField
+   * @return Score
+   */
   Score computeDice(FuzzyField field1, FuzzyField field2) {
     Score score;
     uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
@@ -149,6 +258,13 @@ public:
     return score;
   }
 
+  /**
+   * @brief Compute the similarity score between two ExactField s. The score is either 1 in case of an exact match or 0.
+   *
+   * @param field1 p_field1: The first ExactField
+   * @param field2 p_field2: The second ExactField
+   * @return Score
+   */
   Score computeExactFieldSimilarity(ExactField field1, ExactField field2) {
     Score score;
     uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
@@ -161,6 +277,13 @@ public:
     return score;
   }
 
+  /**
+   * @brief Compute the similarity score between two records.
+   *
+   * @param record1 p_record1: The first record
+   * @param record2 p_record2: The second record
+   * @return Score
+   */
   Score computeRecordSimilarity(Record record1, Record record2) {
     Score totalScore;
     totalScore.numerator = createShare((uint64_t) 0);
@@ -183,11 +306,13 @@ private:
   int exactFieldCount, fuzzyFieldCount;
   uint64_t two;
   uint64_t *exactFieldWeights, *fuzzyFieldWeights;
+
   int mapCharToInt(char character) {
-    if ((97 <= character) & (character <= 122)) {
-      return character - 97;
+    char lowerCase = tolower(character);
+    if ((97 <= lowerCase) & (lowerCase <= 122)) {
+      return lowerCase - 97;
     }
-    switch(character) {
+    switch(lowerCase) {
       case ' ' :
         return 26;
       case '-' :
