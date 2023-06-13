@@ -14,10 +14,8 @@
  * @brief A secret shared IDAT field that allows partial matches.
  *
  * String-encoded IDAT fields are converted to a boolean array of bigrams, similar to a Bloom filter.
- * Since we don't want to leak whether a field exists in a record, an empty boolean array is passed for non-existing
- * fields, which is why there is a value {0, 1} to denote whether the field exists.
- * Lastly, the Hamming Weight (i.e. the number of set bits in the array) is also stored to be used for Dice coefficient
- * computation.
+ * Since we don't want to leak whether a field exists in a record, an empty boolean array is passed for non-existing fields, which is why there is a value {0, 1} to denote whether the field exists.
+ * Lastly, the Hamming Weight (i.e. the number of set bits in the array) is also stored to be used for Dice coefficient computation.
  */
 struct FuzzyField{
   uint64_t hasValue;
@@ -38,8 +36,7 @@ struct FuzzyField{
  * @brief A secret shared IDAT field that only allows exact matches.
  *
  * Any field where we only allow exact matches, e.g. date of birth, is stored as an ExactField.
- * Since we don't want to leak whether a field exists in a record, an empty value is passed for non-existing
- * fields, which is why there is also a value {0, 1} to denote whether the field exists.
+ * Since we don't want to leak whether a field exists in a record, an empty value is passed for non-existing fields, which is why there is also a value {0, 1} to denote whether the field exists.
  */
 struct ExactField{
   uint64_t hasValue;
@@ -49,8 +46,7 @@ struct ExactField{
 /**
  * @brief A simple pair of secret shared values that is returned by the computeMatch function.
  *
- * To avoid information leaking we always need to return an index even if no match was found. Therefore, there is a
- * second value {0, 1} to denote whether a match was found.
+ * To avoid information leaking we always need to return an index even if no match was found. Therefore, there is a second value {0, 1} to denote whether a match was found.
  */
 struct Match{
   uint64_t hasMatch;
@@ -125,7 +121,7 @@ public:
     ) : Party(role, helperPort, helperIP, p1Port, p1IP) {
       this->exactFieldCount = exactFieldCount;
       this->fuzzyFieldCount = fuzzyFieldCount;
-      if (role == P1 || role == P2) {
+      if (role != HELPER) {
         this->exactFieldWeights = new uint64_t[exactFieldCount];
         for (int i = 0; i < exactFieldCount; i++) {
           this->exactFieldWeights[i] = convert2uint64(exactFieldWeights[i]);
@@ -160,7 +156,7 @@ public:
    * The bigrams also include space with the first character and the last character with space.
    *
    * @param string p_string: The string to be converted
-   * @return std::pair< uint8_t*, int > A pointer to the array and its hamming weight (number of indices set to 1).
+   * @return std::pair< uint8_t*, int > A pointer to the array; its hamming weight (number of non-zero values).
    */
   std::pair<uint8_t*, int> convertStringToBooleanArray(std::string string) {
     auto array = new uint8_t[ARRAY_SIZE]();
@@ -191,7 +187,7 @@ public:
    * @return FuzzyField
    */
   FuzzyField shareFuzzyField(uint8_t* array, uint64_t hammingWeight, bool hasValue) {
-    if (getPRole() == P1 || getPRole() == P2) {
+    if (getPRole() != HELPER) {
       auto* booleanArray = new uint8_t[ARRAY_SIZE];
     for (int i = 0; i < ARRAY_SIZE; i++) {
       booleanArray[i] = array[i] ^ generateCommonRandomByte();
@@ -214,7 +210,7 @@ public:
    * @return FuzzyField
    */
   FuzzyField receiveFuzzyField() {
-    if (getPRole() == P1 || getPRole() == P2) {
+    if (getPRole() != HELPER) {
       uint8_t* array = new uint8_t[ARRAY_SIZE];
       for (int i = 0; i < ARRAY_SIZE; i++) {
         array[i] = this->generateCommonRandomByte();
@@ -231,8 +227,13 @@ public:
     }
   }
 
+  /**
+   * @brief Computes the match between a record and a list of records.
+   *
+   */
   Match findMatch(Record record, Record* records, int recordCount) {
-    auto* scores = new Score[recordCount];
+    if (getPRole() != HELPER) {
+      auto* scores = new Score[recordCount];
     for (int i = 0; i< recordCount; i++) {
       scores[i] = computeRecordSimilarity(record, records[i]);
     }
@@ -242,16 +243,37 @@ public:
     match.hasMatch = CMP(this, matchScore, threshold);
     match.matchIndex = MUL(this, match.hasMatch, max.index);
     return match;
+    } else { // HELPER
+      for (int i = 0; i< recordCount; i++) {
+        computeRecordSimilarity(record, record);
+      }
+      computeMaxScore(nullptr, recordCount);
+      DIV(this, 0, 0);
+      CMP(this, 0, 0);
+      MUL(this, 0, 0);
+      Match match;
+      return match;
+    }
   }
 
+  /**
+   * @brief Pairwise matching of records from two Record arrays
+   *
+   */
   Match* findAllMatches(Record* records1, Record* records2, int recordCount1, int recordCount2) {
-    auto *matches = new Match[recordCount1];
-    MaxScore maxScore;
-    auto *scores = new Score[recordCount2];
-    for (int i = 0; i < recordCount1; i++) {
-      matches[i] = findMatch(records1[i], records2, recordCount2);
+    if (getPRole() == HELPER) {
+      Record record;
+      for (int i = 0; i < recordCount1; i++) {
+        findMatch(record, nullptr, recordCount2);
+      }
+      return nullptr;
+    } else { // P1 or P2
+      auto *matches = new Match[recordCount1];
+      for (int i = 0; i < recordCount1; i++) {
+        matches[i] = findMatch(records1[i], records2, recordCount2);
+      }
+      return matches;
     }
-    return matches;
   }
 
 private:
@@ -286,24 +308,32 @@ private:
    */
   Score computeDice(FuzzyField field1, FuzzyField field2) {
     Score score;
-    uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
-    score.denominator = MUL(
-      this,
-      field1.hammingWeight + field2.hammingWeight,
-      hasValue
-    );
-    uint8_t* sharedArray = AND2(
-      this,
-      field1.booleanArray,
-      field2.booleanArray,
-      ARRAY_SIZE
-    );
-    uint64_t* arithmeticArray = XOR2Arithmetic2(this,  sharedArray, ARRAY_SIZE);
-    score.numerator = MUL(
-      this,
-      2 * std::accumulate(arithmeticArray,  arithmeticArray + ARRAY_SIZE, 0),
-      hasValue
-    );
+    if (getPRole() == HELPER) {
+      CMP(this, 0, 0);
+      MUL(this, 0, 0);
+      AND2(this, nullptr, nullptr, ARRAY_SIZE);
+      XOR2Arithmetic2(this, nullptr, ARRAY_SIZE);
+      MUL(this, 0, 0);
+    } else { // P1 and P2
+      uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
+      score.denominator = MUL(
+        this,
+        field1.hammingWeight + field2.hammingWeight,
+        hasValue
+      );
+      uint8_t* sharedArray = AND2(
+        this,
+        field1.booleanArray,
+        field2.booleanArray,
+        ARRAY_SIZE
+      );
+      uint64_t* arithmeticArray = XOR2Arithmetic2(this,  sharedArray, ARRAY_SIZE);
+      score.numerator = MUL(
+        this,
+        2 * std::accumulate(arithmeticArray,  arithmeticArray + ARRAY_SIZE, 0),
+        hasValue
+      );
+    }
     return score;
   }
 
@@ -316,13 +346,18 @@ private:
    */
   Score computeExactFieldSimilarity(ExactField field1, ExactField field2) {
     Score score;
-    uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
-    score.numerator = MUL(
-      this,
-      EQU(this, field1.value, field2.value),
-      hasValue
-    );
-    score.denominator = hasValue;
+    if (getPRole() == HELPER) {
+      CMP(this, 0, 0);
+      MUL(this, EQU(this, 0, 0), 0);
+    } else { // P1 and P2
+      uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
+      score.numerator = MUL(
+        this,
+        EQU(this, field1.value, field2.value),
+        hasValue
+      );
+      score.denominator = hasValue;
+    }
     return score;
   }
 
@@ -335,18 +370,29 @@ private:
    */
   Score computeRecordSimilarity(Record record1, Record record2) {
     Score totalScore;
-    totalScore.numerator = createShare((uint64_t) 0);
-    totalScore.denominator = createShare((uint64_t) 0);
-    Score fieldScore;
-    for (int i = 0; i < exactFieldCount; i++) {
-      fieldScore = computeExactFieldSimilarity(record1.exactFields[i], record2.exactFields[i]);
-      totalScore.numerator += fieldScore.numerator;
-      totalScore.denominator += exactFieldWeights[i]*fieldScore.denominator;
-    }
-    for (int i = 0; i < fuzzyFieldCount; i++) {
-      fieldScore = computeDice(record1.fuzzyFields[i], record2.fuzzyFields[i]);
-      totalScore.numerator += fieldScore.numerator;
-      totalScore.denominator += fuzzyFieldWeights[i]*fieldScore.denominator;
+    if (getPRole() == HELPER) {
+      ExactField exactField;
+      for (int i = 0; i < exactFieldCount; i++) {
+        computeExactFieldSimilarity(exactField, exactField);
+      }
+      FuzzyField fuzzyField(0, 0, nullptr);
+      for (int i = 0; i < fuzzyFieldCount; i++) {
+        computeDice(fuzzyField, fuzzyField);
+      }
+    } else { // P1 and P2
+      totalScore.numerator = createShare((uint64_t) 0);
+      totalScore.denominator = createShare((uint64_t) 0);
+      Score fieldScore;
+      for (int i = 0; i < exactFieldCount; i++) {
+        fieldScore = computeExactFieldSimilarity(record1.exactFields[i], record2.exactFields[i]);
+        totalScore.numerator += fieldScore.numerator;
+        totalScore.denominator += exactFieldWeights[i]*fieldScore.denominator;
+      }
+      for (int i = 0; i < fuzzyFieldCount; i++) {
+        fieldScore = computeDice(record1.fuzzyFields[i], record2.fuzzyFields[i]);
+        totalScore.numerator += fieldScore.numerator;
+        totalScore.denominator += fuzzyFieldWeights[i]*fieldScore.denominator;
+      }
     }
     return totalScore;
   }
@@ -358,9 +404,16 @@ private:
    * @return uint64_t
    */
   uint64_t compareScores(Score score1, Score score2) {
-    uint64_t compare1 = MUL(this, score1.numerator, score2.denominator);
-    uint64_t compare2 = MUL(this, score2.numerator, score1.denominator);
-    return CMP(this, compare1, compare2);
+    if (getPRole() == HELPER) {
+      MUL(this, 0, 0);
+      MUL(this, 0, 0);
+      CMP(this, 0, 0);
+      return 0;
+    } else { // P1 and P2
+      uint64_t compare1 = MUL(this, score1.numerator, score2.denominator);
+      uint64_t compare2 = MUL(this, score2.numerator, score1.denominator);
+      return CMP(this, compare1, compare2);
+    }
   }
 
   uint64_t* compareScores(
@@ -368,10 +421,18 @@ private:
     uint64_t* numerator2,
     uint64_t* denominator1,
     uint64_t* denominator2,
-    int count) {
-    uint64_t* compare1 = MUL(this, numerator1, denominator2, count);
-    uint64_t* compare2 = MUL(this, numerator2, denominator1, count);
-    return CMP(this, compare1, compare2, count);
+    int count
+  ) {
+    if (getPRole() == HELPER) {
+      MUL(this, nullptr, nullptr, count);
+      MUL(this, nullptr, nullptr, count);
+      CMP(this, nullptr, nullptr, count);
+      return nullptr;
+    } else { // P1 and P2
+      uint64_t* compare1 = MUL(this, numerator1, denominator2, count);
+      uint64_t* compare2 = MUL(this, numerator2, denominator1, count);
+      return CMP(this, compare1, compare2, count);
+    }
   }
 
   /**
@@ -410,8 +471,7 @@ private:
       while (arrayLength > 1) {
         if (arrayLength % 2 == 1) {
           if (remainderExists) {
-            /* we create new arrays with arrayLength+1 and store the remainder
-               in the last index:*/
+            // we create new arrays with arrayLength+1 and store the remainder in the last index:
             tmpNumerators = numerators;
             tmpDenominators = denominators;
             tmpIndices = indices;
@@ -460,7 +520,7 @@ private:
       max.score.numerator = numerators[0];
       max.score.denominator = denominators[0];
       max.index = indices[0];
-      if (remainderExists) {
+      if (remainderExists) { // do one last operation on the last score and the remainder:
         uint64_t selection = compareScores(max.score, remainder);
         max.score.numerator = MUX(this, max.score.numerator, remainder.numerator, selection);
         max.score.denominator = MUX(this, max.score.denominator, remainder.denominator, selection);
@@ -472,8 +532,7 @@ private:
       while (arrayLength > 1) {
         if (arrayLength % 2 == 1) {
           if (remainderExists) {
-            /* we create new arrays with arrayLength+1 and store the remainder
-               in the last index:*/
+            // we create new arrays with arrayLength+1 and store the remainder in the last index:
             remainderExists = false;
             arrayLength++;
           } else { // the remainder is stored for later:
