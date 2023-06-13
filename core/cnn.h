@@ -185,6 +185,7 @@ uint64_t ARGMAX(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
                 memcpy(selection_vector, d, halfSize * 8);
                 memcpy(selection_vector+halfSize, d, halfSize * 8);
                 //MUX:
+                delete[] maxElements;
                 maxElements = MUX(proxy, elements1, elements2, selection_vector, 2*halfSize);
                 delete[] c;
                 delete[] d;
