@@ -231,6 +231,11 @@ int main(int argc, char* argv[]) {
                 sz = helper->ReadInt();
                 SORT(helper,0, sz);
                 break;
+            case CORE_VSORT:
+                sz = helper->ReadInt();
+                size1 = helper->ReadInt();
+                SORT(helper,0,sz, size1, 0);
+                break;
             case CORE_SORT2:
                 sz = helper->ReadInt();
                 size1 = helper->ReadInt();

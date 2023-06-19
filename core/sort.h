@@ -726,6 +726,177 @@ uint64_t *applyPermutationB(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi
     return pv_inv;
 }
 
+uint64_t **applyPermutationV(Party *proxy, uint64_t *p, uint64_t **v, uint64_t *pi, uint32_t size, uint32_t categories) {
+
+    auto** r = new uint64_t*[categories];
+    auto* pip = new uint64_t[size];
+    auto** piv = new uint64_t*[categories];
+    auto** pir = new uint64_t*[categories];
+    auto** pv_inv = new uint64_t*[categories];
+    auto** pr_inv = new uint64_t*[categories];
+    long long x;   //pointer lazım mı?
+    long long n = (long long) (((long long)1 << 61) - 1);
+
+    if (proxy->getPRole() == P1) {
+        x = proxy->generateCommonRandom() % n;
+        for (int i = 0; i < categories; ++i) {
+            r[i] = new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                r[i][j] = proxy->generateRandom() % n;   //need to be smaller than n
+                v[i][j] += r[i][j];
+                r[i][j] = (uint64_t) multMod((long long) r[i][j], x, n);
+            }
+        }
+
+        for (int i = 0; i < size; ++i) {
+            pip[i] = p[pi[i]-1]; //permute p with pi
+        }
+
+        for (int i = 0; i < categories; ++i) {
+            piv[i] = new uint64_t [size];
+            pir[i] = new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                piv[i][j] = v[i][pi[j]-1];         //permute data
+                pir[i][j] = r[i][pi[j]-1];
+
+            }
+        }
+
+        unsigned char *ptr = proxy->getBuffer1();
+
+        for (int i = 0; i < size; i++) {
+            addVal2CharArray(pip[i], &ptr);
+        }
+
+        for (int i = 0; i < categories; ++i) {
+            for (int j = 0; j < size; j++) {
+                addVal2CharArray(piv[i][j], &ptr);
+                addVal2CharArray(pir[i][j], &ptr);
+            }
+        }
+
+        thread thr1 = thread(Send, proxy->getSocketHelper(), proxy->getBuffer1(), size * (2*categories+1)* 8); //send pip and pivs
+        thread thr2 = thread( Receive, proxy->getSocketHelper(),proxy->getBuffer2(),size * categories * 8); //receives a share from pv_invs
+        thr1.join();
+        thr2.join();
+
+        ptr = proxy->getBuffer2();
+        for (int i = 0; i < categories; ++i) {
+            pv_inv[i] = new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                pv_inv[i][j] = convert2Long(&ptr);   //they got the pvinv shares but P1 needs to eliminate the effect of r
+            }
+        }
+    }
+
+    else if (proxy->getPRole() == P2) {
+        x = proxy->generateCommonRandom() % n;
+        for (int i = 0; i < size; ++i) {
+            pip[i] = p[pi[i]-1]; //permute p with pi
+        }
+        for (int i = 0; i < categories; ++i) {
+            piv[i] = new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                piv[i][j] = v[i][pi[j]-1];         //permute data
+            }
+        }
+
+        unsigned char *ptr = proxy->getBuffer1();
+
+        for (int i = 0; i < size; i++) {
+            addVal2CharArray(pip[i], &ptr);
+        }
+
+        for (int i = 0; i < categories; ++i) {
+            for (int j = 0; j < size; j++) {
+                addVal2CharArray(piv[i][j], &ptr);
+            }
+        }
+
+        thread thr1 = thread(Send, proxy->getSocketHelper(), proxy->getBuffer1(), size * (categories+1)* 8); //send pip and pivs
+        thread thr2 = thread( Receive, proxy->getSocketHelper(),proxy->getBuffer2(),size * categories * 16); //receives a share from pv_invs
+        thr1.join();
+        thr2.join();
+
+        ptr = proxy->getBuffer2();
+        for (int i = 0; i < categories; ++i) {
+            pv_inv[i] = new uint64_t [size];
+            pr_inv[i]=new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                pv_inv[i][j] = convert2Long(&ptr);   //they got the pvinv shares but P1 needs to eliminate the effect of r
+                pr_inv[i][j] = convert2Long(&ptr);
+
+            }
+        }
+        long long xinv = getModularInverse_n(x, n);
+
+        for (int i = 0; i < categories; ++i) {
+            for (int j = 0; j < size; j++) {
+                pr_inv[i][j] = (uint64_t) multMod((long long) pr_inv[i][j], xinv, n);
+                pv_inv[i][j] = pv_inv[i][j] - pr_inv[i][j];                }
+        }
+
+    }
+    else { // HELPER
+
+        unsigned char *ptr1 = proxy->getBuffer1();
+        unsigned char *ptr2 = proxy->getBuffer2();
+        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), size * (2*categories+1)* 8);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), size *  (categories+1)* 8);
+        thr1.join();
+        thr2.join();
+        for (int i = 0; i < size; i++) {
+            pip[i] = convert2Long(&ptr1);
+            pip[i] += convert2Long(&ptr2);
+        }
+
+        for (int i = 0; i < categories; ++i) {
+            piv[i] = new uint64_t [size];
+            pir[i] = new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                piv[i][j] = convert2Long(&ptr1);
+                pir[i][j] = convert2Long(&ptr1);
+                piv[i][j] += convert2Long(&ptr2);
+            }
+        }
+
+        for (int i = 0; i < categories; ++i) {
+            pv_inv[i]= new uint64_t [size];
+            pr_inv[i]= new uint64_t [size];
+            for (int j = 0; j < size; j++) {
+                pv_inv[i][pip[j]-1] = piv[i][j];   //-1 because permutation starts from 1
+                pr_inv[i][pip[j]-1] = pir[i][j];
+            }
+        }
+
+        //we need to create shares to send
+        ptr1 = proxy->getBuffer1();
+        ptr2 = proxy->getBuffer2();
+        uint64_t tempShare;
+        for (int i = 0; i < categories; ++i) {
+            for (int j = 0; j < size; j++) {
+                tempShare = proxy->generateRandom();
+                addVal2CharArray(tempShare, &ptr1);   //aslında sharelar olmalı
+                addVal2CharArray(pv_inv[i][j] - tempShare, &ptr2);
+                addVal2CharArray(pr_inv[i][j], &ptr2);
+            }
+        }
+
+        thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), size * categories* 8);
+        thr2 = thread( Send, proxy->getSocketP2(), proxy->getBuffer2(), size * categories* 16);
+
+        thr1.join();
+        thr2.join();
+
+    }
+    delete[] r;
+    delete[] pip;
+    delete[] piv;
+    delete[] pir;
+    delete[] pr_inv;
+    return pv_inv;
+}
+
 // Sort algo that works with MSB on 64 bit integers
 uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of array
     int LT= 64;
@@ -902,7 +1073,68 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
     return NULL;
 }
 
+/**  Vectorized Sorting Algorithm
+ *   It gets a vector of vectors as input. Calculates the sorting permutation based on only one of the vectors.
+ *   Then applies the sorting permutation on all vectors.
+ *   Just like sorting a table based on column
+ * @param a - secret share of the matrix that needs to be sorted
+ * @param size - size of the elements.
+ * @param columns - number of columns in the table.
+ * @param index - index of the pivot column.
+ * @return The sorted table
+ * */
+uint64_t **SORT(Party *proxy, uint64_t **a, uint32_t size, uint32_t categories, uint32_t index) {  //size = size of array
+    int LT= 64;
+    if (proxy->getPRole() == HELPER) {
+        for(int i = 0; i < LT; ++i) {
+            MSB(proxy, 0, size);
+            generatePermutation(proxy, 0, size);
+            applyPermutationV(proxy,0,0, 0, size, categories);
+        }
+        return 0;
+    }
+    else {  //P1 or P2
+        double tt1, tt2, tt3, tt4, tt5=0;
+        auto *randoms = new uint64_t[size];
+        auto** res = new uint64_t*[categories];
+        auto* to_shift = new uint64_t[size];
+        //Get the
 
+        for (int i = 0; i < categories; ++i) {
+            res[i] = new uint64_t[size];
+            for (int j = 0; j < size; ++j) {
+                res[i][j] = a[i][j];
+            }
+        }
+
+        for (int j = 0; j < size; ++j) {
+            to_shift[j] = res[index][j];
+        }
+        for(int i = 0; i < LT; ++i) {
+
+            for (int k = 0; k < size; ++k) {
+                to_shift[k] <<=(LT-1-i);
+            }
+            uint64_t* msb_array = MSB(proxy, to_shift, size);   //obtain msb from shifted array
+
+            uint64_t* perm = generatePermutation(proxy, msb_array, size);  //obtain permutation for msb
+
+            for (int j = 0; j < size ; j++)
+                randoms[j] = proxy->generateCommonRandom();
+
+            uint64_t* pi = getRandomPermutation(randoms, size);
+
+            res = applyPermutationV(proxy,perm,res, pi, size, categories);  //apply the permutation to the current array
+            for (int j = 0; j < size; ++j) {
+                to_shift[j] = res[index][j];
+            }
+            delete[] pi;
+        }
+        delete[] randoms;
+        return res;
+    }
+    return 0;
+}
 
 /** Sorting algorithm that uses XOR share for bit decomposition
 **  This algorithm works correctly with applyPermutationN(.)
