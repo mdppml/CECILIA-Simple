@@ -208,6 +208,17 @@ public:
         return share;
     }
 
+    uint8_t createXORShare(uint8_t value) {
+        uint8_t share;
+        if (p_role ==P1) {
+            share = generateCommonRandomByte();
+        }
+        else{
+            share = value ^ generateCommonRandomByte();
+        }
+        return share;
+    }
+
     uint64_t createShare(double val){
         uint64_t v = convert2uint64(val);
         uint64_t share;
