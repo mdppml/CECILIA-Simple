@@ -108,6 +108,8 @@ public:
     void initialise() {
         if (!initialised) {
             m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
+            _current_buffer = new CryptoPP::byte[BUFFER_SIZE];
+            _unused_buffer = new CryptoPP::byte[BUFFER_SIZE];
             _fillUnusedBuffer();
             _replenishBuffer();
             initialised = true;
@@ -151,9 +153,15 @@ protected:
     }
     
 private:
-    /**\brief swaps unused and used buffer; replenishes unused buffer in the background
-     *
-     */
+    std::thread _buffer_thread{};
+    CryptoPP::byte* _current_buffer;
+    CryptoPP::byte* _unused_buffer;
+    size_t _buffer_position = 0;
+    FixedSizeSecBlock<CryptoPP::byte, 16> m_key;
+    FixedSizeSecBlock<CryptoPP::byte, 16> m_iv;
+    member_ptr<CTR_Mode<AES>::Encryption> m_pCipher;
+    bool initialised;
+
     void _replenishBuffer() {
         if (_buffer_thread.joinable()) {
             _buffer_thread.join();
@@ -168,13 +176,4 @@ private:
     void _fillUnusedBuffer() {
         m_pCipher->GenerateBlock(_unused_buffer, RANDOM_BUFFER_SIZE);
     }
-
-    thread _buffer_thread{};
-    CryptoPP::byte* _current_buffer;
-    CryptoPP::byte* _unused_buffer;
-    size_t _buffer_position = 0;
-    FixedSizeSecBlock<CryptoPP::byte, 16> m_key;
-    FixedSizeSecBlock<CryptoPP::byte, 16> m_iv;
-    member_ptr<CTR_Mode<AES>::Encryption> m_pCipher;
-    bool initialised;
 };
