@@ -1066,7 +1066,7 @@ uint64_t EQU(Party* proxy, uint64_t x, uint64_t y, int shift = FRAC){
   * @param b a share of the second multiplicand
   * @return the share of the multiplication of @p a and @p b
   */
-uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
+uint64_t MUL(Party* proxy, uint64_t a, uint64_t b, int shift = FRAC) {
      if (proxy->getPRole() == HELPER) {
          uint64_t *c1 = new uint64_t[1];
 
@@ -1117,7 +1117,7 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
 
          uint64_t z;
          z = proxy->getPRole() * e * f + f * mt[0][0] + e * mt[1][0] + mt[2][0];
-         z = truncate(proxy, z);
+         z = truncate(proxy, z, shift);
 
          delete [] e_f;
          delete [] concat_e_f;
@@ -1136,7 +1136,7 @@ uint64_t MUL(Party* proxy, uint64_t a, uint64_t b) {
  * @param size the size of the vectors @p a and @p b
  * @return a vector containing the share of the result of the multiplication
  */
-uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift = FRAC) {
     if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
@@ -1196,7 +1196,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         uint64_t *z = new uint64_t[size];
         for (int i = 0; i < size; i++) {
             z[i] = proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
-            z[i] = truncate(proxy, z[i]);
+            z[i] = truncate(proxy, z[i], shift);
         }
         delete [] e_f;
         delete [] concat_e_f;
@@ -1218,7 +1218,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
  * @param size the size of the vectors @p a and @p b
  * @return a vector containing the share of the result of the multiplication
  */
-uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ringbits) {
+uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ringbits, int shift = FRAC) {
     uint64_t mask = (1<<ringbits)-1;
     uint32_t bsz = ceil((double)ringbits/8.0);
     if (proxy->getPRole() == HELPER) {
@@ -1281,7 +1281,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ri
         uint64_t *z = new uint64_t[size];
         for (int i = 0; i < size; i++) {
             z[i] = (proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
-            z[i] = truncate(proxy, z[i]);
+            z[i] = truncate(proxy, z[i], shift);
         }
         delete [] e_f;
         delete [] concat_e_f;
@@ -1303,7 +1303,7 @@ uint64_t *MUL(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ri
  * @param size the size of the vectors @p a and @p b
  * @return a vector containing the share of the result of the multiplication
  */
-uint64_t *MUL_sym(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ringbits) {
+uint64_t *MUL_sym(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t ringbits, int shift = FRAC) {
     uint64_t mask = (1<<ringbits)-1;
     uint32_t bsz = ceil((double)ringbits/8.0);
     uint32_t hsize = size/2; //half size
@@ -1386,7 +1386,7 @@ uint64_t *MUL_sym(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_
         uint64_t *z = new uint64_t[size];
         for (int i = 0; i < size; i++) {
             z[i] = (proxy->getPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
-            z[i] = truncate(proxy, z[i]);
+            z[i] = truncate(proxy, z[i], shift);
         }
         delete [] e_f;
         delete [] concat_e_f;
@@ -1484,7 +1484,7 @@ uint64_t EXP(Party* proxy, uint64_t a, int shift = FRAC) {
                     flag = false;
                 }
             }
-            contributions = MUL(proxy, tmp1, tmp2, current_size / 2);
+            contributions = MUL(proxy, tmp1, tmp2, current_size / 2, shift);
             current_size /= 2;
         }
         return contributions[0];
@@ -1506,7 +1506,7 @@ uint64_t EXP(Party* proxy, uint64_t a, int shift = FRAC) {
                     flag = false;
                 }
             }
-            MUL(proxy, 0, 0, current_size / 2);
+            MUL(proxy, 0, 0, current_size / 2, shift);
             current_size /= 2;
         }
 
@@ -1647,7 +1647,7 @@ uint64_t* EXP(Party* proxy, uint64_t *a, uint32_t size, int shift = FRAC) {
                 }
             }
             delete [] contributions;
-            contributions = MUL(proxy, tmp1, tmp2, size * (cs / 2));
+            contributions = MUL(proxy, tmp1, tmp2, size * (cs / 2), shift);
 
             delete [] tmp1;
             delete [] tmp2;
@@ -1688,7 +1688,7 @@ uint64_t* EXP(Party* proxy, uint64_t *a, uint32_t size, int shift = FRAC) {
                     flag = false;
                 }
             }
-            MUL(proxy, 0, 0, size * (current_size / 2));
+            MUL(proxy, 0, 0, size * (current_size / 2), shift);
             current_size /= 2;
         }
 
@@ -1732,7 +1732,7 @@ uint64_t* PSUM(Party* proxy, uint64_t *a, uint32_t size, uint32_t d) {
  * @param size the length of the vectors
  * @return
  */
-uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
+uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift = FRAC) {
     // This function computes the dot product of two single arithmetically shared vectors.
     // Input(s)
     // x and y: vectors of the given size
@@ -1742,7 +1742,7 @@ uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
     int p_role = proxy->getPRole();
     if(p_role == P1 || p_role == P2) {
         // compute elementwise multiplication of vectors
-        uint64_t *ew_xy = MUL(proxy, a, b, size);
+        uint64_t *ew_xy = MUL(proxy, a, b, size, shift);
         // sum the result of the multiplications to obtain the dot product
         uint64_t res = 0;
         for(uint32_t i = 0; i < size; i++) {
@@ -1753,7 +1753,7 @@ uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
         return res;
     }
     else if(p_role == HELPER) {
-        MUL(proxy, 0, 0, size);
+        MUL(proxy, 0, 0, size, shift);
         return 0;
     }
     else {
@@ -1769,11 +1769,11 @@ uint64_t DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size) {
  * @param d the size of the partial vectors forming the main vectors
  * @return Dot product of the given (@p size / @p d) vectors as a vector of (@p size / @p d)
  */
-uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) {
+uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d, int shift = FRAC) {
     int p_role = proxy->getPRole();
     if(p_role == P1 || p_role == P2) {
         // compute elementwise multiplication of vectors
-        uint64_t *ew_xy = MUL(proxy, a, b, size);
+        uint64_t *ew_xy = MUL(proxy, a, b, size, shift);
         // sum the vectors in the main vector
         uint64_t *dp_shr = PSUM(proxy, ew_xy, size, d);
 
@@ -1782,7 +1782,7 @@ uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) 
         return dp_shr;
     }
     else if(p_role == HELPER) {
-        MUL(proxy, 0, 0, size);
+        MUL(proxy, 0, 0, size, shift);
         return NULL;
     }
     else {
@@ -1801,7 +1801,7 @@ uint64_t* DP(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, uint32_t d) 
  * @param b_col number of columns of @p b
  * @return a matrix of size @p a_row by @p b_col
  */
-uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col, int shift = FRAC) {
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrix such that all required multiplications can be performed in one go
@@ -1814,7 +1814,7 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
             concat_b[i] = b[i % a_col][(i % (a_col * b_col)) / a_col];
         }
 
-        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size, shift);
 
         // recover the resulting matrix
         uint64_t **res = new uint64_t *[a_row];
@@ -1841,7 +1841,7 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
     else if( p_role == HELPER) {
         // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
         cout << "MUL..." << endl;
-        MUL(proxy, NULL, NULL, a_row);
+        MUL(proxy, NULL, NULL, a_row, shift);
         cout << "returned from MUL" << endl;
         return NULL;
     }
@@ -1860,7 +1860,7 @@ uint64_t** MATMATMUL(Party* proxy, uint64_t **a, uint64_t **b, uint32_t a_row, u
  * @param b_col number of columns per two-dimensional matrix of @p b
  * @return a matrix of size @p n_matrices by @p a_row by @p b_col
  */
-uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, uint32_t b_col, int shift=FRAC) {
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrix such that all required multiplications can be performed in one go
@@ -1874,7 +1874,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
                 concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
             }
         }
-        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size, shift);
         // recover the resulting matrix
         uint64_t ***res = new uint64_t **[n_matrices];
         uint32_t ind = 0;
@@ -1904,7 +1904,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
             throw invalid_argument("core::MATMATMUL-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
         }
         // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
-        MUL(proxy, 0, 0, a_row);
+        MUL(proxy, 0, 0, a_row, shift);
         return NULL;
     }
     else {
@@ -1920,7 +1920,7 @@ uint64_t*** MATMATMUL(Party* proxy, uint64_t*** a, uint64_t*** b, uint32_t n_mat
  * @param a_col number of columns of @p a / size of @p b
  * @return a vector of size @p a_row
  */
-uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uint32_t a_col) {
+uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uint32_t a_col, int shift = FRAC) {
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrix such that all required multiplications can be performed in one go
@@ -1932,7 +1932,7 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
             concat_a[i] = a[i / a_col][i % a_col];
             concat_b[i] = b[i % a_col];
         }
-        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size, shift);
 
         // recover the resulting vector
         uint64_t *res = new uint64_t [a_row];
@@ -1955,7 +1955,7 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
     }
     else if(p_role == HELPER) {
         // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
-        return MUL(proxy, NULL, NULL, a_row);
+        return MUL(proxy, NULL, NULL, a_row, shift);
     }
     else {
         return nullptr;
@@ -1972,7 +1972,7 @@ uint64_t* MATVECMUL(Party* proxy, uint64_t **a, uint64_t *b, uint32_t a_row, uin
  * @param a_col number of columns of @p a / size of @p b
  * @return a two-dimensional matrix of size @p n_matrices by @p a_row
  */
-uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col) {
+uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matrices, uint32_t a_row, uint32_t a_col, int shift = FRAC) {
     int p_role = proxy->getPRole();
     if (p_role == P1 || p_role == P2) {
         // form a single vector for each matrix such that all required multiplications can be performed in one go
@@ -1986,7 +1986,7 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
                 concat_b[size2 * n + i] = b[n][i % a_col];
             }
         }
-        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size);
+        uint64_t *tmp = MUL(proxy, concat_a, concat_b, size, shift);
         // recover the resulting vector
         uint64_t **res = new uint64_t*[n_matrices];
         uint32_t ind = 0;
@@ -2010,7 +2010,7 @@ uint64_t** MATVECMUL(Party* proxy, uint64_t ***a, uint64_t **b, uint32_t n_matri
     }
     else if( p_role == HELPER) {
         // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
-        MUL(proxy, NULL, NULL, a_row);
+        MUL(proxy, NULL, NULL, a_row, shift);
         return NULL;
     }
     else {
@@ -2153,7 +2153,7 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, int shift = FRAC, bool first_
             uint64_t o1[2] = {c, c};
             uint64_t o2[2] = {b, ((uint64_t) proxy->getPRole()) << i};
 
-            uint64_t *v = MUL(proxy, o1, o2, 2);
+            uint64_t *v = MUL(proxy, o1, o2, 2, shift);
             R = R - v[0];
             Q = Q + v[1];
 
@@ -2170,7 +2170,7 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, int shift = FRAC, bool first_
             // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
             // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
             // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
-            uint64_t c = signs[0] + signs[1] - 2 * MUL(proxy, signs[0], signs[1]);
+            uint64_t c = signs[0] + signs[1] - 2 * MUL(proxy, signs[0], signs[1], shift);
             Q = MUX(proxy, Q, (uint64_t) 0 - Q, c, shift);
             delete [] signs;
         }
@@ -2186,12 +2186,12 @@ uint64_t DIV(Party* proxy, uint64_t a, uint64_t b, int shift = FRAC, bool first_
 
         for (int16_t i = L_BIT - 1; i >= 0; i--) {
             CMP(proxy, 0, 0, shift);
-            MUL(proxy, 0, 0, 2);
+            MUL(proxy, 0, 0, 2, shift);
         }
 
         if(first_call) {
             DIV(proxy, 0, 0, shift, false);
-            MUL(proxy, 0, 0);
+            MUL(proxy, 0, 0, shift);
             MUX(proxy, 0, 0, 0, shift);
         }
         return 0;
@@ -2272,7 +2272,7 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift =
             }
 
             // if the current R is larger than or equal to the divider, subtract the divider from R
-            uint64_t *v = MUL(proxy, o1, o2, 2 * size);
+            uint64_t *v = MUL(proxy, o1, o2, 2 * size, shift);
             for(int i = 0; i < size; i++) {
                 R[i] = R[i] - v[2 * i];
                 Q[i] = Q[i] + v[2 * i + 1];
@@ -2290,7 +2290,7 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift =
             // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
             // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
             // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
-            uint64_t *tmp = MUL(proxy, signs, &signs[size], size); // for determining the signs of the results
+            uint64_t *tmp = MUL(proxy, signs, &signs[size], size, shift); // for determining the signs of the results
             uint64_t *c = new uint64_t[size]; // // for determining the signs of the results - selection bits
             for(int i = 0; i < size; i++) {
                 R[i] = R[i] << shift; // prepare the remainder for the second division call
@@ -2335,11 +2335,11 @@ uint64_t* DIV(Party* proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift =
 
         for (int16_t i = L_BIT - 1; i >= 0; i--) {
             CMP(proxy, 0, 0, size, shift);
-            MUL(proxy, 0, 0, 2 * size);
+            MUL(proxy, 0, 0, 2 * size, shift);
         }
 
         if(first_call) {
-            MUL(proxy, 0, 0, size);
+            MUL(proxy, 0, 0, size, shift);
             DIV(proxy, 0, 0, size, shift, false);
             MUX(proxy, 0, 0, 0, size, shift);
         }
@@ -2389,7 +2389,7 @@ uint64_t* NORM(Party *proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift 
             delete [] msb_z;
 
             // computes possibly what to subtract and what to add & determines if we need to perform those operations
-            uint64_t *tmp = MUL(proxy, twice_msb_z, concat_cont_and_subt, 2 * size);
+            uint64_t *tmp = MUL(proxy, twice_msb_z, concat_cont_and_subt, 2 * size, shift);
             delete [] concat_cont_and_subt;
             delete [] twice_msb_z;
 
@@ -2406,7 +2406,7 @@ uint64_t* NORM(Party *proxy, uint64_t *a, uint64_t *b, uint32_t size, int shift 
     else if (proxy->getPRole() == HELPER) {
         for(int i = 1; i <= shift; i++) {
             MSB(proxy, 0, size);
-            MUL(proxy, 0, 0, 2 * size);
+            MUL(proxy, 0, 0, 2 * size, shift);
         }
     }
     return NULL;

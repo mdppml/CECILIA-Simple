@@ -379,7 +379,7 @@ uint64_t AS(uint64_t z, int n_shift = FRAC) {
 
 
 // Local functions which does not require security and works with secret shared values
-uint64_t local_MUL(uint64_t a, uint64_t b) {
+uint64_t local_MUL(uint64_t a, uint64_t b, int shift = FRAC) {
     /*
      * Input(s)
      * a: the first multiplicand in our number format- uint64_t
@@ -392,9 +392,9 @@ uint64_t local_MUL(uint64_t a, uint64_t b) {
     // restore the fractional part - refer to SecureNN for more details
     // v1
     if ((z >> 63) == 0) {
-        z = z >> FRAC;
+        z = z >> shift;
     } else {
-        z = -1 * ((-1 * z) >> FRAC);
+        z = -1 * ((-1 * z) >> shift);
     }
     // v2
 //    if ((z >> 63) == 0) {
