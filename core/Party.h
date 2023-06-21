@@ -25,7 +25,9 @@ using CryptoPP::OS_GenerateRandomBlock;
 class Party {
 public:
 
-    Party(role r, uint16_t hport=7777, const string hip="127.0.0.1", uint16_t cport=8888,const string cip="127.0.0.1") {
+    Party(role r, uint16_t hport=7777, const string hip="127.0.0.1", uint16_t cport=8888,const string cip="127.0.0.1", int shift = FRAC) {
+        n_bits = shift;
+        neg_n_bits = shift;
         p_role = r;
         if (p_role == P1) {
             connect2helper(hip, hport,socket_helper);
@@ -39,7 +41,7 @@ public:
         initialiseRBG();
 
         // pre-compute the truncation mask for negative values based on FRAC
-        neg_truncation_mask = ((1UL << FRAC) - 1) << (L_BIT - FRAC);
+        neg_truncation_mask = ((1UL << shift) - 1) << (L_BIT - shift);
 
         // compute the number of bits for exponential
         // for positive power
@@ -51,18 +53,18 @@ public:
         for(int i = 7; i >= 0; i--) {
             // positive power
             int n_bits_by_i = ceil(log2(exp(pow(2, i))));
-            if(L_BIT - 1 - 2 * FRAC - n_bits_by_i - used_bits >= 0) {
+            if(L_BIT - 1 - 2 * shift - n_bits_by_i - used_bits >= 0) {
                 used_bits += n_bits_by_i;
                 max_power += pow(2, i);
             }
-            if(!flag && L_BIT - 2 - 2 * FRAC - n_bits_by_i >= 0) {
+            if(!flag && L_BIT - 2 - 2 * shift - n_bits_by_i >= 0) {
                 flag = true;
                 n_bits += i + 1;
             }
 
             // negative power
             int n_zero_bits_by_i = abs(floor(log2(exp(pow(2, i))))); // how many bits are zero after the comma
-            if(zero_bits + n_zero_bits_by_i < FRAC - 1) {
+            if(zero_bits + n_zero_bits_by_i < shift - 1) {
                 zero_bits += n_zero_bits_by_i;
                 min_power -= pow(2, i);
 
@@ -309,9 +311,8 @@ private:
     uint8_t buffer2[BUFFER_SIZE];
     AES_CTR_RBG* common_rbg;
     AES_CTR_RBG* rbg;
-    CryptoPP::byte random_bytes[8];
-    int n_bits = FRAC; // number of bits of a value to consider in the exponential computation
-    int neg_n_bits = FRAC; // number of bits of a negative value to consider in the exponential computation
+    int n_bits; // number of bits of a value to consider in the exponential computation
+    int neg_n_bits; // number of bits of a negative value to consider in the exponential computation
     double max_power = 0;
     double min_power = 0;
     uint64_t neg_truncation_mask = 0;
