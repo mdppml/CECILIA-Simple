@@ -43,10 +43,6 @@ target_link_libraries(sort_test PRIVATE Threads::Threads cryptopp::cryptopp)
 add_executable(bool_test apps/boolean/proxy.cpp booleancore/core.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
 target_link_libraries(bool_test PRIVATE Threads::Threads cryptopp::cryptopp)
 
-# record linkage
-add_executable(record_linkage apps/recordlinkage/main.cpp)
-target_link_libraries(record_linkage PRIVATE Threads::Threads cryptopp::cryptopp)
-
 # Test
 add_executable(proxy_test apps/test/proxy.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
 target_link_libraries(proxy_test PRIVATE Threads::Threads cryptopp::cryptopp)
