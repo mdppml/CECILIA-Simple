@@ -9,6 +9,7 @@
 #include "../../core/cnn.h"
 
 #define ARRAY_SIZE 900
+#define BIT_PRECISION 17 // this gives precision to roughly the 5th decimal point
 
 /**
  * @brief A secret shared IDAT field that allows partial matches.
@@ -92,6 +93,7 @@ struct MaxScore{
  * Since most of the functions required for record linkage are very specific, they are simply member methods.
  */
 class PartyRL: public Party {
+  friend class TestRL; // allows TestRL to access private methods of PartyRL for testing
 public:
   /**
    * @brief Construct a Party for record linkage.
@@ -110,9 +112,9 @@ public:
   explicit PartyRL(
     role role,
     uint16_t helperPort,
-    const string &helperIP,
+    const string helperIP,
     uint16_t p1Port,
-    const string &p1IP,
+    const string p1IP,
     int exactFieldCount,
     int fuzzyFieldCount,
     double* exactFieldWeights,
@@ -135,16 +137,53 @@ public:
       }
     }
 
-    /**
-     * @brief Returns a unique integer ranging from 0 to 899 for each possible bigram of the alphabet considered.
-     *
-     * We only consider the letters a-z, "-", " " and "'". Every other symbol is considered identical.
-     * Unicode characters should be converted to ASCII using unidecode in advance.
-     * @param first_char p_first_char: The first character of the bigram
-     * @param second_char p_second_char: The second character of the bigram
-     * @return int
-     */
-    int mapBigramToInt(char first_char,  char second_char) {
+  ~PartyRL() {
+    delete[] exactFieldWeights;
+    delete[] fuzzyFieldWeights;
+  }
+
+  uint64_t createShare(double value) {
+    uint64_t v = convert2uint64(value, BIT_PRECISION);
+    uint64_t share;
+    if (this->getPRole() == P1) {
+      share = generateCommonRandom();
+    }
+    else{
+      share = v - generateCommonRandom();
+    }
+    return share;
+  }
+
+  uint64_t* createShare(double *val, uint32_t sz){
+        uint64_t *v = convert2uint64(val,sz, BIT_PRECISION);
+        uint64_t *share = new uint64_t[sz];
+        for (uint32_t i=0;i<sz;i++){
+            if (getPRole() == P1) {
+                share[i] = generateCommonRandom();
+            }
+            else{
+                share[i] = v[i] - generateCommonRandom();
+            }
+        }
+        delete[] v;
+        return share;
+  }
+
+  double reconstructDouble(uint64_t value) {
+    uint64_t reconstructed = Reconstruct(this, value);
+    return convert2double(reconstructed, BIT_PRECISION);
+  }
+
+  /**
+    * @brief Returns a unique integer ranging from 0 to 899 for each possible bigram of the alphabet considered.
+    *
+    * We only consider the letters a-z, "-", " " and "'". Every other symbol is considered identical.
+    * Unicode characters should be converted to ASCII using unidecode in advance.
+    * @param first_char p_first_char: The first character of the bigram
+    * @param second_char p_second_char: The second character of the bigram
+    * @return int
+    */
+  int mapBigramToInt(char first_char,  char second_char) {
     return mapCharToInt(first_char) * 30 + mapCharToInt(second_char);
   }
 
@@ -163,7 +202,7 @@ public:
     int hammingWeight = 1; // this is set to one so the first bigram does not need to increment it
     array[mapBigramToInt(' ', string[0])] = 1;
     int mappedBigram;
-    for (int i = 1; i<string.length(); i++) {
+    for (size_t i = 1; i<string.length(); i++) {
       mappedBigram = mapBigramToInt(string[i-1],  string[i]);
       if (array[mappedBigram] == 0) {
         hammingWeight += 1;
@@ -186,15 +225,15 @@ public:
    * @param hasValue p_hasValue: A value in {0, 1} denoting whether the field actually exists
    * @return FuzzyField
    */
-  FuzzyField shareFuzzyField(uint8_t* array, uint64_t hammingWeight, bool hasValue) {
+  FuzzyField shareFuzzyField(const uint8_t* array, double hammingWeight, bool hasValue) {
     if (getPRole() != HELPER) {
       auto* booleanArray = new uint8_t[ARRAY_SIZE];
     for (int i = 0; i < ARRAY_SIZE; i++) {
       booleanArray[i] = array[i] ^ generateCommonRandomByte();
     }
     FuzzyField field(
-      hasValue - generateCommonRandom(),
-      hammingWeight - generateCommonRandom(),
+      convert2uint64(hasValue) - generateCommonRandom(),
+      convert2uint64(hammingWeight) - generateCommonRandom(),
       booleanArray
     );
     return field;
@@ -238,20 +277,22 @@ public:
       scores[i] = computeRecordSimilarity(record, records[i]);
     }
     MaxScore max = computeMaxScore(scores, recordCount);
-    uint64_t matchScore = DIV(this, max.score.numerator, max.score.denominator);
+    uint64_t matchScore = Divide(this, max.score.numerator, max.score.denominator, BIT_PRECISION);
     Match match;
-    match.hasMatch = CMP(this, matchScore, threshold);
-    match.matchIndex = MUL(this, match.hasMatch, max.index);
+    match.hasMatch = Compare(this, matchScore, threshold, BIT_PRECISION);
+    match.matchIndex = Multiply(this, match.hasMatch, max.index, BIT_PRECISION);
     return match;
     } else { // HELPER
       for (int i = 0; i< recordCount; i++) {
         computeRecordSimilarity(record, record);
       }
       computeMaxScore(nullptr, recordCount);
-      DIV(this, 0, 0);
-      CMP(this, 0, 0);
-      MUL(this, 0, 0);
+        Divide(this, 0, 0, BIT_PRECISION);
+        Compare(this, 0, 0, BIT_PRECISION);
+        Multiply(this, 0, 0, BIT_PRECISION);
       Match match;
+      match.hasMatch = 0;
+      match.matchIndex = 0;
       return match;
     }
   }
@@ -263,6 +304,8 @@ public:
   Match* findAllMatches(Record* records1, Record* records2, int recordCount1, int recordCount2) {
     if (getPRole() == HELPER) {
       Record record;
+      record.exactFields = nullptr;
+      record.fuzzyFields = nullptr;
       for (int i = 0; i < recordCount1; i++) {
         findMatch(record, nullptr, recordCount2);
       }
@@ -309,17 +352,18 @@ private:
   Score computeDice(FuzzyField field1, FuzzyField field2) {
     Score score;
     if (getPRole() == HELPER) {
-      CMP(this, 0, 0);
-      MUL(this, 0, 0);
+        Compare(this, 0, 0, BIT_PRECISION);
+        Multiply(this, 0, 0, BIT_PRECISION);
       AND2(this, nullptr, nullptr, ARRAY_SIZE);
       XOR2Arithmetic2(this, nullptr, ARRAY_SIZE);
-      MUL(this, 0, 0);
+        Multiply(this, 0, 0, BIT_PRECISION);
     } else { // P1 and P2
-      uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
-      score.denominator = MUL(
-        this,
-        field1.hammingWeight + field2.hammingWeight,
-        hasValue
+      uint64_t hasValue = Compare(this, two, field1.hasValue + field2.hasValue, BIT_PRECISION);
+      score.denominator = Multiply(
+              this,
+              field1.hammingWeight + field2.hammingWeight,
+              hasValue,
+              BIT_PRECISION
       );
       uint8_t* sharedArray = AND2(
         this,
@@ -328,10 +372,11 @@ private:
         ARRAY_SIZE
       );
       uint64_t* arithmeticArray = XOR2Arithmetic2(this,  sharedArray, ARRAY_SIZE);
-      score.numerator = MUL(
-        this,
-        2 * std::accumulate(arithmeticArray,  arithmeticArray + ARRAY_SIZE, 0),
-        hasValue
+      score.numerator = Multiply(
+              this,
+              2 * std::accumulate(arithmeticArray, arithmeticArray + ARRAY_SIZE, 0),
+              hasValue,
+              BIT_PRECISION
       );
     }
     return score;
@@ -347,14 +392,15 @@ private:
   Score computeExactFieldSimilarity(ExactField field1, ExactField field2) {
     Score score;
     if (getPRole() == HELPER) {
-      CMP(this, 0, 0);
-      MUL(this, EQU(this, 0, 0), 0);
+        Compare(this, 0, 0, BIT_PRECISION);
+        Multiply(this, Equals(this, 0, 0, BIT_PRECISION), 0);
     } else { // P1 and P2
-      uint64_t hasValue = CMP(this, two, field1.hasValue + field2.hasValue);
-      score.numerator = MUL(
-        this,
-        EQU(this, field1.value, field2.value),
-        hasValue
+      uint64_t hasValue = Compare(this, two, field1.hasValue + field2.hasValue, BIT_PRECISION);
+      score.numerator = Multiply(
+              this,
+              Equals(this, field1.value, field2.value, BIT_PRECISION),
+              hasValue,
+              BIT_PRECISION
       );
       score.denominator = hasValue;
     }
@@ -371,7 +417,11 @@ private:
   Score computeRecordSimilarity(Record record1, Record record2) {
     Score totalScore;
     if (getPRole() == HELPER) {
+      totalScore.denominator = 0;
+      totalScore.numerator = 0;
       ExactField exactField;
+      exactField.hasValue = 0;
+      exactField.value = 0;
       for (int i = 0; i < exactFieldCount; i++) {
         computeExactFieldSimilarity(exactField, exactField);
       }
@@ -405,17 +455,27 @@ private:
    */
   uint64_t compareScores(Score score1, Score score2) {
     if (getPRole() == HELPER) {
-      MUL(this, 0, 0);
-      MUL(this, 0, 0);
-      CMP(this, 0, 0);
+        Multiply(this, 0, 0, BIT_PRECISION);
+        Multiply(this, 0, 0, BIT_PRECISION);
+        Compare(this, 0, 0, BIT_PRECISION);
       return 0;
     } else { // P1 and P2
-      uint64_t compare1 = MUL(this, score1.numerator, score2.denominator);
-      uint64_t compare2 = MUL(this, score2.numerator, score1.denominator);
-      return CMP(this, compare1, compare2);
+      uint64_t compare1 = Multiply(this, score1.numerator, score2.denominator, BIT_PRECISION); //0.275
+      uint64_t compare2 = Multiply(this, score2.numerator, score1.denominator, BIT_PRECISION); //0.05
+      return Compare(this, compare1, compare2, BIT_PRECISION);
     }
   }
 
+  /**
+   * @brief For each score, returns 0 if score1 is smaller than score2, 1 otherwise
+   *
+   * @param numerator1 p_numerator1:...
+   * @param numerator2 p_numerator2:...
+   * @param denominator1 p_denominator1:...
+   * @param denominator2 p_denominator2:...
+   * @param count p_count: number pf scores
+   * @return uint64_t*
+   */
   uint64_t* compareScores(
     uint64_t* numerator1,
     uint64_t* numerator2,
@@ -424,14 +484,14 @@ private:
     int count
   ) {
     if (getPRole() == HELPER) {
-      MUL(this, nullptr, nullptr, count);
-      MUL(this, nullptr, nullptr, count);
-      CMP(this, nullptr, nullptr, count);
+        Multiply(this, nullptr, nullptr, count, BIT_PRECISION);
+        Multiply(this, nullptr, nullptr, count, BIT_PRECISION);
+        Compare(this, nullptr, nullptr, count, BIT_PRECISION);
       return nullptr;
     } else { // P1 and P2
-      uint64_t* compare1 = MUL(this, numerator1, denominator2, count);
-      uint64_t* compare2 = MUL(this, numerator2, denominator1, count);
-      return CMP(this, compare1, compare2, count);
+      uint64_t* compare1 = Multiply(this, numerator1, denominator2, count, BIT_PRECISION);
+      uint64_t* compare2 = Multiply(this, numerator2, denominator1, count, BIT_PRECISION);
+      return Compare(this, compare1, compare2, count, BIT_PRECISION);
     }
   }
 
@@ -444,7 +504,7 @@ private:
   MaxScore computeMaxScore(Score *scores, uint32_t scoreCount){
     /** MAIN IDEA:
      Repeatedly compare the first half of the remaining scores to the second
-     half, using MUX to select the larger of the two scores.
+     half, using Multiplex to select the larger of the two scores.
      Have an array contain secretly shared indices that are selected
      with the same selection vector to also get the argmax.
      */
@@ -459,9 +519,6 @@ private:
       uint64_t* numerators = new uint64_t[scoreCount];
       uint64_t* denominators = new uint64_t[scoreCount];
       uint64_t* indices = new uint64_t[scoreCount];
-      uint64_t* selection;
-      // the tmp pointers are used to avoid memory leaks at various points
-      uint64_t *tmpNumerators, *tmpDenominators, *tmpIndices;
       for (int i = 0; i < scoreCount; i++) {
         numerators[i] = scores[i].numerator;
         denominators[i] = scores[i].denominator;
@@ -469,6 +526,8 @@ private:
       }
       //iteratively halve the array by comparing the first with the second half:
       while (arrayLength > 1) {
+        // the tmp pointers are used to avoid memory leaks at various points
+        uint64_t *tmpNumerators, *tmpDenominators, *tmpIndices;
         if (arrayLength % 2 == 1) {
           if (remainderExists) {
             // we create new arrays with arrayLength+1 and store the remainder in the last index:
@@ -497,7 +556,7 @@ private:
           }
         }
         halfLength = arrayLength / 2;
-        selection = compareScores(
+        uint64_t* selection = compareScores(
           numerators,
           numerators + halfLength,
           denominators,
@@ -507,9 +566,9 @@ private:
         tmpNumerators = numerators;
         tmpDenominators = denominators;
         tmpIndices = indices;
-        numerators = MUX(this, numerators, numerators+halfLength, selection, halfLength);
-        denominators = MUX(this, denominators, denominators+halfLength, selection, halfLength);
-        indices = MUX(this, indices, indices+halfLength, selection, halfLength);
+        numerators = Multiplex(this, numerators, numerators + halfLength, selection, halfLength, BIT_PRECISION);
+        denominators = Multiplex(this, denominators, denominators + halfLength, selection, halfLength, BIT_PRECISION);
+        indices = Multiplex(this, indices, indices + halfLength, selection, halfLength, BIT_PRECISION);
         delete[] tmpNumerators;
         delete[] tmpDenominators;
         delete[] tmpIndices;
@@ -522,9 +581,9 @@ private:
       max.index = indices[0];
       if (remainderExists) { // do one last operation on the last score and the remainder:
         uint64_t selection = compareScores(max.score, remainder);
-        max.score.numerator = MUX(this, max.score.numerator, remainder.numerator, selection);
-        max.score.denominator = MUX(this, max.score.denominator, remainder.denominator, selection);
-        max.index = MUX(this, indices[0], remainderIndex, selection);
+        max.score.numerator = Multiplex(this, max.score.numerator, remainder.numerator, selection, BIT_PRECISION);
+        max.score.denominator = Multiplex(this, max.score.denominator, remainder.denominator, selection, BIT_PRECISION);
+        max.index = Multiplex(this, indices[0], remainderIndex, selection, BIT_PRECISION);
       }
       return max;
     } else { // HELPER
@@ -541,19 +600,26 @@ private:
         }
         halfLength = arrayLength / 2;
         compareScores(nullptr, nullptr, nullptr, nullptr, halfLength);
-        MUX(this, nullptr, nullptr, nullptr, halfLength);
-        MUX(this, nullptr, nullptr, nullptr, halfLength);
-        MUX(this, nullptr, nullptr, nullptr, halfLength);
+          Multiplex(this, nullptr, nullptr, nullptr, halfLength, BIT_PRECISION);
+          Multiplex(this, nullptr, nullptr, nullptr, halfLength, BIT_PRECISION);
+          Multiplex(this, nullptr, nullptr, nullptr, halfLength, BIT_PRECISION);
         arrayLength = halfLength;
       }
       if (remainderExists) {
         Score score;
+        score.denominator = 0;
+        score.numerator = 0;
         compareScores(score, score);
-        MUX(this, 0, 0, 0);
-        MUX(this, 0, 0, 0);
-        MUX(this, 0, 0, 0);
+          Multiplex(this, 0, 0, 0, BIT_PRECISION);
+          Multiplex(this, 0, 0, 0, BIT_PRECISION);
+          Multiplex(this, 0, 0, 0, BIT_PRECISION);
       }
       MaxScore max;
+      Score score;
+      score.denominator = 0;
+      score.numerator = 0;
+      max.index = 0;
+      max.score = score;
       return max;
     }
 

@@ -47,7 +47,7 @@ P2 is connected
 AUPR :	0.486328
 Time taken by program is : 185.467451 sec
 Paper	78.370088000	67.474308000	185.467450583
-Time taken by SORT is : 99.444917750 sec
+Time taken by Sort is : 99.444917750 sec
 Time taken by AUC computation is : 86.022532833 sec
 Bytes Sent:	78370089
 Bytes Received:	67474308
@@ -61,7 +61,7 @@ P2 is connected
 AUPR :	0.504883
 Time taken by program is : 564.915644 sec
 Paper	458.809351000	389.153079000	564.915644375
-Time taken by SORT is : 397.741191750 sec
+Time taken by Sort is : 397.741191750 sec
 Time taken by AUC computation is : 167.174452625 sec
 Bytes Sent:	458809352
 Bytes Received:	389153079
@@ -75,7 +75,7 @@ P2 is connected
 AUPR :	0.494141
 Time taken by program is : 1668.661511 sec
 Paper	2125.913153000	1794.712818000	1668.661510791
-Time taken by SORT is : 1301.415956541 sec
+Time taken by Sort is : 1301.415956541 sec
 Time taken by AUC computation is : 367.245554250 sec
 Bytes Sent:	2125913154
 Bytes Received:	1794712818

@@ -355,7 +355,7 @@ long long multMod(long long x, long long y, long long m) {
 }
 uint64_t getModularInverse(uint64_t a){
     /**
-     * Get the MoDular Inverse (MDI) of a given number a with specified modulo. For the resulting/returned value b must hold
+     * Get the MoDular Inverse (ModularInverse) of a given number a with specified modulo. For the resulting/returned value b must hold
      *      ab mod(modulo) are congruent to 1.
      * @param a the value for which the modular inverse shall be calculated.
      * The modulo under which a and the inverse are multiplied equal to 1 will always be the ring size.

@@ -46,7 +46,7 @@ void AND_test(Party *proxy){
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout << "Callng REC..\n";
+    cout << "Callng Reconstruct..\n";
     uint8_t* anded = RECB(proxy,s,size);
     uint8_t* x_rec = RECB(proxy,x,size);
     uint8_t* y_rec = RECB(proxy,y,size);
@@ -71,7 +71,7 @@ void AND_test(Party *proxy){
 }
 void SUB_test(Party *proxy){
     ofstream txt;
-    cout<<setfill ('*')<<setw(50)<<"Calling Boolean SUB";
+    cout<<setfill ('*')<<setw(50)<<"Calling Boolean Subtract";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     uint32_t size = sz;
 
@@ -111,7 +111,7 @@ void SUB_test(Party *proxy){
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout << "Callng REC..\n";
+    cout << "Callng Reconstruct..\n";
     auto sub = RECB(proxy, s, size);
     int numCorrect = sz;
     for(int i = 0;i<size;i++) {
@@ -145,7 +145,7 @@ void Conversion_test(Party *proxy){
     cout<<totaltime<<endl;
 
     auto s_rec = RECB(proxy, s, size);
-    auto x_rec = REC(proxy, x, size);
+    auto x_rec = Reconstruct(proxy, x, size);
     int  counter = 0;
     for(int i = 0;i<size;i++) {
         if (s_rec[i]!= x_rec[i]) break;//cout << "A2B not working " << endl;
@@ -167,8 +167,8 @@ void Conversion_test(Party *proxy){
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout << "Callng REC..\n";
-    auto t_rec = REC(proxy, t, size);
+    cout << "Callng Reconstruct..\n";
+    auto t_rec = Reconstruct(proxy, t, size);
     counter = 0;
     for(int i = 0;i<size;i++) {
         if (t_rec[i]!= x_rec[i]) cout << t_rec[i] << "\t " << x_rec[i] << endl;
@@ -196,8 +196,8 @@ void Conversion_test(Party *proxy){
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-//    cout << "Callng REC..\n";
-//    t_rec = REC(proxy, t, size);
+//    cout << "Callng Reconstruct..\n";
+//    t_rec = Reconstruct(proxy, t, size);
 //
 //    counter = 0;
 //    for(int i = 0;i<size;i++) {

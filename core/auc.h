@@ -23,7 +23,7 @@ uint64_t *AUCMSB(Party *proxy, uint64_t *x, uint32_t sz) {
             ptr++;
             z_1[i] = ((x[i] & N1_MASK) + ya[i]) & N1_MASK;
         }
-        uint64_t *z = REC(proxy, z_1, sz, N1_MASK);
+        uint64_t *z = Reconstruct(proxy, z_1, sz, N1_MASK);
         uint8_t *wc = PCB(proxy, z, yb, sz, L_BIT - 1);
 
         for (int i = 0; i < sz; i++) {
@@ -316,9 +316,9 @@ uint64_t ROCNOTIE(Party *proxy, client_data *c_data, uint32_t size) {
         uint64_t *mul1 = new uint64_t[size];
         uint64_t *mul2 = new uint64_t[size];
         for (int i = 0; i < size; i++) {
-            TP = ADD(proxy, TP, labels[i]);
+            TP = Add(proxy, TP, labels[i]);
             FP = proxy->getPRole() * convert2uint64(i)  - TP;
-//        cout << i << "\tTP: " << convert2double(REC(proxy, TP)) << "\tFP: " << convert2double(REC(proxy, FP)) << endl;
+//        cout << i << "\tTP: " << convert2double(Reconstruct(proxy, TP)) << "\tFP: " << convert2double(Reconstruct(proxy, FP)) << endl;
 //        if (proxy->getPRole() == P1)
 //            FP = i - TP;
 //        else
@@ -329,15 +329,15 @@ uint64_t ROCNOTIE(Party *proxy, client_data *c_data, uint32_t size) {
 
             pre_FP = FP;
         }
-//    cout << "TP: " << convert2double(REC(proxy, TP)) << "\tFP: " << convert2double(REC(proxy, FP)) << endl;
+//    cout << "TP: " << convert2double(Reconstruct(proxy, TP)) << "\tFP: " << convert2double(Reconstruct(proxy, FP)) << endl;
 
 
-//    cout << "MUL is being called..." << endl;
-        uint64_t *area = MUL(proxy, mul1, mul2, size);
-//    cout << "MUL is over" << endl;
+//    cout << "Multiply is being called..." << endl;
+        uint64_t *area = Multiply(proxy, mul1, mul2, size);
+//    cout << "Multiply is over" << endl;
 
         for (int i = 0; i < size; i++) {
-            numerator = ADD(proxy, numerator, area[i]);
+            numerator = Add(proxy, numerator, area[i]);
         }
         delete[] mul1;
         delete[] mul2;
@@ -347,20 +347,20 @@ uint64_t ROCNOTIE(Party *proxy, client_data *c_data, uint32_t size) {
         uint64_t TN = proxy->createShare( (uint64_t) 0);
         TN = proxy->getPRole() * convert2uint64(size) - TP;
 
-        uint64_t denominator = MUL(proxy, FN, TN);
+        uint64_t denominator = Multiply(proxy, FN, TN);
 
         uint64_t num[1] = {numerator};
         uint64_t den[1] = {denominator};
-        uint64_t *auc = NORM(proxy, num, den, 1);
+        uint64_t *auc = Normalize(proxy, num, den, 1);
 
         delete[] labels;
 
         return auc[0];
     }
     else if(proxy->getPRole() == HELPER) {
-        MUL(proxy, 0, 0, size);
-        MUL(proxy, 0, 0);
-        NORM(proxy, 0, 0, 1);
+        Multiply(proxy, 0, 0, size);
+        Multiply(proxy, 0, 0);
+        Normalize(proxy, 0, 0, 1);
     }
     return -1;
 }
@@ -379,7 +379,7 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
                 preds[k] = c_data[0][k].val - c_data[0][k + 1].val; // get the difference of the current and next prediction
             else
                 preds[k] = convert2uint64(2); // the last prediction must be in the list.
-//            cout << convert2double(REC(proxy, preds[k])) << endl;
+//            cout << convert2double(Reconstruct(proxy, preds[k])) << endl;
 
             preds[k] = preds[k] * (proxy->generateCommonRandom() & MAXSCALAR); // multiply with random value
             //i++;
@@ -420,11 +420,11 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
 //        for (int i = 0; i < 1; i++) {
 //            cout << "Station : " << i << endl;
 //            for (prediction n: c_data[i]) {
-//                cout << convert2double(REC(proxy, n.val)) << "\t" << convert2double(REC(proxy, n.label)) << endl;
+//                cout << convert2double(Reconstruct(proxy, n.val)) << "\t" << convert2double(Reconstruct(proxy, n.label)) << endl;
 //            }
 //            cout << "[";
 //            for (prediction n: c_data[i]) {
-//                cout << convert2double(REC(proxy, n.label)) << ", ";
+//                cout << convert2double(Reconstruct(proxy, n.label)) << ", ";
 //            }
 //            cout << "]" << endl;
 //        }
@@ -447,32 +447,32 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
         uint64_t *areas;
         uint64_t *parts;
         for (int i = 0; i < size; i++) {
-            TP = ADD(proxy, TP, labels[i]);
+            TP = Add(proxy, TP, labels[i]);
             FP = proxy->getPRole() * convert2uint64(i) - TP;
 
-//            uint64_t area = MUL(proxy, pre_TP, FP - pre_FP);
+//            uint64_t area = Multiply(proxy, pre_TP, FP - pre_FP);
 //
-//            area = MUL(proxy, area, c_data[0][i].val);
-//            numerator = ADD(proxy, numerator, area);
+//            area = Multiply(proxy, area, c_data[0][i].val);
+//            numerator = Add(proxy, numerator, area);
 //
-//            area = MUL(proxy, TP - pre_TP, FP - pre_FP);
+//            area = Multiply(proxy, TP - pre_TP, FP - pre_FP);
 //
-//            area = MUL(proxy, area, c_data[0][i].val);
-//            numerator2 = ADD(proxy, numerator2, area);
+//            area = Multiply(proxy, area, c_data[0][i].val);
+//            numerator2 = Add(proxy, numerator2, area);
             uint64_t a[2] = {pre_TP, TP - pre_TP};
             uint64_t b[2] = {FP - pre_FP, FP - pre_FP};
-            areas = MUL(proxy, a, b, 2);
+            areas = Multiply(proxy, a, b, 2);
             a[0] = a[1] = c_data[0][i].val;
-            parts = MUL(proxy, a, areas, 2);
-            numerator = ADD(proxy, numerator, parts[0]);
-            numerator2 = ADD(proxy, numerator2, parts[1]);
+            parts = Multiply(proxy, a, areas, 2);
+            numerator = Add(proxy, numerator, parts[0]);
+            numerator2 = Add(proxy, numerator2, parts[1]);
 
             a[0] = pre_FP;
             a[1] = pre_TP;
             uint64_t y[2] = {FP, TP};
             b[0] = b[1] = c_data[0][i].val;
-            uint64_t *tmp = MUX(proxy, a, y,
-                                b, 2);
+            uint64_t *tmp = Multiplex(proxy, a, y,
+                                      b, 2);
             pre_FP = tmp[0];
             pre_TP = tmp[1];
             //pre_TP = proxy->SelectShare(pre_TP,TP,c_data[0][i].val);
@@ -484,7 +484,7 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
         uint64_t FN = TP;
         uint64_t TN = proxy->getPRole() * convert2uint64(size) - TP;
 
-        uint64_t denominator = MUL(proxy, FN, TN);
+        uint64_t denominator = Multiply(proxy, FN, TN);
         denominator = denominator * 2;
 
         numerator = 2 * numerator + numerator2;
@@ -492,7 +492,7 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
     //    uint64_t auc = proxy->DIVISION(numerator, denominator);
         uint64_t a[1] = {numerator};
         uint64_t b[1] = {denominator};
-        uint64_t auc = NORM(proxy, a, b, 1)[0];
+        uint64_t auc = Normalize(proxy, a, b, 1)[0];
 
         delete[] labels;
 
@@ -502,18 +502,18 @@ uint64_t ROCWITHTIE(Party *proxy, client_data *c_data, int size) {
         MRound(proxy, 0, size);
 
         for (int i = 0; i < size; i++) {
-//            MUL(proxy, 0, 0);
-//            MUL(proxy, 0, 0);
-//            MUL(proxy, 0, 0);
-//            MUL(proxy, 0, 0);
-            MUL(proxy, 0, 0, 2);
-            MUL(proxy, 0, 0, 2);
-            MUX(proxy, 0, 0, 0, 2);
+//            Multiply(proxy, 0, 0);
+//            Multiply(proxy, 0, 0);
+//            Multiply(proxy, 0, 0);
+//            Multiply(proxy, 0, 0);
+            Multiply(proxy, 0, 0, 2);
+            Multiply(proxy, 0, 0, 2);
+            Multiplex(proxy, 0, 0, 0, 2);
         }
 //        cout << "check!!" << endl;
 
-        MUL(proxy, 0, 0);
-        NORM(proxy, 0, 0, 1);
+        Multiply(proxy, 0, 0);
+        Normalize(proxy, 0, 0, 1);
 
 //        cout << "check!!!!!" << endl;
     }
@@ -533,7 +533,7 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
                 preds[k] = c_data[0][k].val - c_data[0][k + 1].val; // get the difference of the current and next prediction
             else
                 preds[k] = convert2uint64(2); // the last prediction must be in the list.
-//            cout << convert2double(REC(proxy, preds[k])) << endl;
+//            cout << convert2double(Reconstruct(proxy, preds[k])) << endl;
 
             preds[k] = preds[k] * (proxy->generateCommonRandom() & MAXSCALAR); // multiply with random value
             //i++;
@@ -576,11 +576,11 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 //        for (int i = 0; i < 1; i++) {
 //            cout << "Station : " << i << endl;
 //            for (prediction n: c_data[i]) {
-//                cout << convert2double(REC(proxy, n.val)) << "\t" << convert2double(REC(proxy, n.label)) << endl;
+//                cout << convert2double(Reconstruct(proxy, n.val)) << "\t" << convert2double(Reconstruct(proxy, n.label)) << endl;
 //            }
 //            cout << "[";
 //            for (prediction n: c_data[i]) {
-//                cout << convert2double(REC(proxy, n.label)) << ", ";
+//                cout << convert2double(Reconstruct(proxy, n.label)) << ", ";
 //            }
 //            cout << "]" << endl;
 //        }
@@ -596,7 +596,7 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
         uint64_t TP = 0;
 //        uint64_t pre_prec = convert2uint64(50);
         uint64_t pre_prec = convert2uint64(0.5);
-//        cout << "pre_prec: " << convert2double(REC(proxy, pre_prec)) << endl;
+//        cout << "pre_prec: " << convert2double(Reconstruct(proxy, pre_prec)) << endl;
         uint64_t tmp = 0;
         uint64_t pre_reca = 0;
         uint64_t numerator = 0;
@@ -604,7 +604,7 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
         uint64_t *precs = new uint64_t[size];
         uint64_t *recas = new uint64_t[size];
         for (int i = 0; i < size; i++) {
-            TP = ADD(proxy, TP, labels[i]);
+            TP = Add(proxy, TP, labels[i]);
             recas[i] = TP;
             tmp = tmp + proxy->getPRole() * convert2uint64(1);
             precs[i] = tmp;
@@ -617,53 +617,53 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 //        precs = MDIVISION(proxy, recas, precs, size);
 
 //        cout << "check 3" << endl;
-        precs = NORM(proxy, recas, precs, size);
-//        print1DArray("Precs", convert2double(REC(proxy, precs, size), size), size);
-//        print1DArray("Recas", convert2double(REC(proxy, recas, size), size), size);
+        precs = Normalize(proxy, recas, precs, size);
+//        print1DArray("Precs", convert2double(Reconstruct(proxy, precs, size), size), size);
+//        print1DArray("Recas", convert2double(Reconstruct(proxy, recas, size), size), size);
 //        cout << "check 4" << endl;
         for (int i = 0; i < size; i++) {
             prec = precs[i];
             reca = recas[i];
 //            proxy->SendBytes(CORE_MUL);
-//            uint64_t area = MUL(proxy, pre_prec, reca - pre_reca);
+//            uint64_t area = Multiply(proxy, pre_prec, reca - pre_reca);
 //            proxy->SendBytes(CORE_MUL);
-//            area = MUL(proxy, area, c_data[0][i].val);
-//            numerator = ADD(proxy, numerator, area);
+//            area = Multiply(proxy, area, c_data[0][i].val);
+//            numerator = Add(proxy, numerator, area);
 //
 //            proxy->SendBytes(CORE_MUL);
-//            area = MUL(proxy, reca - pre_reca, prec - pre_prec);
+//            area = Multiply(proxy, reca - pre_reca, prec - pre_prec);
 //            proxy->SendBytes(CORE_MUL);
-//            area = MUL(proxy, area, c_data[0][i].val);
-//            numerator2 = ADD(proxy, numerator2, area);
+//            area = Multiply(proxy, area, c_data[0][i].val);
+//            numerator2 = Add(proxy, numerator2, area);
 
 //            cout << "check 5.1." << i << endl;
-//            cout << "reca: " << convert2double(REC(proxy, reca)) << endl;
-//            cout << "pre_reca: " << convert2double(REC(proxy, pre_reca)) << endl;
-//            cout << "prec: " << convert2double(REC(proxy, prec)) << endl;
-//            cout << "pre_prec: " << convert2double(REC(proxy, pre_prec)) << endl;
-//            cout << "reca - pre_reca: " << convert2double(REC(proxy, reca - pre_reca)) << endl;
-//            cout << "prec - pre_prec: " << convert2double(REC(proxy, prec - pre_prec)) << endl;
-//            cout << "c_data.val: " << convert2double(REC(proxy, c_data[0][i].val)) << endl;
+//            cout << "reca: " << convert2double(Reconstruct(proxy, reca)) << endl;
+//            cout << "pre_reca: " << convert2double(Reconstruct(proxy, pre_reca)) << endl;
+//            cout << "prec: " << convert2double(Reconstruct(proxy, prec)) << endl;
+//            cout << "pre_prec: " << convert2double(Reconstruct(proxy, pre_prec)) << endl;
+//            cout << "reca - pre_reca: " << convert2double(Reconstruct(proxy, reca - pre_reca)) << endl;
+//            cout << "prec - pre_prec: " << convert2double(Reconstruct(proxy, prec - pre_prec)) << endl;
+//            cout << "c_data.val: " << convert2double(Reconstruct(proxy, c_data[0][i].val)) << endl;
             uint64_t a[2] = {pre_prec, reca - pre_reca};
             uint64_t b[2] = {reca - pre_reca, prec - pre_prec};
-            uint64_t *areas = MUL(proxy, a, b, 2);
-//            print1DArray("MUL 1: areas", convert2double(REC(proxy, areas, 2), 2), 2);
+            uint64_t *areas = Multiply(proxy, a, b, 2);
+//            print1DArray("Multiply 1: areas", convert2double(Reconstruct(proxy, areas, 2), 2), 2);
 //            cout << "at " << i << endl;
             a[0] = c_data[0][i].val;
             a[1] = c_data[0][i].val;
-            parts = MUL(proxy, a, areas, 2);
-//            print1DArray("MUL 2: parts", convert2double(REC(proxy, parts, 2), 2), 2);
+            parts = Multiply(proxy, a, areas, 2);
+//            print1DArray("Multiply 2: parts", convert2double(Reconstruct(proxy, parts, 2), 2), 2);
 //            cout << "kafa " << i << endl;
-            numerator = ADD(proxy, numerator, parts[0]);
-            numerator2 = ADD(proxy, numerator2, parts[1]);
+            numerator = Add(proxy, numerator, parts[0]);
+            numerator2 = Add(proxy, numerator2, parts[1]);
 
 //            cout << "check 5.2." << i << endl;
             uint64_t x[2] = {pre_prec, pre_reca};
             uint64_t y[2] = {prec, reca};
             b[0] = c_data[0][i].val;
             b[1] = c_data[0][i].val;
-            uint64_t *tmp2 = MUX(proxy, x, y, b, 2);
-//            print1DArray("MUX result", convert2double(REC(proxy, tmp2, 2), 2), 2);
+            uint64_t *tmp2 = Multiplex(proxy, x, y, b, 2);
+//            print1DArray("Multiplex result", convert2double(Reconstruct(proxy, tmp2, 2), 2), 2);
             pre_prec = tmp2[0];
             pre_reca = tmp2[1];
 
@@ -682,7 +682,7 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 //        cout << "check 6" << endl;
         uint64_t a[1] = {numerator};
         uint64_t b[1] = {denominator};
-        uint64_t prc = NORM(proxy, a, b, 1)[0];
+        uint64_t prc = Normalize(proxy, a, b, 1)[0];
 //        cout << "check 7" << endl;
 
         delete [] precs;
@@ -695,18 +695,18 @@ uint64_t PRCURVE(Party *proxy, client_data *c_data, int size) {
 //        cout << "check 1 - size: " << size << endl;
         MRound(proxy, 0, size);
 //        cout << "check 2" << endl;
-        NORM(proxy, 0, 0, size);
+        Normalize(proxy, 0, 0, size);
 //        cout << "check 3" << endl;
         for (int i = 0; i < size; i++) {
 //            cout << "check 4.1." << i << endl;
-            MUL(proxy, 0, 0, 2);
-            MUL(proxy, 0, 0, 2);
+            Multiply(proxy, 0, 0, 2);
+            Multiply(proxy, 0, 0, 2);
 //            cout << "check 4.2." << i << endl;
-            MUX(proxy, 0, 0, 0, 2);
+            Multiplex(proxy, 0, 0, 0, 2);
 //            cout << "check 4.3." << i << endl;
         }
 //        cout << "check 5" << endl;
-        NORM(proxy, 0, 0, 1);
+        Normalize(proxy, 0, 0, 1);
 //        cout << "check 6" << endl;
     }
     return -1;
@@ -770,7 +770,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
                     uint32_t params[1] = {(uint32_t) diff_size};
                     proxy->SendBytes(CORE_MMSB, params, 1);
                     cnt++;
-                    uint64_t *diff_res = MSB(proxy, diff, diff_size);
+                    uint64_t *diff_res = MostSignificantBit(proxy, diff, diff_size);
 //                cout << "check 3" << endl;
 
                     for (int j = 0; j < diff_size; j++) {
@@ -783,7 +783,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
                     params[0] = 2 * diff_size;
                     proxy->SendBytes(CORE_MMUX, params, 1);
                     cnt++;
-                    mux_res = MUX(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
+                    mux_res = Multiplex(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
                     for (int j = 0; j < diff_size; j++) {
                         c_data[fl_index][j].val = mux_res[j];
                         c_data[fl_index][j].label = mux_res[j + diff_size];
@@ -793,7 +793,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
                     params[0] = 2 * diff_size;
                     proxy->SendBytes(CORE_MMUX, params, 1);
                     cnt++;
-                    mux_res = MUX(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
+                    mux_res = Multiplex(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
 //                cout << "check 5.5" << endl;
                     for (int j = 0; j < diff_size; j++) {
                         c_data[ll_index][j].val = mux_res[j];
@@ -836,8 +836,8 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
                             params[0] = 1;
                             proxy->SendBytes(CORE_MMSB, params, 1);
                             cnt++;
-                            uint64_t *diff_res = MSB(proxy, diff, 1);
-                            uint64_t cmp = REC(proxy, diff_res[0]);
+                            uint64_t *diff_res = MostSignificantBit(proxy, diff, 1);
+                            uint64_t cmp = Reconstruct(proxy, diff_res[0]);
                             if (cmp == 0) {
                                 sorted.push_back(c_data[fl_index][0]);
                                 c_data[fl_index].pop_front();
@@ -947,7 +947,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 
 }
 
-//uint64_t *SORT(Party *proxy, client_data *c_data, uint64_t size, int delta, int nstation) {
+//uint64_t *Sort(Party *proxy, client_data *c_data, uint64_t size, int delta, int nstation) {
 //    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
 //        int tmp_delta = delta;
 //        while (nstation != 1) {
@@ -984,7 +984,7 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //
 //
 ////                proxy->SendBytes(MMSB, diff_size);
-//                    uint64_t *diff_res = MSB(proxy, diff, diff_size);
+//                    uint64_t *diff_res = MostSignificantBit(proxy, diff, diff_size);
 //
 //                    for (int j = 0; j < diff_size; j++) {
 //                        diff[j] = diff_res[j];
@@ -993,14 +993,14 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //
 //
 ////                    mux_res = proxy->MSelectShare(mux_val1,mux_val2,diff,2*diff_size);
-//                    mux_res = MUX(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
+//                    mux_res = Multiplex(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
 //                    for (int j = 0; j < diff_size; j++) {
 //                        c_data[fl_index][j].val = mux_res[j];
 //                        c_data[fl_index][j].label = mux_res[j + diff_size];
 //                    }
 //
 ////                    mux_res = proxy->MSelectShare(mux_val2,mux_val1,diff,2*diff_size);
-//                    mux_res = MUX(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
+//                    mux_res = Multiplex(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
 //                    for (int j = 0; j < diff_size; j++) {
 //                        c_data[ll_index][j].val = mux_res[j];
 //                        c_data[ll_index][j].label = mux_res[j + diff_size];
@@ -1021,8 +1021,8 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //                        if (fl_pop != ll_pop) {
 //                            diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
 ////                            uint64_t *diff_res = proxy->MMSB2(diff, 1);
-//                            uint64_t *diff_res = MSB(proxy, diff, 1);
-//                            uint64_t cmp = REC(proxy, diff_res[0]);
+//                            uint64_t *diff_res = MostSignificantBit(proxy, diff, 1);
+//                            uint64_t cmp = Reconstruct(proxy, diff_res[0]);
 //                            if (cmp == 0) {
 //                                sorted.push_back(c_data[fl_index][0]);
 //                                c_data[fl_index].pop_front();
@@ -1107,9 +1107,9 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //                    // for the helper to know it or calculate it without having c_data.
 //                    int diff_size = proxy->ReadInt();
 //
-//                    MSB(proxy, 0, diff_size);
-//                    MUX(proxy, 0, 0, 0, 2 * diff_size);
-//                    MUX(proxy, 0, 0, 0, 2 * diff_size);
+//                    MostSignificantBit(proxy, 0, diff_size);
+//                    Multiplex(proxy, 0, 0, 0, 2 * diff_size);
+//                    Multiplex(proxy, 0, 0, 0, 2 * diff_size);
 //
 //                    int min_val = proxy->ReadInt();
 //
@@ -1125,8 +1125,8 @@ void SORT(Party *proxy, client_data *c_data, int nstation, int delta) {
 //                        if (fl_pop != ll_pop) {
 //                            diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
 ////                            uint64_t *diff_res = proxy->MMSB2(diff, 1);
-//                            uint64_t *diff_res = MSB(proxy, diff, 1);
-//                            uint64_t cmp = REC(proxy, diff_res[0]);
+//                            uint64_t *diff_res = MostSignificantBit(proxy, diff, 1);
+//                            uint64_t cmp = Reconstruct(proxy, diff_res[0]);
 //                            if (cmp == 0) {
 //                                sorted.push_back(c_data[fl_index][0]);
 //                                c_data[fl_index].pop_front();

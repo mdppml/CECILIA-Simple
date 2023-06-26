@@ -15,7 +15,7 @@ P2 is connected
 Sz: 4000
 Calling ROCNOTIE...
 First MUL is over.
-Second MUL is over.
+Second Multiply is over.
 Returning from ROCNOTIE...
 Bytes Sent:	714865850
 Bytes Received:	857917939
@@ -26,8 +26,8 @@ P1 is connected
 P2 is connected
 Sz: 8000
 Calling ROCNOTIE...
-First MUL is over.
-Second MUL is over.
+First Multiply is over.
+Second Multiply is over.
 Returning from ROCNOTIE...
 Bytes Sent:	3333009990
 Bytes Received:	4003539622

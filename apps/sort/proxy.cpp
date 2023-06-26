@@ -40,14 +40,14 @@ void VSORT_test(Party *proxy){
     proxy->SendBytes(CORE_VSORT, params, 2);
     cout << "Calling VSORT..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t** s = SORT(proxy, a, size, cols, 0);
+    uint64_t** s = Sort(proxy, a, size, cols, 0);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout << "Callng REC..\n";
-    uint64_t** sorted = REC(proxy,s,cols, size);
+    cout << "Callng Reconstruct..\n";
+    uint64_t** sorted = Reconstruct(proxy, s, cols, size);
 
     for(int i = 0;i<10;i++){
         cout <<  sorted[0][i] << sorted[1][i]<< endl;
@@ -80,10 +80,10 @@ void SORT_test(Party *proxy){
     params[1] = ringbits;
     proxy->SendBytes(CORE_SORT, params, 1);
     //proxy->SendBytes(CORE_SORT2, params, 2);
-    cout << "Calling SORT..\n";
+    cout << "Calling Sort..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SORT(proxy, a, size);
-    //uint64_t* s = SORT(proxy, a, size,ringbits);
+    uint64_t* s = Sort(proxy, a, size);
+    //uint64_t* s = Sort(proxy, a, size,ringbits);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -94,14 +94,14 @@ void SORT_test(Party *proxy){
     cout<<"APP Time:\t"<<app_time<<endl;
     cout<<"X2A Time:\t"<<x2a_time<<endl;
     cout<<"GEP Time:\t"<<gp_time<<endl;
-    cout<<"MUL Time:\t"<<mul_time<<endl;
-    cout<<"REC Time:\t"<<recn_time<<endl;
+    cout<<"Multiply Time:\t"<<mul_time<<endl;
+    cout<<"Reconstruct Time:\t"<<recn_time<<endl;
     cout<<"CCM Time:\t"<<comp_time<<endl;
     cout<<"TOT Time:\t"<<t_time<<endl;
 
-    cout << "Callng REC..\n";
+    cout << "Callng Reconstruct..\n";
     //uint64_t* sorted = RECN(proxy,s,size, ringbits);
-    uint64_t* sorted = REC(proxy,s,size);
+    uint64_t* sorted = Reconstruct(proxy, s, size);
 
     for(int i = 0;i<20;i++){
         cout <<  sorted[i]<< endl;

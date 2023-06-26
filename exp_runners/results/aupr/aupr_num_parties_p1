@@ -8,7 +8,7 @@ Number of parties: 2
 AUPR :	0.524414
 Time taken by program is : 174.047684 sec
 Paper	78.367134000	67.471792000	174.047683958
-Time taken by SORT is : 90.921943042 sec
+Time taken by Sort is : 90.921943042 sec
 Time taken by AUC computation is : 83.125740916 sec
 Bytes Sent:	78367135
 Bytes Received:	67471792
@@ -27,7 +27,7 @@ Number of parties: 4
 AUPR :	0.49707
 Time taken by program is : 523.271487 sec
 Paper	458.808600000	389.152523000	523.271487292
-Time taken by SORT is : 357.861417792 sec
+Time taken by Sort is : 357.861417792 sec
 Time taken by AUC computation is : 165.410069500 sec
 Bytes Sent:	458808601
 Bytes Received:	389152523
@@ -50,7 +50,7 @@ Number of parties: 8
 AUPR :	0.50293
 Time taken by program is : 1404.104562 sec
 Paper	2125.914412000	1794.713858000	1404.104561833
-Time taken by SORT is : 1073.934909958 sec
+Time taken by Sort is : 1073.934909958 sec
 Time taken by AUC computation is : 330.169651875 sec
 Bytes Sent:	2125914413
 Bytes Received:	1794713858

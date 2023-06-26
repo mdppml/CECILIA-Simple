@@ -18,7 +18,7 @@ static void print_error() {
         << "10: kernel size (used in CNN)\n"
         << "11: number of kernels (used in CNN)\n"
         << "12: repeats (how often to run each function for the benchmark)\n"
-        << "(13+: which functions to run (e.g. MUL, MUX), without this, all functions are run)" << endl;
+        << "(13+: which functions to run (e.g. Multiply, Multiplex), without this, all functions are run)" << endl;
     exit(EXIT_FAILURE);
 }
 
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
             if (proxy_role == P1) {
                 cout << "\n" << functions[i] << "\nReal time:       " << real_time << " ms" << endl;
             }
-            if (proxy_role == HELPER && (functions[i] == "REC" || functions[i] == "createShare")) {
+            if (proxy_role == HELPER && (functions[i] == "Reconstruct" || functions[i] == "createShare")) {
                 // skips helper print for functions that don't use it
                 continue;
             }
