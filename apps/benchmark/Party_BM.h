@@ -182,15 +182,15 @@ public:
     }
 
     void partial_summation() { //TODO ask about d
-        PSUM(this, _vector, _vector_length, 3);
+        PartialSum(this, _vector, _vector_length, 3);
     }
 
     void multiplication() {
-        MUL(this, _vector, _vector, _vector_length);
+        Multiply(this, _vector, _vector, _vector_length);
     }
 
     void division_cnn() {
-        DIV(this, _number, _number);
+        Divide(this, _number, _number);
     }
 
     /*void division_auc() {
@@ -198,11 +198,11 @@ public:
     }*/
 
     void mmux() {
-        MUX(this, _vector, _vector, _vector, _vector_length);
+        Multiplex(this, _vector, _vector, _vector, _vector_length);
     }
 
     void most_significant_bit() {
-        MSB(this, _vector, _vector_length);
+        MostSignificantBit(this, _vector, _vector_length);
     }
 
     /*void most_significant_bit_auc() {
@@ -210,46 +210,47 @@ public:
     }*/
 
     void modular_conversion() {
-        MOC(this, _vector, _vector_length);
+        ModularConversion(this, _vector, _vector_length);
     }
 
     void compare() {
-        CMP(this, _vector, _vector, _vector_length);
+        Compare(this, _vector, _vector, _vector_length);
     }
 
     void exponential() {
-        EXP(this, _vector, _vector_length);
+        Exp(this, _vector, _vector_length);
     }
 
     void dot_product() {
-        DP(this, _flattened_matrix, _flattened_matrix, _flattened_matrix_size, _matrix_x);
+        DotProduct(this, _flattened_matrix, _flattened_matrix, _flattened_matrix_size, _matrix_x);
     }
 
     void matrix_matrix_multiplication() {
         if (this->getPRole() == HELPER) {
-            MATMATMUL(this, nullptr, nullptr, _vector_length * _matrix_y * _matrix_x * _matrix_y, 0, 0);
+            MatrixMatrixMultiply(this, nullptr, nullptr, _vector_length * _matrix_y * _matrix_x * _matrix_y, 0, 0);
         } else {
-            MATMATMUL(this, _vector_of_matrices, _matrix_MATMATMUL, _vector_length, _matrix_y, _matrix_x, _matrix_y);
+            MatrixMatrixMultiply(this, _vector_of_matrices, _matrix_MATMATMUL, _vector_length, _matrix_y, _matrix_x,
+                                 _matrix_y);
         }
 
     }
 
     void matrix_vector_multiplication() {
         if (this->getPRole() == HELPER) {
-            MATVECMUL(this, nullptr, nullptr, 0, _matrix_y * _vector_length * _matrix_x, 0);
+            MatrixVectorMultiply(this, nullptr, nullptr, 0, _matrix_y * _vector_length * _matrix_x, 0);
         } else {
-            MATVECMUL(this, _vector_of_matrices, _matrix_MATVECMUL, _vector_length, _matrix_y, _matrix_x);
+            MatrixVectorMultiply(this, _vector_of_matrices, _matrix_MATVECMUL, _vector_length, _matrix_y, _matrix_x);
         }
     }
 
     void reconstruct() {
         if (getPRole() != HELPER) {
-            REC(this, _vector, _vector_length);
+            Reconstruct(this, _vector, _vector_length);
         }
     }
 
     void modular_inverse() {
-        MDI(this, _number);
+        ModularInverse(this, _number);
     }
 
     void round() {
@@ -257,34 +258,36 @@ public:
     }
 
     void max() {
-        MAX(this, _flattened_matrix,_flattened_matrix_size);
+        Max(this, _flattened_matrix, _flattened_matrix_size);
     }
 
     void max_per_window() {
-        MAX(this, _flattened_matrix, _matrix_y, _matrix_x, _window_size, _window_size);
+        Max(this, _flattened_matrix, _matrix_y, _matrix_x, _window_size, _window_size);
     }
 
     void argmax() {
-        ARGMAX(this, _flattened_matrix, _flattened_matrix_size);
+        ArgMax(this, _flattened_matrix, _flattened_matrix_size);
     }
 
     void relu() {
-        RELU(this, _flattened_matrix, _flattened_matrix_size);
+        ReLU(this, _flattened_matrix, _flattened_matrix_size);
     }
 
     void derivative_relu() {
-        DRELU(this, _flattened_matrix, _flattened_matrix_size);
+        DerivativeReLU(this, _flattened_matrix, _flattened_matrix_size);
     }
 
     void conv_layer() {
-        CL(this, _vector_of_matrices, _vector_length, _matrix_y, _matrix_x, _matrix_kernel, _kernel_size, _kernel_count, 2, _window_size, _window_size, _bias_vector, false);
+        ConvolutionalLayer(this, _vector_of_matrices, _vector_length, _matrix_y, _matrix_x, _matrix_kernel,
+                           _kernel_size, _kernel_count, 2, _window_size, _window_size, _bias_vector, false);
     }
 
     void fully_connected_layer() {
-        FCL(this, _flattened_3d_matrix, _flattened_3d_matrix_size, _matrix_fcl_weights, _kernel_count, _bias_vector);
+        FullyConnectedLayer(this, _flattened_3d_matrix, _flattened_3d_matrix_size, _matrix_fcl_weights, _kernel_count,
+                            _bias_vector);
     }
     void inverse_square_root() {
-        INVSQRT(this, _vector_of_gram_matrices, _vector_length, _matrix_x);
+        InverseSqrt(this, _vector_of_gram_matrices, _vector_length, _matrix_x);
     }
 
     void createShare_BM() {
@@ -294,7 +297,7 @@ public:
     }
 
     void gram_matrix_to_kernel_matrix() {
-        GM2KM(this, _vector_of_gram_matrices, 1, _vector_length, _matrix_x);
+        GaussianKernel(this, _vector_of_gram_matrices, 1, _vector_length, _matrix_x);
     }
 
 private:
@@ -334,31 +337,31 @@ private:
 
     static std::map<std::string, void(Party_BM::*)()> create_map() {
         std::map<std::string, void(Party_BM::*)()> map;
-        map["PSUM"] = &Party_BM::partial_summation;
-        map["MUL"] = &Party_BM::multiplication;
-        map["DIV"] = &Party_BM::division_cnn;
+        map["PartialSum"] = &Party_BM::partial_summation;
+        map["Multiply"] = &Party_BM::multiplication;
+        map["Divide"] = &Party_BM::division_cnn;
         //map["MDIVISION"] = &Party_BM::division_auc;
-        map["MUX"] = &Party_BM::mmux;
-        map["MSB"] = &Party_BM::most_significant_bit;
+        map["Multiplex"] = &Party_BM::mmux;
+        map["MostSignificantBit"] = &Party_BM::most_significant_bit;
         //map["AUCMSB"] = &Party_BM::most_significant_bit_auc;
-        map["MOC"] = &Party_BM::modular_conversion;
-        map["CMP"] = &Party_BM::compare;
-        map["EXP"] = &Party_BM::exponential;
-        map["DP"] = &Party_BM::dot_product;
-        map["MATMATMUL"] = &Party_BM::matrix_matrix_multiplication;
-        map["MATVECMUL"] = &Party_BM::matrix_vector_multiplication;
-        map["REC"] = &Party_BM::reconstruct;
-        map["MDI"] = &Party_BM::modular_inverse;
+        map["ModularConversion"] = &Party_BM::modular_conversion;
+        map["Compare"] = &Party_BM::compare;
+        map["Exp"] = &Party_BM::exponential;
+        map["DotProduct"] = &Party_BM::dot_product;
+        map["MatrixMatrixMultiply"] = &Party_BM::matrix_matrix_multiplication;
+        map["MatrixVectorMultiply"] = &Party_BM::matrix_vector_multiplication;
+        map["Reconstruct"] = &Party_BM::reconstruct;
+        map["ModularInverse"] = &Party_BM::modular_inverse;
         //map["MRound"] = &Party_BM::round;
-        map["RELU"] = &Party_BM::relu;
-        map["DRELU"] = &Party_BM::derivative_relu;
-        map["CL"] = &Party_BM::conv_layer;
-        map["FCL"] = &Party_BM::fully_connected_layer;
-        map["INVSQRT"] = &Party_BM::inverse_square_root;
+        map["ReLU"] = &Party_BM::relu;
+        map["DerivativeReLU"] = &Party_BM::derivative_relu;
+        map["ConvolutionalLayer"] = &Party_BM::conv_layer;
+        map["FullyConnectedLayer"] = &Party_BM::fully_connected_layer;
+        map["InverseSqrt"] = &Party_BM::inverse_square_root;
         map["createShare"] = &Party_BM::createShare_BM;
-        map["GM2KM"] = &Party_BM::gram_matrix_to_kernel_matrix;
-        map["ARGMAX"] = &Party_BM::argmax;
-        map["MAX"] = &Party_BM::max;
+        map["GaussianKernel"] = &Party_BM::gram_matrix_to_kernel_matrix;
+        map["ArgMax"] = &Party_BM::argmax;
+        map["Max"] = &Party_BM::max;
         map["MAXPOOL"] = &Party_BM::max_per_window;
         return map;
     }

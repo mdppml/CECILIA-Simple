@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
                 break;
             case CORE_SORT:
                 sz = helper->ReadInt();
-                SORT(helper,0, sz);
+                Sort(helper, 0, sz);
                 break;
             case CORE_END:
                 keep_looping = false;

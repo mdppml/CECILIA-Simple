@@ -240,7 +240,7 @@ void printValue(string const &str1, uint64_t x) {
 void print2DArrayRecAndConv(Party* proxy, string const &str1, uint64_t** x, uint32_t n_row, uint32_t n_col,
                             bool horizontal=true) {
     // horizontal: true if the resulting print-out is desired row-by-col
-    double **d_x = convert2double(REC(proxy, x, n_row, n_col), n_row, n_col);
+    double **d_x = convert2double(Reconstruct(proxy, x, n_row, n_col), n_row, n_col);
     cout << "======================= " << str1 << " =======================" << endl;
     if (horizontal) {
         for (uint32_t i = 0; i < n_row; i++) {
@@ -264,7 +264,7 @@ void print2DArrayRecAndConv(Party* proxy, string const &str1, uint64_t** x, uint
 
 
 void print1DArrayRecAndConv(Party *proxy, string const &str1, uint64_t* x, uint32_t size, bool horizontal=true) {
-    double * d_x = convert2double(REC( proxy, x, size), size);
+    double * d_x = convert2double(Reconstruct( proxy, x, size), size);
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for(uint32_t i = 0; i < size; i++) {
@@ -281,7 +281,7 @@ void print1DArrayRecAndConv(Party *proxy, string const &str1, uint64_t* x, uint3
 }
 
 void printValueRecAndConv(Party *proxy, string const &str1, uint64_t x) {
-    double d_x = convert2double(REC(proxy, x));
+    double d_x = convert2double(Reconstruct(proxy, x));
     cout << "======================= " << str1 << " =======================" << endl;
     cout << d_x << endl;
     cout << "==============================================================" << endl;

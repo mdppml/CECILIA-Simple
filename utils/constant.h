@@ -25,7 +25,7 @@
 #define DEBUG_FLAG 0
 
 
-// constants for INVSQRT
+// constants for InverseSqrt
 #define ORTHMASK 0x3e000
 #define MAX_DELTA 100
 #define MIN_DELTA 100

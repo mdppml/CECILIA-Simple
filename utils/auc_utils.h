@@ -121,13 +121,13 @@ void print_data(Party *proxy, int nstation, uint64_t *sample_size, client_data *
         cout << "Station : " << i << endl;
         if(!transfer_friendly) {
             for (prediction n: data[i]) {
-                cout << convert2double(REC(proxy, n.val)) << "\t" << convert2double(REC(proxy, n.label)) << endl;
+                cout << convert2double(Reconstruct(proxy, n.val)) << "\t" << convert2double(Reconstruct(proxy, n.label)) << endl;
             }
         }
         else {
             cout << "[";
             for (int n = 0; n < data[i].size(); n++) {
-                cout << convert2double(REC(proxy, data[i][n].val));
+                cout << convert2double(Reconstruct(proxy, data[i][n].val));
                 if(n != data[i].size() - 1) {
                     cout << ", ";
                 }
@@ -135,7 +135,7 @@ void print_data(Party *proxy, int nstation, uint64_t *sample_size, client_data *
             cout << "]" << endl;
             cout << "[";
             for (int n = 0; n < data[i].size(); n++) {
-                cout << convert2double(REC(proxy, data[i][n].label));
+                cout << convert2double(Reconstruct(proxy, data[i][n].label));
                 if(n != data[i].size() - 1) {
                     cout << ", ";
                 }

@@ -56,7 +56,7 @@ uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size) {
     if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *f = generateF(proxy, x, size);
         uint64_t *s = generateS(f, size * 2);
-        uint64_t *t = MUL(proxy, f, s, size * 2);
+        uint64_t *t = Multiply(proxy, f, s, size * 2);
         uint64_t *p = generateP(t, size);
         delete[] f;
         delete[] s;
@@ -64,7 +64,7 @@ uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size) {
         return p;
     }
     else{
-        MUL(proxy,0,0,size * 2);
+        Multiply(proxy,0,0,size * 2);
         return 0;
     }
 }
@@ -223,11 +223,11 @@ uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
     return pv_inv;
 }
 
-uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of array
+uint64_t *Sort(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of array
     int LT= 64;
     if (proxy->getPRole() == HELPER) {
         for(int i = 0; i < LT; ++i) {
-            MSB(proxy, 0, size);
+            MostSignificantBit(proxy, 0, size);
             generatePermutation(proxy, 0, size);
             applyPermutation(proxy,0,0, 0, size);
         }
@@ -248,7 +248,7 @@ uint64_t *SORT(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
                 to_shift[k] <<=(LT-1-i);
             }
             auto start = chrono::high_resolution_clock::now();
-            uint64_t* msb_array = MSB(proxy, to_shift, size);   //obtain msb from shifted array
+            uint64_t* msb_array = MostSignificantBit(proxy, to_shift, size);   //obtain msb from shifted array
             auto end = chrono::high_resolution_clock::now();
             tt1 = tt1 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 

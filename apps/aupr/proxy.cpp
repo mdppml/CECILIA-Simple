@@ -471,7 +471,7 @@ int main(int argc, char* argv[]) {
 
     time_taken = chrono::duration_cast<chrono::nanoseconds>(mid - start).count();
     time_taken *= 1e-9;
-    cout << "Time taken by SORT is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    cout << "Time taken by Sort is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
 
     time_taken = chrono::duration_cast<chrono::nanoseconds>(end - mid).count();
     time_taken *= 1e-9;

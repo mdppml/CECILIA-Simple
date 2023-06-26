@@ -9,8 +9,6 @@
 #include "../../core/core.h"
 #include "../../core/sort.h"
 
-using namespace std;
-
 constexpr int sz = 100000;
 
 void SORT_test(Party *proxy){
@@ -35,9 +33,9 @@ void SORT_test(Party *proxy){
     uint32_t params[1];
     params[0] = size;
     proxy->SendBytes(CORE_SORT, params, 1);
-    cout << "Calling SORT..\n";
+    cout << "Calling Sort..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SORT(proxy, x, size);
+    uint64_t* s = Sort(proxy, x, size);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -49,7 +47,7 @@ void SORT_test(Party *proxy){
     //}
     //else cout << "Unable to open file";
     cout << "Callng REC..\n";
-    uint64_t* sorted = REC(proxy,s,size);
+    uint64_t* sorted = Reconstruct(proxy,s,size);
 
     for(int i = 1;i<size;i++){
         if(sorted[i]<=sorted[i-1]){
