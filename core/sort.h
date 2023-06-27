@@ -13,7 +13,7 @@
 #include "string.h"
 
 
-uint64_t* generateF(Party* proxy, const uint64_t* a, uint32_t size) {
+uint64_t* generateF(Party *const proxy, const uint64_t *const a, uint32_t size) {
     if(proxy->getPRole() == P1) {
         auto *result = new uint64_t[2 * size];
         for(int i = 0; i < size; ++i) {
@@ -33,7 +33,7 @@ uint64_t* generateF(Party* proxy, const uint64_t* a, uint32_t size) {
     else return nullptr;
 }
 
-uint64_t* generateS(const uint64_t* a, uint32_t size) {
+uint64_t* generateS(const uint64_t *const a, uint32_t size) {
     auto *result = new uint64_t[size];
     result[0] = a[0];
     for(int i = 1; i < size; ++i) {
@@ -42,7 +42,7 @@ uint64_t* generateS(const uint64_t* a, uint32_t size) {
     return result;
 }
 
-uint64_t* generateP(const uint64_t* t, uint32_t size) {
+uint64_t* generateP(const uint64_t *const t, uint32_t size) {
     auto *result = new uint64_t[size];
     for(int i = 0; i < size; ++i) {
         result[i] = (t[i] + t[i + size]) ;  //removed %L correct?
@@ -50,9 +50,7 @@ uint64_t* generateP(const uint64_t* t, uint32_t size) {
     return result;
 }
 
-uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size) {
-    // paperdaki ilk algoritma, getbitarray in sonucundaki her eleman x olarak giriyor
-
+uint64_t *generatePermutation(Party *const proxy, const uint64_t *const x, uint32_t size) {
     if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *f = generateF(proxy, x, size);
         uint64_t *s = generateS(f, size * 2);
@@ -69,7 +67,7 @@ uint64_t *generatePermutation(Party *proxy, uint64_t *x, uint32_t size) {
     }
 }
 
-uint64_t *getRandomPermutation(uint64_t randoms[], uint32_t size){
+uint64_t *getRandomPermutation(const uint64_t *const randoms, uint32_t size){
 
     uint64_t to_permute[size];
     for(int i = 0; i < size; i++)  to_permute[i] = i+1;
@@ -84,7 +82,7 @@ uint64_t *getRandomPermutation(uint64_t randoms[], uint32_t size){
     return result;
 }
 
-uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi, uint32_t size) {
+uint64_t *applyPermutation(Party *proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
 
     // paperdaki ikinci algoritma, sortlanmis v nin sharelarini verecek
     auto* r = new uint64_t[size];
@@ -223,7 +221,7 @@ uint64_t *applyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
     return pv_inv;
 }
 
-uint64_t *Sort(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of array
+uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //size = size of array
     int LT= 64;
     if (proxy->getPRole() == HELPER) {
         for(int i = 0; i < LT; ++i) {

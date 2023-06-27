@@ -39,7 +39,7 @@ struct node *newNode(Party *proxy, int index) {
  * @param length of a and b (must have same length)
  * @return vector d where each element is the result of the according elements a-b.
  */
-uint64_t* Subtract(const uint64_t *a, const uint64_t *b, uint32_t length){
+uint64_t* Subtract(const uint64_t *const a, const uint64_t *const b, uint32_t length){
     auto *subtractedValues = new uint64_t [length];
     for(uint32_t i = 0; i<length; i++){
         subtractedValues[i] = *(a+i) - *(b+i);
@@ -48,7 +48,7 @@ uint64_t* Subtract(const uint64_t *a, const uint64_t *b, uint32_t length){
 }
 
 
-uint64_t** Transpose(uint64_t** matrix, uint32_t rows, uint32_t cols){
+uint64_t** Transpose(const uint64_t *const *const matrix, uint32_t rows, uint32_t cols){
     uint64_t ** transposed = new uint64_t *[cols];
     for (int c = 0; c < cols; ++c) {
         transposed[c] = new uint64_t [rows];
@@ -59,7 +59,7 @@ uint64_t** Transpose(uint64_t** matrix, uint32_t rows, uint32_t cols){
     return transposed;
 }
 
-uint64_t*** Transpose(uint64_t*** matrix, uint32_t n_matrices, uint32_t rows, uint32_t cols){
+uint64_t*** Transpose(const uint64_t *const *const *const matrix, uint32_t n_matrices, uint32_t rows, uint32_t cols){
     uint64_t *** transposed = new uint64_t **[n_matrices];
     for (int m = 0; m < n_matrices; ++m) {
         transposed[m] = new uint64_t *[cols];
@@ -102,7 +102,7 @@ uint64_t*** Transpose(uint64_t*** matrix, uint32_t n_matrices, uint32_t rows, ui
  *
  * CAUTION: only matrices up to a size of 9000 x 9000 can be granted to be processed.
  */
-void ReSort(const uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
+void ReSort(const uint64_t *const matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
     uint32_t winSize = w_cols * w_rows;
     uint32_t numberOfWins = (m_cols * m_rows) / winSize;
     uint32_t winsPerRow = m_cols / w_cols;
@@ -128,7 +128,7 @@ void ReSort(const uint64_t* matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w
  * @param size - size of matrix
  * @return The index of the maximum element in matrix.
  */
-uint64_t ArgMax(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
+uint64_t ArgMax(Party *const proxy, const uint64_t *const mShare, uint32_t matrix_size){
     /** MAIN IDEA:
      * As the Max is performed, a second matrix of same length is created containing the indices only.
      * However values are selected from matrix, is also done for the indices-matrix.
@@ -244,7 +244,7 @@ uint64_t ArgMax(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
  * @param matrix_size - size of mShare.
  * @return The maximum element which was found in mShare.
  */
-uint64_t Max(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
+uint64_t Max(Party *const proxy, const uint64_t *const mShare, uint32_t matrix_size){
     /** MAIN IDEA:
      * Compare values by splitting the matrix in two halves and
      * comparing each value to its counterpart at the same position in the other half.
@@ -342,7 +342,7 @@ uint64_t Max(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
  * @return the maximum element per window, therefore floor(matrix_size / (win_rows*win_cols)) elements in a vector
  * return vector must be deleted if not needed anymore.
  */
-uint64_t* Max(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, uint32_t win_rows, uint32_t win_cols, bool backprop = false){
+uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows, uint32_t m_cols, uint32_t win_rows, uint32_t win_cols, bool backprop = false){
     uint32_t matrix_size = m_rows * m_cols;
     uint32_t window_length = win_cols * win_rows;
     uint32_t cmpWindowVectorSize = window_length; //size of resulting vector after cmp, Multiplex, and it's divided by 2 is size of each half.
@@ -696,7 +696,7 @@ uint64_t* Max(Party* proxy, uint64_t *matrix, uint32_t m_rows, uint32_t m_cols, 
  * @param x - secret share of variable x for which to compute ReLU(x)
  * @return
  */
-uint64_t ReLU(Party* proxy, uint64_t x){
+uint64_t ReLU(Party *const proxy, uint64_t x){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
 
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -824,7 +824,7 @@ uint64_t ReLU(Party* proxy, uint64_t x){
  * @param size - size of vector x
  * @return vector of resulting values for each position in x, must be deleted if not needed anymore.
  */
-uint64_t* ReLU(Party* proxy, const uint64_t* x, uint64_t size){
+uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
     if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         uint64_t commonValues[2*size];
@@ -970,7 +970,7 @@ uint64_t* ReLU(Party* proxy, const uint64_t* x, uint64_t size){
  * @param x - variable x for which to compute ReLU'(x), the derivative of the ReLU function.
  * @return
  */
-uint64_t DerivativeReLU(Party* proxy, uint64_t x){
+uint64_t DerivativeReLU(Party *const proxy, uint64_t x){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint8_t exchangingBit = 2;
@@ -1044,7 +1044,7 @@ uint64_t DerivativeReLU(Party* proxy, uint64_t x){
  * @param size - size of vector x
  * @return vector containing the resulting DerivativeReLU(x), must be deleted if not needed anymore.
  */
-uint64_t* DerivativeReLU(Party* proxy, uint64_t* x, uint32_t size){
+uint64_t* DerivativeReLU(Party *const proxy, const uint64_t *const x, uint32_t size){
     uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint32_t exchangingBit = 2 * size;
@@ -1139,8 +1139,14 @@ uint64_t* DerivativeReLU(Party* proxy, uint64_t* x, uint32_t size){
  *         with conv_width = (width - k_dim + 1)/stride and conv_height = (height - k_dim + 1)/stride
  *         return vector must be deleted if not needed anymore.
  */
-uint64_t ***Increase(uint64_t ***input, uint32_t channel, uint32_t height, uint32_t width, uint32_t k_dim,
-                     uint32_t stride) {
+uint64_t ***Increase(
+    const uint64_t *const *const *const input,
+    uint32_t channel,
+    uint32_t height,
+    uint32_t width,
+    uint32_t k_dim,
+    uint32_t stride
+) {
     uint32_t k_size = k_dim * k_dim;
     uint32_t last_row_start = height - k_dim + 1;
     uint32_t last_col_start = width - k_dim + 1;
@@ -1173,7 +1179,7 @@ uint64_t ***Increase(uint64_t ***input, uint32_t channel, uint32_t height, uint3
  * @param padding_size number of padding_values to be inserted in each direction: top, bottom, right and left
  * @return the padded input matrix, return vector must be deleted if not needed anymore.
  */
-uint64_t **Pad(uint64_t** input, uint32_t rows, uint64_t cols, uint64_t padding_value, uint32_t padding_size){
+uint64_t **Pad(const uint64_t *const *const input, uint32_t rows, uint64_t cols, uint64_t padding_value, uint32_t padding_size){
     uint32_t padded_row_length = 2*padding_size+cols;
     uint32_t padded_col_length = 2*padding_size+rows;
     auto** padded_input = new uint64_t *[padded_col_length];
@@ -1211,7 +1217,7 @@ uint64_t **Pad(uint64_t** input, uint32_t rows, uint64_t cols, uint64_t padding_
  * @return the flattened vector of length i_dim * i_dim * i_number
  * return vector must be deleted if not needed anymore.
  */
-uint64_t * Flatten(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint32_t i_number){
+uint64_t * Flatten(const uint64_t *const *const *const images, uint32_t i_height, uint32_t i_width, uint32_t i_number){
     uint64_t i_size = i_height * i_width;
     auto * flattened = new uint64_t [i_size * i_number];
     for (uint32_t i = 0; i < i_number; i++){
@@ -1259,7 +1265,21 @@ uint64_t * Flatten(uint64_t*** images, uint32_t i_height, uint32_t i_width, uint
  *         w = floor((i_weight - k_dim + 1)/stride) if doMaxpooling is false; otherwise w = floor((i_weight - k_dim + 1)/(2*stride))
  *         return vector must be deleted if not needed anymore.
  */
-uint64_t*** ConvolutionalLayer(Party* proxy, uint64_t*** input, uint32_t i_channel, uint32_t i_height, uint32_t i_width, uint64_t*** kernel, uint32_t k_dim, uint32_t output_channel, uint32_t stride, uint32_t max_win_height, uint32_t max_win_width, uint64_t* bias, bool last_conv = false){
+uint64_t*** ConvolutionalLayer(
+    Party *const proxy,
+    const uint64_t *const *const *const input,
+    uint32_t i_channel,
+    uint32_t i_height,
+    uint32_t i_width,
+    const uint64_t *const *const *const kernel,
+    uint32_t k_dim,
+    uint32_t output_channel,
+    uint32_t stride,
+    uint32_t max_win_height,
+    uint32_t max_win_width,
+    const uint64_t *const bias,
+    bool last_conv = false
+){
     uint32_t k_size = k_dim * k_dim;
     auto conv_width = static_cast<uint32_t>(floor((i_width - k_dim + 1) / stride));
     auto conv_height = static_cast<uint32_t>(floor((i_height - k_dim + 1) / stride));
@@ -1381,7 +1401,14 @@ uint64_t*** ConvolutionalLayer(Party* proxy, uint64_t*** input, uint32_t i_chann
  * and the according bias added. It will be of length node_number.
  * return vector must be deleted if not needed anymore.
  */
-uint64_t* FullyConnectedLayer(Party* proxy, uint64_t* input, int in_size, uint64_t** weights, int node_number, uint64_t* bias){
+uint64_t* FullyConnectedLayer(
+    Party *const proxy,
+    const uint64_t *const input,
+    int in_size,
+    const uint64_t *const *const weights,
+    int node_number,
+    uint64_t* bias
+){
     if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
         uint64_t *output = MatrixVectorMultiply(proxy, weights, input, node_number, in_size);
         uint64_t *added_bias = Add(proxy, output, bias, node_number);
