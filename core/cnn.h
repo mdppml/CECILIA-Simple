@@ -254,7 +254,8 @@ uint64_t Max(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
     bool isResidueStored = false;
     bool isSecondHalfFilled = false;
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t *maxElements = mShare;
+        uint64_t *maxElements = new uint64_t[matrix_size];
+        std::memcpy(maxElements, mShare, matrix_size*8);
         auto maxHalfSizes = static_cast<uint32_t>(ceil(matrix_size / 2)); // ceil because residue might be added.
         uint64_t firstHalf [maxHalfSizes];
         uint64_t secondHalf [maxHalfSizes];
@@ -285,6 +286,7 @@ uint64_t Max(Party* proxy, uint64_t *mShare, uint32_t matrix_size){
                 uint64_t *d = MostSignificantBit(proxy, c, halfSize);
 
                 //Multiplex:
+                delete[] maxElements;
                 maxElements = Multiplex(proxy, firstHalf, secondHalf, d, halfSize);
                 delete[] c;
                 delete[] d;
