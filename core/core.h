@@ -97,8 +97,7 @@ uint64_t *Reconstruct(Party *const proxy, const uint64_t *const a, uint32_t sz, 
     return b;
 }
 
-// TODO rename this
-uint64_t *RECN(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t ringbits) {
+uint64_t *ReconstructNarrow(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t ringbits) {
     auto mask = (1<< ringbits)-1;
     auto bsz = (uint32_t)ceil(ringbits/8.0);
     uint64_t *b = new uint64_t[sz];
@@ -1240,7 +1239,7 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
  * @param size the size of the vectors @p a and @p b
  * @return a vector containing the share of the result of the multiplication
  */
-uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, uint32_t ringbits, int shift = FRAC) {
+uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, uint32_t ringbits, int shift = FRAC) {
     uint64_t mask = (1<<ringbits)-1;
     uint32_t bsz = ceil((double)ringbits/8.0);
     if (proxy->getPRole() == HELPER) {
@@ -1293,7 +1292,7 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
         }
 
         auto start = chrono::high_resolution_clock::now();
-        uint64_t *e_f = RECN(proxy, concat_e_f, size * 2, ringbits);
+        uint64_t *e_f = ReconstructNarrow(proxy, concat_e_f, size * 2, ringbits);
         auto end = chrono::high_resolution_clock::now();
         recn_time +=
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -1405,7 +1404,7 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
             }
         }
         auto start = chrono::high_resolution_clock::now();
-        uint64_t *e_f = RECN(proxy, concat_e_f, size * 2, ringbits);
+        uint64_t *e_f = ReconstructNarrow(proxy, concat_e_f, size * 2, ringbits);
         auto end = chrono::high_resolution_clock::now();
         recn_time +=
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;

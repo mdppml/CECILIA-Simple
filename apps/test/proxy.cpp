@@ -23,7 +23,7 @@ constexpr int WSZ = 3;
 
 // ************************************ Ali  ***********************************************
 bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cnt){
-//    cout << setfill('*') << setw(50) << "Calling Multiply";
+//    cout << setfill('*') << setw(50) << "Calling MultiplyNarrow";
 //    cout << setfill('*') << setw(49) << "*" << endl;
 
     double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
@@ -55,7 +55,7 @@ bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cn
 //        cout << "-----------------------------------------" << endl;
 //    }
     if ((int)(rd - rcd) == 0) {
-//        cout<<"Multiply works correctly"<<endl;
+//        cout<<"MultiplyNarrow works correctly"<<endl;
 //        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
 //        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
 //        cout << "-----------------------------------------" << endl;
@@ -73,7 +73,7 @@ bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cn
 //        cout << "Share of r: " << r << endl;
 //        cout << "rec_r >? share_r: " << (rec_r > r) << endl;
 //        cout << "-----------------------------------------" << endl;
-//        cout<<"Multiply works incorrectly"<<endl;
+//        cout<<"MultiplyNarrow works incorrectly"<<endl;
 //        cout << "x: " << xd <""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""< "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
 //        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
 //        cnt++;
@@ -382,10 +382,10 @@ bool MMUL2_Test(Party *proxy){
     double time_taken =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
-    cout<<"Multiply Time:\t" << fixed
+    cout<<"MultiplyNarrow Time:\t" << fixed
         << time_taken << setprecision(9) << " sec" << endl;
     // checking the result
-    auto rec_r = RECN(proxy, r, sz, 23);
+    auto rec_r = ReconstructNarrow(proxy, r, sz, 23);
     for (int i = 0; i < sz; ++i) {
         cout << rec_r[i] << endl;
     }

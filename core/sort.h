@@ -120,7 +120,7 @@ uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint3
         uint64_t *f = GenerateF(proxy, x, size, mask);
         uint64_t *s = GenerateS(f, size * 2, mask);
         auto start = chrono::high_resolution_clock::now();
-        uint64_t *t = Multiply(proxy, f, s, size * 2, ringbits);
+        uint64_t *t = MultiplyNarrow(proxy, f, s, size * 2, ringbits);
         auto end = chrono::high_resolution_clock::now();
         mul_time +=
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -131,7 +131,7 @@ uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint3
         return p;
     }
     else{   //HELPER
-        Multiply(proxy, 0, 0, size * 2, ringbits);
+        MultiplyNarrow(proxy, 0, 0, size * 2, ringbits);
         return 0;
     }
 }
@@ -284,8 +284,7 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
  * @param pi common permutation
  * @param size number of elements in data
  * */
- //TODO rename (what is N?)
- [[maybe_unused]] uint64_t *ApplyPermutationN(
+ [[maybe_unused]] uint64_t *ApplyPermutationNarrow(
      Party *const proxy,
      const uint64_t *const p,
      uint64_t *const v,
@@ -418,7 +417,7 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
     return pv_inv;
 }
 
-uint8_t *ApplyPermutationN2(
+uint8_t *ApplyPermutationNarrow2(
     Party *const proxy,
     const uint64_t *const p,
     uint8_t *const v,
@@ -996,9 +995,9 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //
 }
 
 /** Sorting algorithm that uses XOR share for bit decomposition
- ** This algo works with ApplyPermutationN2 and has some errors currently in Sort
+ ** This algo works with ApplyPermutationNarrow2 and has some errors currently in SortNarrow
  ***/
-uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size, uint32_t ringbits) {  //size = size of array
+uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size, uint32_t ringbits) {  //size = size of array
     int LT= 64;
     int bsz = ceil(size/8.0);
     if (proxy->getPRole() == HELPER) {
@@ -1006,7 +1005,7 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size, uint3
         XOR2Arithmetic3(proxy, 0, size);
         GeneratePermutation(proxy, 0, size, ringbits);
         for(int i = 1; i < LT ; ++i) {
-            ApplyPermutationN2(proxy, 0, 0, 0, size, ringbits);
+            ApplyPermutationNarrow2(proxy, 0, 0, 0, size, ringbits);
             XOR2Arithmetic3(proxy, 0, size);
             GeneratePermutation(proxy, 0, size, ringbits);
             ComposePermutations(proxy, 0, 0, size, ringbits);
@@ -1048,7 +1047,7 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size, uint3
 
 
             start = chrono::high_resolution_clock::now();
-            auto tmp2 = ApplyPermutationN2(proxy, permG, tmp, pi, size, ringbits);
+            auto tmp2 = ApplyPermutationNarrow2(proxy, permG, tmp, pi, size, ringbits);
             end = chrono::high_resolution_clock::now();
             app_time +=
                     chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;

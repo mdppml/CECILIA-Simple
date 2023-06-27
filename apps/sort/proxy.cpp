@@ -83,7 +83,7 @@ void SORT_test(Party *proxy){
     cout << "Calling Sort..\n";
     auto start = chrono::high_resolution_clock::now();
     uint64_t* s = Sort(proxy, a, size);
-    //uint64_t* s = Sort(proxy, a, size,ringbits);
+    //uint64_t* s = SortNarrow(proxy, a, size,ringbits);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -100,7 +100,7 @@ void SORT_test(Party *proxy){
     cout<<"TOT Time:\t"<<t_time<<endl;
 
     cout << "Callng Reconstruct..\n";
-    //uint64_t* sorted = RECN(proxy,s,size, ringbits);
+    //uint64_t* sorted = ReconstructNarrow(proxy,s,size, ringbits);
     uint64_t* sorted = Reconstruct(proxy, s, size);
 
     for(int i = 0;i<20;i++){

@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
             case CORE_MMUL2:
                 sz = helper->ReadInt();
                 size2 = helper->ReadInt();
-                Multiply(helper, nullptr, nullptr, sz, size2);
+                MultiplyNarrow(helper, nullptr, nullptr, sz, size2);
                 break;
             case CORE_DP:
                 sz = helper->ReadInt();
@@ -240,7 +240,7 @@ int main(int argc, char* argv[]) {
             case CORE_SORT2:
                 sz = helper->ReadInt();
                 size1 = helper->ReadInt();
-                Sort(helper, 0, sz, size1);
+                SortNarrow(helper, 0, sz, size1);
                 break;
             case BCORE_AND:
                 sz = helper->ReadInt();
