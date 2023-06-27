@@ -479,7 +479,7 @@ uint64_t*** local_MATMATMUL(uint64_t ***a, uint64_t ***b, uint32_t n_mats, uint3
     return result;
 }
 
-void add2Buf(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+void add2Buf(const uint64_t *const val,unsigned char *ptr, int size, uint32_t bsz=8){
     unsigned char *ptr_tmp = ptr;
     for (int i = 0; i<size-2; i++) {
         addVal2CharArray(*(val+i), &ptr_tmp, bsz);
@@ -491,7 +491,7 @@ void add2Buf(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
     ptr_tmp+=bsz;
     *((uint64_t *)(ptr_tmp)) += *(val+size-1);
 }
-void write2Buffer(uint64_t *val,unsigned char *ptr, int size, uint32_t bsz=8){
+void write2Buffer(const uint64_t *const val,unsigned char *ptr, int size, uint32_t bsz=8){
     thread thr[SCKNUM];
     int block_size = (int)ceil(size*1.0/SCKNUM);
     if (block_size<50)

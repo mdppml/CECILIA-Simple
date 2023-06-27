@@ -22,7 +22,7 @@ double app_time = 0.0;
 double t_time = 0.0;
 double a2x_time = 0.0;
 
-uint64_t* GenerateF(Party* proxy, const uint64_t* a, uint32_t size) {
+uint64_t* GenerateF(Party *const proxy, const uint64_t *const a, uint32_t size) {
     if(proxy->getPRole() == P1) {
         auto *result = new uint64_t[2 * size];
         for(int i = 0; i < size; ++i) {
@@ -42,7 +42,7 @@ uint64_t* GenerateF(Party* proxy, const uint64_t* a, uint32_t size) {
     else return nullptr;
 }
 
-uint64_t* GenerateS(const uint64_t* a, uint32_t size) {
+uint64_t* GenerateS(const uint64_t *const a, uint32_t size) {
     auto *result = new uint64_t[size];
     result[0] = a[0];
     for(int i = 1; i < size; ++i) {
@@ -51,7 +51,7 @@ uint64_t* GenerateS(const uint64_t* a, uint32_t size) {
     return result;
 }
 
-uint64_t* GenerateP(const uint64_t* t, uint32_t size) {
+uint64_t* GenerateP(const uint64_t *const t, uint32_t size) {
     auto *result = new uint64_t[size];
     for(int i = 0; i < size; ++i) {
         result[i] = (t[i] + t[i + size]) ;  //removed %L correct?
@@ -59,7 +59,7 @@ uint64_t* GenerateP(const uint64_t* t, uint32_t size) {
     return result;
 
 }
-uint64_t* GenerateF(Party* proxy, const uint64_t* a, uint32_t size, uint64_t mask) {
+uint64_t* GenerateF(Party *const proxy, const uint64_t *const a, uint32_t size, uint64_t mask) {
     if(proxy->getPRole() == P1) {
         auto *result = new uint64_t[2 * size];
         for(int i = 0; i < size; ++i) {
@@ -79,7 +79,7 @@ uint64_t* GenerateF(Party* proxy, const uint64_t* a, uint32_t size, uint64_t mas
     else return nullptr;
 }
 
-uint64_t* GenerateS(const uint64_t* a, uint32_t size, uint64_t mask) {
+uint64_t* GenerateS(const uint64_t *const a, uint32_t size, uint64_t mask) {
     auto *result = new uint64_t[size];
     result[0] = a[0];
     for(int i = 1; i < size; ++i) {
@@ -88,7 +88,7 @@ uint64_t* GenerateS(const uint64_t* a, uint32_t size, uint64_t mask) {
     return result;
 }
 
-uint64_t* GenerateP(const uint64_t* t, uint32_t size, uint64_t mask) {
+uint64_t* GenerateP(const uint64_t *const t, uint32_t size, uint64_t mask) {
     auto *result = new uint64_t[size];
     for(int i = 0; i < size; ++i) {
         result[i] = (t[i] + t[i + size])&mask ;  //removed %L correct?
@@ -97,8 +97,7 @@ uint64_t* GenerateP(const uint64_t* t, uint32_t size, uint64_t mask) {
 
 }
 
-uint64_t *GeneratePermutation(Party *proxy, uint64_t *x, uint32_t size) {
-
+uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint32_t size) {
     if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *f = GenerateF(proxy, x, size);
         uint64_t *s = GenerateS(f, size * 2);
@@ -115,7 +114,7 @@ uint64_t *GeneratePermutation(Party *proxy, uint64_t *x, uint32_t size) {
     }
 }
 
-uint64_t *GeneratePermutation(Party *proxy, uint64_t *x, uint32_t size, uint32_t ringbits) {
+uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint32_t size, uint32_t ringbits) {
     uint64_t mask =(1<< ringbits) -1;
     if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
         uint64_t *f = GenerateF(proxy, x, size, mask);
@@ -137,7 +136,7 @@ uint64_t *GeneratePermutation(Party *proxy, uint64_t *x, uint32_t size, uint32_t
     }
 }
 
-uint64_t *GetRandomPermutation(uint64_t randoms[], uint32_t size){
+uint64_t *GetRandomPermutation(const uint64_t *const randoms, uint32_t size){
     uint64_t to_permute[size];
     for(int i = 0; i < size; i++)  to_permute[i] = i+1;
     uint64_t* result = new uint64_t[size];
@@ -159,8 +158,7 @@ uint64_t *GetRandomPermutation(uint64_t randoms[], uint32_t size){
  * @param pi common permutation
  * @param size number of elements in data
  * */
-uint64_t *ApplyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi, uint32_t size) {
- //   double tt1, tt2, tt3, tt4, tt5=0;
+uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
 
     auto* r = new uint64_t[size];
     // construct permuted p and v shares
@@ -287,7 +285,14 @@ uint64_t *ApplyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
  * @param size number of elements in data
  * */
  //TODO rename (what is N?)
- [[maybe_unused]] uint64_t *ApplyPermutationN(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi, uint32_t size, uint64_t ringbits) {
+ [[maybe_unused]] uint64_t *ApplyPermutationN(
+     Party *const proxy,
+     const uint64_t *const p,
+     uint64_t *const v,
+     const uint64_t *const pi,
+     uint32_t size,
+     uint64_t ringbits
+ ) {
     //   double tt1, tt2, tt3, tt4, tt5=0;
 
     auto bsz = ceil((ringbits+1)/8.0);
@@ -413,8 +418,14 @@ uint64_t *ApplyPermutation(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi,
     return pv_inv;
 }
 
-uint8_t *ApplyPermutationN2(Party *proxy, uint64_t *p, uint8_t *v, uint64_t *pi, uint32_t size, uint64_t ringbits) {
-
+uint8_t *ApplyPermutationN2(
+    Party *const proxy,
+    const uint64_t *const p,
+    uint8_t *const v,
+    const uint64_t *const pi,
+    uint32_t size,
+    uint64_t ringbits
+) {
     auto bsz = ceil((ringbits+1)/8.0);
     auto mask = (1<< (ringbits+1))-1; //ringbits+1 because number to be permuted 24 bit not 23
     auto mask2 = (1<< (ringbits))-1;
@@ -514,7 +525,13 @@ uint8_t *ApplyPermutationN2(Party *proxy, uint64_t *p, uint8_t *v, uint64_t *pi,
     return pr_inv;
 }
 
-uint64_t *ComposePermutations(Party *proxy, uint64_t *p, uint64_t *r, uint32_t size, uint64_t ringbits) {
+uint64_t *ComposePermutations(
+    Party *const proxy,
+    const uint64_t *const p,
+    const uint64_t *const r,
+    uint32_t size,
+    uint64_t ringbits
+) {
     auto bsz = ceil((ringbits)/8.0);
     auto mask = (1<< (ringbits))-1;
 
@@ -586,7 +603,7 @@ uint64_t *ComposePermutations(Party *proxy, uint64_t *p, uint64_t *r, uint32_t s
  * @param pi common permutation
  * @param size number of elements in data
  * */
-[[maybe_unused]] uint64_t *ApplyPermutationBoolean(Party *proxy, uint64_t *p, uint64_t *v, uint64_t *pi, uint32_t size) {
+[[maybe_unused]] uint64_t *ApplyPermutationBoolean(Party *const proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
     //   double tt1, tt2, tt3, tt4, tt5=0;
 
     auto* r = new uint64_t[size];
@@ -723,7 +740,14 @@ uint64_t *ComposePermutations(Party *proxy, uint64_t *p, uint64_t *r, uint32_t s
     return pv_inv;
 }
 
-uint64_t **ApplyPermutationVectorized(Party *proxy, uint64_t *p, uint64_t **v, uint64_t *pi, uint32_t size, uint32_t categories) {
+uint64_t **ApplyPermutationVectorized(
+    Party *const proxy,
+    const uint64_t *const p,
+    uint64_t *const *const v,
+    const uint64_t *const pi,
+    uint32_t size,
+    uint32_t categories
+) {
 
     auto** r = new uint64_t*[categories];
     auto* pip = new uint64_t[size];
@@ -895,7 +919,7 @@ uint64_t **ApplyPermutationVectorized(Party *proxy, uint64_t *p, uint64_t **v, u
 }
 
 // Sort algo that works with MostSignificantBit on 64 bit integers
-uint64_t *Sort(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of array
+uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //size = size of array
     int LT= 64;
     if (proxy->getPRole() == HELPER) {
         for(int i = 0; i < LT; ++i) {
@@ -974,7 +998,7 @@ uint64_t *Sort(Party *proxy, uint64_t *a, uint32_t size) {  //size = size of arr
 /** Sorting algorithm that uses XOR share for bit decomposition
  ** This algo works with ApplyPermutationN2 and has some errors currently in Sort
  ***/
-uint64_t *Sort(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  //size = size of array
+uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size, uint32_t ringbits) {  //size = size of array
     int LT= 64;
     int bsz = ceil(size/8.0);
     if (proxy->getPRole() == HELPER) {
@@ -1080,7 +1104,13 @@ uint64_t *Sort(Party *proxy, uint64_t *a, uint32_t size, uint32_t ringbits) {  /
  * @param index - index of the pivot column.
  * @return The sorted table
  * */
-uint64_t **Sort(Party *proxy, uint64_t **a, uint32_t size, uint32_t categories, uint32_t index) {  //size = size of array
+uint64_t **Sort(
+    Party *const proxy,
+    const uint64_t *const *const a,
+    uint32_t size,
+    uint32_t categories,
+    uint32_t index
+) {  //size = size of array
     int LT= 64;
     if (proxy->getPRole() == HELPER) {
         for(int i = 0; i < LT; ++i) {

@@ -413,7 +413,7 @@ uint64_t *BooleanSubstract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz)
  * @param a Arithmetic share
  * @param sz number of elements in the share
  * */
-uint64_t *Arithmetic2XOR(Party* proxy, uint64_t *a, uint32_t sz) {
+uint64_t *Arithmetic2XOR(Party *const proxy, const uint64_t *const a, uint32_t sz) {
 
     if ( proxy->getPRole() == HELPER ) {
         auto *ar = new uint64_t[sz];
