@@ -31,32 +31,6 @@ uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRAC) {
     return z;
 }
 
-uint64_t Reconstruct(Party *const proxy, uint64_t a, uint64_t mask= RING_N) {
-
-    uint64_t b;
-    if ( proxy->getPRole() == P1) {
-        unsigned char *ptr = proxy->getBuffer1();
-        addVal2CharArray(a, &ptr);
-        thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), 8);
-        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), 8);
-        thr1.join();
-        thr2.join();
-        ptr = proxy->getBuffer2();
-        b = convert2Long(&ptr);
-
-    } else if ( proxy->getPRole() == P2) {
-        unsigned char *ptr = proxy->getBuffer1();
-        addVal2CharArray(a, &ptr);
-        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), 8);
-        thr1.join();
-        thr2.join();
-        ptr = proxy->getBuffer2();
-        b = convert2Long(&ptr);
-    }
-    return (a + b) & mask;
-}
-
 uint64_t *Reconstruct(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t mask= RING_N) {
 
     uint64_t *b = new uint64_t[sz];
@@ -93,6 +67,13 @@ uint64_t *Reconstruct(Party *const proxy, const uint64_t *const a, uint32_t sz, 
         b[i] = (a[i] + b[i]) & mask;
     }
     return b;
+}
+
+uint64_t Reconstruct(Party *const proxy, uint64_t a, uint64_t mask= RING_N) {
+    uint64_t *result_array = Reconstruct(proxy, &a, 1, mask);
+    uint64_t result = result_array[0];
+    delete[] result_array;
+    return result;
 }
 
 /**Reconstruct a secret shared 2D array.*/
@@ -238,78 +219,6 @@ uint64_t** Add(Party *const proxy, const uint64_t *const *const *const a, int n_
     return res;
 }
 
-uint64_t Multiplex(Party *const proxy, uint64_t x, uint64_t y, uint64_t b, int shift = FRAC) {
-
-    if ( proxy->getPRole() == P1) {
-        uint64_t r1 = proxy->generateCommonRandom(), r2 = proxy->generateCommonRandom(), r3 = proxy->generateCommonRandom(), r4 = proxy->generateCommonRandom();
-        //uint64_t s = proxy->generateRandom();
-        //x = x + s ;
-        //y = y + s;
-        uint64_t m1 = (b * (x - y)) - (r3*(x-y)) - (r3*r4) - (r2*b);
-        //m1 = m1 >> FRAC;
-        uint64_t m2 = b + r1;
-        uint64_t m3 = x - y + r4;
-        unsigned char *ptr = proxy->getBuffer1();
-        addVal2CharArray(m2, &ptr);
-        addVal2CharArray(m3, &ptr);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
-        ptr = proxy->getBuffer1();
-        m1 = m1 + convert2Long(&ptr);
-        m1 = m1 >> shift; // do this and the corresponding one in P2 need to be changed to arithmetic shifting?
-        x = x - m1;
-
-
-        return x;
-    } else if ( proxy->getPRole() == P2) {
-        uint64_t r1 = proxy->generateCommonRandom(), r2 = proxy->generateCommonRandom(), r3 = proxy->generateCommonRandom(), r4 = proxy->generateCommonRandom();
-        //uint64_t s = proxy->generateRandom();
-        //x = x + s;
-        //y = y + s;
-        uint64_t m1 = (b * (x - y)) - (r1*(x-y)) - (r1*r2) - (r4*b);
-        //m1 = -1 * ((-1 * m1) >> FRAC);
-        uint64_t m2 = x - y + r2;
-        uint64_t m3 = b + r3;
-        unsigned char *ptr = proxy->getBuffer1();
-        //addVal2CharArray(m1, &ptr);
-        addVal2CharArray(m2, &ptr);
-        addVal2CharArray(m3, &ptr);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 8);
-        ptr = proxy->getBuffer1();
-        m1 = m1 + convert2Long(&ptr);
-        m1 = -1 * ((-1 * m1) >> shift);
-        x = x - m1 ;
-
-        return x;
-    } else if ( proxy->getPRole() == HELPER) {
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 16);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 16);
-        unsigned char *ptr = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
-        //uint64_t m1 = convert2Long(&ptr);
-        uint64_t m2 = convert2Long(&ptr);
-        uint64_t m3 = convert2Long(&ptr);
-        //uint64_t m4 = convert2Long(&ptr2);
-        uint64_t m5 = convert2Long(&ptr2);
-        uint64_t m6 = convert2Long(&ptr2);
-
-        uint64_t m = /*m1 + m4 -*/ (m2 * m5) + (m3 * m6);
-
-        uint64_t m1 = proxy->generateRandom();
-        m2 = m - m1;
-
-        ptr = proxy->getBuffer1();
-        addVal2CharArray(m1, &ptr);
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), 8);
-        ptr2 = proxy->getBuffer2();
-        addVal2CharArray(m2, &ptr2);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), 8);
-        return 0;
-    }
-    return -1;
-}
-
 uint64_t* Multiplex(Party *const proxy, const uint64_t *const x, const uint64_t *const y, const uint64_t *const b, uint32_t sz, int shift = FRAC) {
     if ( proxy->getPRole() == P1){
         unsigned char *ptr = proxy->getBuffer1();
@@ -397,61 +306,16 @@ uint64_t* Multiplex(Party *const proxy, const uint64_t *const x, const uint64_t 
     return NULL;
 }
 
-/** Check @p b>@p a
- *
- * @param a reconstructed value
- * @param b boolean share
- * @param L1
- * @return
- */
- //TODO rename function
-uint8_t PCB(Party *const proxy, uint64_t a, const uint8_t *const b, int L1) {
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint8_t w_sum = 0;
-        for (int i = L1 - 1; i >= 0; i--) {
-            uint8_t a_bit = bit(a, i);
-            int k = i;
-            uint8_t w = mod((b[k] +  proxy->getPRole() * a_bit - 2 * a_bit * b[k]) % LP, LP);
-            proxy->getBuffer1()[k] =
-                    (mod(( proxy->getPRole() * a_bit - b[k] +  proxy->getPRole() + w_sum), LP) * (proxy->generateCommonRandom() % (LP - 1) + 1)) %
-                    LP;
-            w_sum = (w_sum + w) % LP;
-        }
-        for (int i = 0; i < L1; i++) {
-            int ind1 = (proxy->generateCommonRandom() % L1);
-            int ind2 = (proxy->generateCommonRandom() % L1);
-            uint8_t tmp = proxy->getBuffer1()[ind1];
-            proxy->getBuffer1()[ind1] = proxy->getBuffer1()[ind2];
-            proxy->getBuffer1()[ind2] = tmp;
-        }
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), L1);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 1);
-        uint8_t r = proxy->getBuffer1()[0];
-        return r;
-
-    } else if ( proxy->getPRole() == HELPER) {
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), L1);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), L1);
-        unsigned char *ptr_out = proxy->getBuffer1();
-        unsigned char *ptr_out2 = proxy->getBuffer2();
-        uint8_t res = 0;
-        for (int i = 0; i < L1; i++) {
-            proxy->getBuffer1()[i] = (proxy->getBuffer1()[i] + proxy->getBuffer2()[i]) % LP;
-            if (((int) proxy->getBuffer1()[i]) == 0) {
-                res = 1;
-                break;
-            }
-        }
-        uint8_t res1 = proxy->generateRandom() % 2;
-        uint8_t res2 = res ^res1;
-
-        addVal2CharArray(res1, &ptr_out);
-        addVal2CharArray(res2, &ptr_out2);
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), 1);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), 1);
+uint64_t Multiplex(Party *const proxy, uint64_t x, uint64_t y, uint64_t b, int shift = FRAC) {
+    if (proxy->getPRole() == HELPER) {
+        Multiplex(proxy, nullptr, nullptr, nullptr, 1, shift);
         return 0;
+    } else {
+        uint64_t *result_vector = Multiplex(proxy, &x, &y, &b, 1, shift);
+        uint64_t result = result_vector[0];
+        delete[] result_vector;
+        return result;
     }
-    return -1;
 }
 
 /**
@@ -463,7 +327,7 @@ uint8_t PCB(Party *const proxy, uint64_t a, const uint8_t *const b, int L1) {
  * @return
  */
  //TODO rename function
-uint8_t *PCB(Party *const proxy, const uint64_t *const a, uint8_t *b, uint32_t sz, int L1) {
+uint8_t *PCB(Party *const proxy, const uint64_t *const a, const uint8_t *const b, uint32_t sz, int L1) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
         for (int j = 0; j < sz; j++) {
             int jk = j * L1;
@@ -520,90 +384,26 @@ uint8_t *PCB(Party *const proxy, const uint64_t *const a, uint8_t *b, uint32_t s
     return NULL;
 }
 
-/** Modular conversion.
+/** Check @p b>@p a
  *
- * @param x a value in the ring 2^63
+ * @param a reconstructed value
+ * @param b boolean share
+ * @param L1
  * @return
  */
-uint64_t ModularConversion(Party *const proxy, uint64_t x) {
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t z_1;
-        uint64_t ya;
-        uint8_t yb[L_BIT - 1];
-        uint8_t w;
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), (8 + L_BIT));
-        unsigned char *ptr = proxy->getBuffer1();
-        // an arithmetic share of y from the helper  : ya
-        ya = convert2Long(&ptr);
-        // boolean shares of each bit of y: yb
-        convert2Array(&ptr, &yb[0], L_BIT - 1);
-        // a boolean share of whether addition of arithmetic shares (ya_1+ya_2) of y wraps around in the ring 2^63 :w
-        w = (*ptr);
-        // z1 is x+ya
-        z_1 = (x + ya) & N1_MASK;
-        // z is the reconstruction of z_1. From z, P1 or P2 can not learn x because x is masked with ya.
-        uint64_t z = Reconstruct(proxy, z_1, N1_MASK);
-        // computes y>z where yb are boolean shares of each bit of y
-        uint8_t wc = PCB(proxy, z, yb, L_BIT - 1);
-
-        // w=1 means there is an overflow
-        // wc=1 means there is an overflow
-        // w = w ^ wc determines whether there is an overflow
-        w = w ^ wc;
-        if ( proxy->getPRole() == P1 && z_1 > z)
-            // if the addition of arithmetic shares of z wraps around P1 adds 2^63 the arithmetic share of z.
-            z_1 = z_1 + N1;
-        // removing y and the overflow (if there is one) from z
-        z_1 = z_1 - (ya + w * N1);
-        return z_1;
-    }
-    else if ( proxy->getPRole() == HELPER) {
-        //cout << "start helper ModularConversion" << endl;
-        unsigned char *ptr_out = proxy->getBuffer1();
-        unsigned char *ptr_out2 = proxy->getBuffer2();
-        // helper picks a random number in the ring 2^63
-        uint64_t y = proxy->generateRandom() & N1_MASK;
-        // helper creates two shares for y in the ring 2^63: ya_1 and ya_2
-        uint64_t ya_1 = proxy->generateRandom() & N1_MASK;
-        uint64_t ya_2 = (y - ya_1) & N1_MASK;
-
-        // adding ya_1 and ya_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.
-        addVal2CharArray(ya_1, &ptr_out);
-        addVal2CharArray(ya_2, &ptr_out2);
-
-        // helper creates two boolean shares for each bit of y : yb_1 and yb_2
-        // writing yb_1 and yb_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.
-        for (int j = 0; j < L_BIT - 1; j++) {
-            uint8_t k = (y >> j) & 0x1;
-            uint8_t yb_1 = proxy->generateRandom() % LP;
-            uint8_t yb_2 = mod(k - yb_1, LP);
-            addVal2CharArray(yb_1, &ptr_out);
-            addVal2CharArray(yb_2, &ptr_out2);
-        }
-
-        // if ya_1+ya_2 wraps around 2^63 w=1.
-        uint8_t w = 0;
-        if (ya_1 > y)
-            w = 1;
-
-        // creating two boolean shares of w : w_1 and w_2
-        uint8_t w_1 = proxy->generateRandom() % 2;
-        uint8_t w_2 = w ^w_1;
-        // writing w_1 and w_2 to proxy->getBuffer1() and proxy->getBuffer2() respectively.
-        addVal2CharArray(w_1, &ptr_out);
-        addVal2CharArray(w_2, &ptr_out2);
-
-        // sending values to P1 and P2
-        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), (8 + L_BIT));
-        thread thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), (8 + L_BIT));
-        thr1.join();
-        thr2.join();
-
-        // P1 and P2 will call PrivateCompareBool
-        uint8_t tmp = PCB(proxy, 0, 0, L_BIT - 1);
+//TODO rename function
+uint8_t PCB(Party *const proxy, uint64_t a, const uint8_t *const b, int L1) {
+    if (proxy->getPRole() == HELPER) {
+        PCB(proxy, nullptr, nullptr, 1, L1);
         return 0;
+    } else {
+        uint64_t a_array[1];
+        a_array[0] = a;
+        auto result_vector = PCB(proxy, a_array, b, 1, L1);
+        uint64_t result = result_vector[0];
+        delete[] result_vector;
+        return result;
     }
-    return -1;
 }
 
 /** Multiple modular conversions.
@@ -677,88 +477,21 @@ uint64_t *ModularConversion(Party *const proxy, const uint64_t *const x, uint32_
     return NULL;
 }
 
-// THIS MostSignificantBit IS NOT UP-TO-DATE! WE NEED TO EITHER UPDATE IT OR DELETE IT!
-/** Most significant bit: Returns the first (=left-most) bit of @p x.
+/** Modular conversion.
  *
- * @param x
- * @return The first bit of @p x
+ * @param x a value in the ring 2^63
+ * @return
  */
-uint64_t MostSignificantBit(Party *const proxy, uint64_t x) {
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t d_k = x & N1_MASK;
-        uint64_t d = ModularConversion(proxy, d_k);
-        uint64_t m = x - d;
-        unsigned char *ptr = proxy->getBuffer1();
-
-        ptr = proxy->getBuffer1();
-        uint64_t added_random;
-        added_random = proxy->generateCommonRandom()%2;
-        if ( proxy->getPRole() == P1) {
-            if (added_random == 0) {
-                addVal2CharArray(m, &ptr);
-                addVal2CharArray(m + N1, &ptr);
-            }else{
-                addVal2CharArray(m + N1, &ptr);
-                addVal2CharArray(m, &ptr);
-            }
-        }
-        else {
-            addVal2CharArray(m, &ptr);
-            addVal2CharArray(m, &ptr);
-        }
-
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 8 * 2);
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(),  8 * 2);
-        ptr = proxy->getBuffer1();
-
-        if (added_random == 0){
-            m = convert2Long(&ptr);
-            ptr += 8;
-        }else{
-            ptr += 8;
-            m = convert2Long(&ptr);
-        }
-
-        return m;
-
-    } else if ( proxy->getPRole() == HELPER) {
-
-        unsigned char *ptr_out = proxy->getBuffer1();
-        unsigned char *ptr_out2 = proxy->getBuffer2();
-        uint64_t d = ModularConversion(proxy, 0);
-
-
-        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), 8 * 2);
-        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), 8 * 2);
-        thr1.join();
-        thr2.join();
-
-        unsigned char *ptr = proxy->getBuffer1();
-        ptr_out = proxy->getBuffer1();
-
-        unsigned char *ptr2 = proxy->getBuffer2();
-        ptr_out2 = proxy->getBuffer2();
-
-        uint64_t v1 = convert2Long(&ptr2) + convert2Long(&ptr);
-        uint64_t v2 = convert2Long(&ptr2) + convert2Long(&ptr);
-        v1 = convert2uint64((double)(v1/N1));
-        v2 = convert2uint64((double)(v2/N1));
-        uint64_t s1 = proxy->generateRandom();
-        uint64_t s2 = v1 - s1;
-        addVal2CharArray(s1, &ptr_out);
-        addVal2CharArray(s2, &ptr_out2);
-        s1 = proxy->generateRandom();
-        s2 = v2 - s1;
-        addVal2CharArray(s1, &ptr_out);
-        addVal2CharArray(s2, &ptr_out2);
-
-        thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(),  8 * 2);
-        thr2 = thread(Send,proxy->getSocketP2(), proxy->getBuffer2(), 8 * 2);
-        thr1.join();
-        thr2.join();
+uint64_t ModularConversion(Party *const proxy, uint64_t x) {
+    if (proxy->getPRole() == HELPER) {
+        ModularConversion(proxy, nullptr, 1);
         return 0;
+    } else {
+        uint64_t *result_vector = ModularConversion(proxy, &x, 1);
+        uint64_t result = result_vector[0];
+        delete[] result_vector;
+        return result;
     }
-    return -1;
 }
 
 //TODO rename
@@ -952,6 +685,22 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
     return 0;
 }
 
+/** Most significant bit: Returns the first (=left-most) bit of @p x.
+ *
+ * @param x
+ * @return The first bit of @p x
+ */
+uint64_t MostSignificantBit(Party *const proxy, uint64_t x) {
+    if (proxy->getPRole() == HELPER) {
+        MostSignificantBit(proxy, nullptr, 1);
+        return 0;
+    } else {
+        auto result_array = MostSignificantBit(proxy, &x, 1);
+        uint64_t result = result_array[0];
+        delete[] result_array;
+        return result;
+    }
+}
 
 uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t sz, int shift = FRAC) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
@@ -961,7 +710,7 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
         }
         uint64_t* m = MostSignificantBit(proxy, diff, sz);
         for (int i = 0; i < sz; i++) {
-            m[i] =  (proxy->getPRole()<<shift) - m[i];
+            m[i] =  (proxy->getPRole()<<shift) - (m[i] << shift);
         }
         return m;
     }else if ( proxy->getPRole() == HELPER) {
@@ -979,108 +728,46 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
  * @param y
  * @return 0 if @p x < @p y else 1
  */
-uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRAC) { // TODO change this back once MostSignificantBit is working again
+uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRAC) {
     if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
-        uint64_t* diff = new uint64_t[1];
-        diff[0] = x - y;
-        uint64_t* msb = MostSignificantBit(proxy, diff, 1);
-        uint64_t result = (proxy->getPRole()<<shift) - (msb[0] << shift);
-        delete[] diff;
-        delete[] msb;
+        uint64_t *result_array = Compare(proxy, &x, &y, 1, shift);
+        uint64_t result = result_array[0];
+        delete[] result_array;
         return  result;
     }else if ( proxy->getPRole() == HELPER) {
-        MostSignificantBit(proxy, nullptr, 1);
+        Compare(proxy, nullptr, nullptr, 1, shift);
         return 0;
     }
     return -1;
 }
 
 uint64_t* Equals(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t size, int shift = FRAC) {
-    uint64_t* k = Compare(proxy, x, y, size, shift);
-    uint64_t* l = Compare(proxy, y, x, size, shift);
+    uint64_t *xy = new uint64_t[size*2];
+    uint64_t *yx = new uint64_t[size*2];
+    std::memcpy(xy, x, size*8);
+    std::memcpy(yx, y, size*8);
+    std::memcpy(xy+size, y, size*8);
+    std::memcpy(yx+size, x, size*8);
+    uint64_t* greater_and_smaller = Compare(proxy, xy, yx, size, shift);
+    delete[] xy;
+    delete[] yx;
     auto m = new uint64_t[size];
     for (int i = 0; i < size; i++) {
-        m[i] = 1-k[i]-l[i];
+        m[i] = 1-greater_and_smaller[i]-greater_and_smaller[i+size];
     }
+    delete[] greater_and_smaller;
     return m;
 }
 
 uint64_t Equals(Party *const proxy, uint64_t x, uint64_t y, int shift = FRAC){
-    uint64_t k = Compare(proxy, x, y, shift);
-    uint64_t l = Compare(proxy, y, x, shift);
-    return 1-k-l;
-}
-
- /** Multiplication of two numbers.
-  *
-  * @param proxy
-  * @param a a share of the first multiplicand
-  * @param b a share of the second multiplicand
-  * @return the share of the multiplication of @p a and @p b
-  */
-uint64_t Multiply(Party *const proxy, uint64_t a, uint64_t b, int shift = FRAC) {
-
-    if(DEBUG_FLAG >= 1)
-        cout << "************************************************************\nNF_MUL is called" << endl;
     if (proxy->getPRole() == HELPER) {
-        uint64_t *mt1[3];
-        uint64_t *mt2[3];
-        for (int i = 0; i < 3; i++) {
-            mt1[i] = new uint64_t[1];
-            mt2[i] = new uint64_t[1];
-        }
-        GenerateMultiplicationTriple(proxy, mt1, mt2, 1);
-
-        // send the multiplication triples to P1
-        unsigned char *ptr_out = proxy->getBuffer1();
-        for (auto &i : mt1) {
-            addVal2CharArray(i[0], &ptr_out);
-        }
-
-        // addVal2CharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
-        Send(proxy->getSocketP1(), proxy->getBuffer1(), 3 * 8);
-
-        // send the multiplication triples to P2
-        unsigned char *ptr_out2 = proxy->getBuffer2();
-        for (auto &i : mt2) {
-            addVal2CharArray(i[0], &ptr_out2);
-        }
-        // addVal2CharArray(mt2, &ptr_out2, 3, size);
-        Send(proxy->getSocketP2(), proxy->getBuffer2(), 3 * 8);
-
-        for (int i = 0; i < 3; i++) {
-            delete[] mt1[i];
-            delete[] mt2[i];
-        }
-        if(DEBUG_FLAG >= 1)
-            cout << "Returning from NF_MUL...\n************************************************************" << endl;
+        Equals(proxy, nullptr, nullptr, 1, shift);
         return 0;
-
-    } else if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), 3 * 8);
-        unsigned char *ptr = proxy->getBuffer1();
-        uint64_t mt[3];
-        for (auto &i : mt) {
-            i = convert2Long(&ptr);
-        }
-
-        uint64_t e_f[2];
-        e_f[0] = a - mt[0];
-        e_f[1] = b - mt[1];
-
-        uint64_t* rec_e_f = Reconstruct(proxy,e_f, 2);
-
-        uint64_t z = proxy->getPRole() * rec_e_f[0] * rec_e_f[1] + rec_e_f[1] * mt[0] + rec_e_f[0] * mt[1] + mt[2];
-
-        z = Truncate(proxy, z, shift);
-
-        delete [] rec_e_f;
-
-        if(DEBUG_FLAG >= 1)
-            cout << "Returning from NF_MUL...\n************************************************************" << endl;
-        return z;
     } else {
-        return -1;
+        uint64_t *result_array = Equals(proxy, &x, &y, 1, shift);
+        uint64_t result = result_array[0];
+        delete[] result_array;
+        return result;
     }
 }
 
@@ -1168,119 +855,23 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
     }
 }
 
-/** Exponential. Note that this function considers only the specific number of least significant bits not to cause
- * overflow. This is different for positive and negative powers.
- *
- * @param a the value that will be used as the power of exp
- * @return Returns the arithmetic secret share of exp(@p a)
- */
-uint64_t Exp(Party *const proxy, uint64_t a, int shift = FRAC) {
-    int p_role = proxy->getPRole();
-    int n_bits = proxy->getNBits();
-    int neg_n_bits = proxy->getNegNBits();
-    if (p_role == P1 || p_role == P2) {
-        // compute the absolute of the input value
-        uint64_t msb_a = MostSignificantBit(proxy, a);
-        uint64_t abs_a = ((uint64_t) 0) - a;
-
-        // selection of the correct contribution from each bit of the input value based on the msb of the input value
-        uint64_t *pos_e_contributions = new uint64_t[n_bits + 1];
-        uint64_t *neg_e_contributions = new uint64_t[n_bits + 1];
-        uint64_t *one_contributions = new uint64_t[n_bits];
-        uint64_t *repeated_msb_a = new uint64_t[n_bits + 1];
-
-        pos_e_contributions[0] = a;
-        neg_e_contributions[0] = abs_a;
-        repeated_msb_a[0] = msb_a;
-
-        for (int i = n_bits - 1; i >= 0; i--) {
-            pos_e_contributions[n_bits - i] = p_role * convert2uint64(exp(pow(2, i - shift)));
-            if (i > neg_n_bits - 1) {
-                neg_e_contributions[n_bits - i] = p_role * (((uint64_t) 1) << shift);
-            } else {
-                neg_e_contributions[n_bits - i] = p_role * convert2uint64(1.0 / exp(pow(2, i - shift)));
-            }
-            one_contributions[(n_bits - 1) - i] = p_role * (((uint64_t) 1) << shift);
-            repeated_msb_a[n_bits - i] = msb_a;
-        }
-
-        uint64_t *e_contributions = Multiplex(proxy, pos_e_contributions, neg_e_contributions, repeated_msb_a,
-                                              n_bits + 1, shift);
-        uint64_t new_a = e_contributions[0];
-        e_contributions = &e_contributions[1];
-        uint64_t horse = Reconstruct(proxy, new_a);
-
-        // arrange all the shifted versions of the input value for MMSB
-        uint64_t *partial_a = new uint64_t[n_bits];
-        uint64_t tmp = new_a << (L_BIT - n_bits);
-        for (int i = 0; i < n_bits; i++) {
-            partial_a[i] = tmp << i;
-        }
-
-        uint64_t *bit_shares = MostSignificantBit(proxy, partial_a, n_bits);
-
-        // selection of the contribution of the bits of the value
-        uint64_t *contributions = Multiplex(proxy, one_contributions, e_contributions, bit_shares, n_bits, shift);
-
-        // binary-tree-based multiplication of the contributions into the exponential
-        uint64_t res = 1;
-        int current_size = n_bits;
-        bool flag = false;
-        uint64_t remaining = 0;
-
-        for (int i = 0; i < (int) ceil(log2(n_bits)); i++) {
-            uint64_t *tmp1 = contributions;
-            uint64_t *tmp2 = &contributions[current_size / 2];
-
-            if (current_size % 2 == 1) {
-                if (!flag) {
-                    remaining = contributions[current_size - 1];
-                    flag = true;
-                } else {
-                    tmp1 = new uint64_t[(current_size + 1) / 2];
-                    tmp2 = new uint64_t[(current_size + 1) / 2];
-
-                    size_t partial_size = current_size / 2;
-
-                    copy(contributions, contributions + partial_size + 1, tmp1);
-                    copy(contributions + partial_size + 1, contributions + current_size, tmp2);
-
-                    tmp2[current_size / 2] = remaining;
-
-                    current_size++;
-
-                    flag = false;
-                }
-            }
-            contributions = Multiply(proxy, tmp1, tmp2, current_size / 2, shift);
-            current_size /= 2;
-        }
-        return contributions[0];
-    }
-    else if (p_role == HELPER) {
-        MostSignificantBit(proxy, 0);
-        Multiplex(proxy, 0, 0, 0, n_bits + 1, shift);
-        MostSignificantBit(proxy, 0, n_bits);
-        Multiplex(proxy, 0, 0, 0, n_bits, shift);
-
-        int current_size = n_bits;
-        bool flag = false;
-        for (int i = 0; i < (int) ceil(log2(n_bits)); i++) {
-            if (current_size % 2 == 1) {
-                if (!flag) {
-                    flag = true;
-                } else {
-                    current_size++;
-                    flag = false;
-                }
-            }
-            Multiply(proxy, 0, 0, current_size / 2, shift);
-            current_size /= 2;
-        }
-
+ /** Multiplication of two numbers.
+  *
+  * @param proxy
+  * @param a a share of the first multiplicand
+  * @param b a share of the second multiplicand
+  * @return the share of the multiplication of @p a and @p b
+  */
+uint64_t Multiply(Party *const proxy, uint64_t a, uint64_t b, int shift = FRAC) {
+    if (proxy->getPRole() == HELPER) {
+        Multiply(proxy, nullptr, nullptr, 1, shift);
         return 0;
+    } else {
+        uint64_t *result_array = Multiply(proxy, &a, &b, 1, shift);
+        uint64_t result = result_array[0];
+        delete[] result_array;
+        return result;
     }
-    return 0;
 }
 
 /** Multiple exponentials. Note that this function considers only the specific number of least significant bits not to
@@ -1469,6 +1060,24 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
     }
 }
 
+/** Exponential. Note that this function considers only the specific number of least significant bits not to cause
+ * overflow. This is different for positive and negative powers.
+ *
+ * @param a the value that will be used as the power of exp
+ * @return Returns the arithmetic secret share of exp(@p a)
+ */
+uint64_t Exp(Party *const proxy, uint64_t a, int shift = FRAC) {
+    if (proxy->getPRole() == HELPER) {
+        Exp(proxy, nullptr, 1, shift);
+        return 0;
+    } else {
+        uint64_t* result_array = Exp(proxy, &a, 1, shift);
+        uint64_t result = result_array[0];
+        delete[] result_array;
+        return result;
+    }
+}
+
 /** PartialSum: sum the elements of each section separately.
  *
  * @param a the vector on which we perform the partial summation
@@ -1491,43 +1100,6 @@ uint64_t* PartialSum(Party *const proxy, const uint64_t *const a, uint32_t size,
     }
     else {
         return NULL;
-    }
-}
-
-/** computes the dot product of two single arithmetically shared vectors.
- *
- * @param proxy
- * @param a vector
- * @param b vector
- * @param size the length of the vectors
- * @return
- */
-uint64_t DotProduct(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, int shift = FRAC) {
-    // This function computes the dot product of two single arithmetically shared vectors.
-    // Input(s)
-    // x and y: vectors of the given size
-    // size: the lenght of the vectors
-    // Return(s)
-    // The dot product of x and y as a single value
-    int p_role = proxy->getPRole();
-    if(p_role == P1 || p_role == P2) {
-        // compute elementwise multiplication of vectors
-        uint64_t *ew_xy = Multiply(proxy, a, b, size, shift);
-        // sum the result of the multiplications to obtain the dot product
-        uint64_t res = 0;
-        for(uint32_t i = 0; i < size; i++) {
-            res += ew_xy[i];
-        }
-        delete [] ew_xy;
-
-        return res;
-    }
-    else if(p_role == HELPER) {
-        Multiply(proxy, 0, 0, size, shift);
-        return 0;
-    }
-    else {
-        return -1;
     }
 }
 
@@ -1561,70 +1133,23 @@ uint64_t* DotProduct(Party *const proxy, const uint64_t *const a, const uint64_t
 
 }
 
-/** Perform multiplication of matrices a and b.
- * The function assumes that the number of columns of a equals to the number of rows of b.
+/** computes the dot product of two single arithmetically shared vectors.
  *
- * @param a two dimensional matrix
- * @param b two dimensional matrix
- * @param a_row number of rows of @p a and @p b; for helper: this must be the product of a_row * a_col * b_col, all other values are ignored.
- * @param a_col number of columns of @p a
- * @param b_col number of columns of @p b
- * @return a matrix of size @p a_row by @p b_col
+ * @param proxy
+ * @param a vector
+ * @param b vector
+ * @param size the length of the vectors
+ * @return
  */
-uint64_t** MatrixMatrixMultiply(
-    Party *const proxy,
-    const uint64_t *const *const a,
-    const uint64_t *const *const b,
-    uint32_t a_row,
-    uint32_t a_col,
-    uint32_t b_col,
-    int shift = FRAC
-) {
-    int p_role = proxy->getPRole();
-    if (p_role == P1 || p_role == P2) {
-        // form a single vector for each matrix such that all required multiplications can be performed in one go
-        uint32_t size = a_row * a_col * b_col;
-        uint64_t *concat_a = new uint64_t[size];
-        uint64_t *concat_b = new uint64_t[size];
-
-        for (uint32_t i = 0; i < size; i++) {
-            concat_a[i] = a[i / (a_col * b_col)][i % a_col];
-            concat_b[i] = b[i % a_col][(i % (a_col * b_col)) / a_col];
-        }
-
-        uint64_t *tmp = Multiply(proxy, concat_a, concat_b, size, shift);
-
-        // recover the resulting matrix
-        uint64_t **res = new uint64_t *[a_row];
-        uint32_t ind = 0;
-        uint64_t tmp_sum;
-        for (uint32_t i = 0; i < a_row; i++) {
-            res[i] = new uint64_t[b_col];
-            for (uint32_t j = 0; j < b_col; j++) {
-                tmp_sum = 0;
-                for (uint32_t k = ind; k < ind + a_col; k++) {
-                    tmp_sum += tmp[k];
-                }
-                ind += a_col;
-                res[i][j] = tmp_sum;
-            }
-        }
-
-        delete[] concat_a;
-        delete[] concat_b;
-        delete[] tmp;
-
-        return res;
-    }
-    else if( p_role == HELPER) {
-        // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-        cout << "Multiply..." << endl;
-        Multiply(proxy, NULL, NULL, a_row, shift);
-        cout << "returned from Multiply" << endl;
-        return NULL;
-    }
-    else {
-        return NULL;
+uint64_t DotProduct(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, int shift = FRAC) {
+    if (proxy->getPRole() == HELPER) {
+        DotProduct(proxy, nullptr, nullptr, size, size, shift);
+        return 0;
+    } else {
+        uint64_t *result_vector = DotProduct(proxy, a, b, size, size, shift);
+        uint64_t result = result_vector[0];
+        delete[] result_vector;
+        return result;
     }
 }
 
@@ -1699,60 +1224,33 @@ uint64_t*** MatrixMatrixMultiply(
     }
 }
 
-/** Perform multiplication of matrix a and vector b. The function assumes that the number of columns of a is equal to
- * the length of b.
+/** Perform multiplication of matrices a and b.
+ * The function assumes that the number of columns of a equals to the number of rows of b.
+ *
  * @param a two dimensional matrix
- * @param b vector
- * @param a_row number of rows of @p a; for helper: this must be the product of a_row * a_col, a_col is ignored.
- * @param a_col number of columns of @p a / size of @p b
- * @return a vector of size @p a_row
+ * @param b two dimensional matrix
+ * @param a_row number of rows of @p a and @p b; for helper: this must be the product of a_row * a_col * b_col, all other values are ignored.
+ * @param a_col number of columns of @p a
+ * @param b_col number of columns of @p b
+ * @return a matrix of size @p a_row by @p b_col
  */
-uint64_t* MatrixVectorMultiply(
+uint64_t** MatrixMatrixMultiply(
     Party *const proxy,
     const uint64_t *const *const a,
-    const uint64_t *const b,
+    const uint64_t *const *const b,
     uint32_t a_row,
     uint32_t a_col,
+    uint32_t b_col,
     int shift = FRAC
 ) {
-    int p_role = proxy->getPRole();
-    if (p_role == P1 || p_role == P2) {
-        // form a single vector for each matrix such that all required multiplications can be performed in one go
-        uint32_t size = a_row * a_col;
-        uint64_t *concat_a = new uint64_t[size];
-        uint64_t *concat_b = new uint64_t[size];
-
-        for (uint32_t i = 0; i < size; i++) {
-            concat_a[i] = a[i / a_col][i % a_col];
-            concat_b[i] = b[i % a_col];
-        }
-        uint64_t *tmp = Multiply(proxy, concat_a, concat_b, size, shift);
-
-        // recover the resulting vector
-        uint64_t *res = new uint64_t [a_row];
-        uint32_t ind = 0;
-        uint64_t tmp_sum;
-        for (uint32_t i = 0; i < a_row; i++) {
-            tmp_sum = 0;
-            for (uint32_t k = ind; k < ind + a_col; k++) {
-                tmp_sum += tmp[k];
-            }
-            ind += a_col;
-            res[i] = tmp_sum;
-        }
-
-        delete[] concat_a;
-        delete[] concat_b;
-        delete[] tmp;
-
-        return res;
-    }
-    else if(p_role == HELPER) {
-        // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-        return Multiply(proxy, NULL, NULL, a_row, shift);
-    }
-    else {
+    if (proxy->getPRole() == HELPER) {
+        MatrixMatrixMultiply(proxy, nullptr, nullptr, 1, a_row, a_col, b_col, shift);
         return nullptr;
+    } else {
+        uint64_t ***result_array = MatrixMatrixMultiply(proxy, &a, &b, 1, a_row, a_col, b_col, shift);
+        uint64_t **result = result_array[0];
+        delete[] result_array;
+        return result;
     }
 }
 
@@ -1817,6 +1315,33 @@ uint64_t** MatrixVectorMultiply(
     }
     else {
         return nullptr;
+    }
+}
+
+/** Perform multiplication of matrix a and vector b. The function assumes that the number of columns of a is equal to
+ * the length of b.
+ * @param a two dimensional matrix
+ * @param b vector
+ * @param a_row number of rows of @p a; for helper: this must be the product of a_row * a_col, a_col is ignored.
+ * @param a_col number of columns of @p a / size of @p b
+ * @return a vector of size @p a_row
+ */
+uint64_t* MatrixVectorMultiply(
+    Party *const proxy,
+    const uint64_t *const *const a,
+    const uint64_t *const b,
+    uint32_t a_row,
+    uint32_t a_col,
+    int shift = FRAC
+) {
+    if (proxy->getPRole() == HELPER) {
+        MatrixVectorMultiply(proxy, nullptr, nullptr, 1, a_row, a_col, shift);
+        return nullptr;
+    } else {
+        uint64_t** result_array = MatrixVectorMultiply(proxy, &a, &b, 1, a_row, a_col, shift);
+        uint64_t* result = result_array[0];
+        delete[] result_array;
+        return result;
     }
 }
 
@@ -1907,94 +1432,6 @@ uint64_t ModularInverse(Party *const proxy, uint64_t a){
             thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 8);
             thr1.join();
             thr2.join();
-        }
-        return 0;
-    }
-    return -1;
-}
-
-/** Compute the division of a / b - not the integer approximation of the result
- *
- * @param proxy : Party instance
- * @param a : dividend
- * @param b : divider
- * @param first_call : indicates whether the Divide call is for the integer part of the division result, i.e. first call.
- * If it is the first call, then there will be the second call of Divide for the fractional part of the division result
- * @return a / b
- */
-uint64_t Divide(Party *const proxy, uint64_t a, uint64_t b, int shift = FRAC, bool first_call = true) {
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        uint64_t *signs;
-        if(first_call) {
-            uint64_t inp1[2] = {a, b};
-            signs = MostSignificantBit(proxy, inp1, 2);
-            uint64_t inp2[2] = {(uint64_t) 0 - a, (uint64_t) 0 - b};
-            uint64_t *abs_vals = Multiplex(proxy, inp1, inp2, signs, 2, shift);
-            a = abs_vals[0];
-            b = abs_vals[1];
-
-            delete [] abs_vals;
-        }
-
-        // obtain every bit of the dividend
-        uint64_t *msb_bits_of_a_and_b = new uint64_t[L_BIT + 1];
-        uint64_t tmp = a;
-        for(int i = 0; i < L_BIT; i++) {
-            msb_bits_of_a_and_b[i] = tmp;
-            tmp = tmp << 1;
-        }
-        uint64_t *bits_of_a = MostSignificantBit(proxy, msb_bits_of_a_and_b, L_BIT, false);
-
-        uint64_t Q = 0;
-        uint64_t R = 0;
-        for (int16_t i = L_BIT - 1; i >= 0; i--) {
-            R = R << 1;
-            R = R + bits_of_a[L_BIT - 1 - i];
-
-            uint64_t c = Compare(proxy, R, b, shift);
-            uint64_t o1[2] = {c, c};
-            uint64_t o2[2] = {b, ((uint64_t) proxy->getPRole()) << i};
-
-            uint64_t *v = Multiply(proxy, o1, o2, 2, shift);
-            R = R - v[0];
-            Q = Q + v[1];
-
-            delete [] v;
-        }
-
-        delete [] msb_bits_of_a_and_b;
-        delete [] bits_of_a;
-
-        if(first_call) {
-            uint64_t second_div = Divide(proxy, R << shift, b, shift, false);
-            Q = (Q << shift) + second_div;
-            // determine the selection bit for the sign of the result based on the signs of a and b
-            // choose the positive result if a < 0 and b < 0, or a >= 0 and b >= 0
-            // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
-            // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
-            uint64_t c = signs[0] + signs[1] - 2 * Multiply(proxy, signs[0], signs[1], shift);
-            Q = Multiplex(proxy, Q, (uint64_t) 0 - Q, c, shift);
-            delete [] signs;
-        }
-        return Q;
-    }
-    else if (proxy->getPRole() == HELPER) {
-        if(first_call) {
-            MostSignificantBit(proxy, 0, 2);
-            Multiplex(proxy, 0, 0, 0, 2, shift);
-        }
-
-        MostSignificantBit(proxy, 0, L_BIT, false);
-
-        for (int16_t i = L_BIT - 1; i >= 0; i--) {
-            Compare(proxy, 0, 0, shift);
-            Multiply(proxy, 0, 0, 2, shift);
-        }
-
-        if(first_call) {
-            Divide(proxy, 0, 0, shift, false);
-            Multiply(proxy, 0, 0, shift);
-            Multiplex(proxy, 0, 0, 0, shift);
         }
         return 0;
     }
@@ -2148,6 +1585,27 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
         return NULL;
     }
     return NULL;
+}
+
+/** Compute the division of a / b - not the integer approximation of the result
+ *
+ * @param proxy : Party instance
+ * @param a : dividend
+ * @param b : divider
+ * @param first_call : indicates whether the Divide call is for the integer part of the division result, i.e. first call.
+ * If it is the first call, then there will be the second call of Divide for the fractional part of the division result
+ * @return a / b
+ */
+uint64_t Divide(Party *const proxy, uint64_t a, uint64_t b, int shift = FRAC) {
+    if (proxy->getPRole() == HELPER) {
+        Divide(proxy, nullptr, nullptr, 1, shift);
+        return 0;
+    } else {
+        uint64_t* result_array = Divide(proxy, &a, &b, 1, shift);
+        uint64_t result = result_array[0];
+        delete[] result_array;
+        return result;
+    }
 }
 
 /** Perform division operation, or more specifically normalization operation, of two given inputs. The operation is
