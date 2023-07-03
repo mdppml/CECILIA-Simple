@@ -722,7 +722,6 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
 
 /** Comparison between two numbers.
  *
- *  Because MostSignificantBit for two singular numbers is broken at the moment, this temporarily uses the vectorised version.
  * @param proxy
  * @param x
  * @param y

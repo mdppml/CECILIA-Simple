@@ -6,7 +6,7 @@
 #include <assert.h>
 #include "../../core/cnn.h"
 #include "model_parser.h"
-#include "mnist_data/mnist_reader.hpp"
+#include "mnist_reader.hpp"
 
 #include <fstream>
 
