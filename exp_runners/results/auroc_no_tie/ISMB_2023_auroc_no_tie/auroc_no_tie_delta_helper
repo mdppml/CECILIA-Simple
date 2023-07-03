@@ -1,0 +1,72 @@
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	1668732348
+Bytes Received:	2003108762
+Receive Time	1130.131058 sec
+Send Time	2.010103121 sec
+Paper	1668.732348000	2003.108762000	818.982157166
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	1114297560
+Bytes Received:	1337039624
+Receive Time	1028.249796 sec
+Send Time	1.675350660 sec
+Paper	1114.297560000	1337.039624000	732.853335125
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	559281410
+Bytes Received:	670545510
+Receive Time	927.214638 sec
+Send Time	1.307484591 sec
+Paper	559.281410000	670.545510000	646.658238334
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	261081554
+Bytes Received:	312221336
+Receive Time	878.392048 sec
+Send Time	1.116514937 sec
+Paper	261.081554000	312.221336000	604.806049958
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	132837796
+Bytes Received:	158513535
+Receive Time	864.502615 sec
+Send Time	1.037759489 sec
+Paper	132.837796000	158.513535000	591.720455708
+P1 is connected
+P2 is connected
+Sz: 8000
+Calling ROCNOTIE...
+First MUL is over.
+Second MUL is over.
+Returning from ROCNOTIE...
+Bytes Sent:	70440004
+Bytes Received:	83315229
+Receive Time	879.387200 sec
+Send Time	1.014001643 sec
+Paper	70.440004000	83.315229000	599.530774208

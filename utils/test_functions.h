@@ -74,7 +74,7 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
 
         double tmp_sum = 0;
         for(int j = 0; j < n_col; j++) {
-            d_tmp1 = 10 * (static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
+            d_tmp1 = 10 * (static_cast <float> (proxy->generateRandom()) / static_cast <float> (RAND_MAX));
             tmp_sum += pow(d_tmp1, 2);
 //            if (rand() % 2 == 0) {
 //                d_tmp1 *= -1;
@@ -89,7 +89,7 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
     }
 
     // gram matrix computation
-    cout << "\nGram matrix: " << endl;
+//    cout << "\nGram matrix: " << endl;
     double** gram_matrix = new double*[n_row];
     for(int i = 0; i < n_row; i++) {
         gram_matrix[i] = new double[n_row];
@@ -99,11 +99,11 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
                 tmp_sum += rand_matrix[i][k] * rand_matrix[j][k];
             }
             gram_matrix[i][j] = tmp_sum;
-            cout << gram_matrix[i][j] << "\t";
+//            cout << gram_matrix[i][j] << "\t";
         }
-        cout << endl;
+//        cout << endl;
     }
-    cout << endl;
+//    cout << endl;
 
     // share generation
     uint64_t** invsqrt_data = proxy->createShare(gram_matrix, n_row, n_row);
@@ -326,6 +326,16 @@ void print1DArray(string const &str1, double* x, uint32_t size, bool horizontal=
             cout << i << ". " << x[i] << endl;
         }
     }
+    cout << "==============================================================" << endl;
+}
+
+void print1DNumpyFriendlyArray(string const &str1, double* x, uint32_t size) {
+    cout << "======================= " << str1 << " =======================" << endl;
+    cout << "[";
+    for(uint32_t i = 0; i < size - 1; i++) {
+        cout << x[i] << ",";
+    }
+    cout << x[size - 1] << "]" << endl;
     cout << "==============================================================" << endl;
 }
 
@@ -695,10 +705,11 @@ string recover_seq(const string& fn, int index) {
     stringstream s(temp);
 
     // to identify the last nonzero entry and meanwhile store the values
+    char delimiter = ',';
     int ind = 0;
     int last_nonzeros = 0;
     char seq_pre[10000];
-    while (getline(s, word, ',')) { // && ind < size
+    while (getline(s, word, delimiter)) { // && ind < size
         int tmp = stoi(word) - 1;
         if(tmp < 0) {
             last_nonzeros = ind;
@@ -707,6 +718,7 @@ string recover_seq(const string& fn, int index) {
         seq_pre[ind] = valid_alphabet[tmp];
         ind++;
     }
+    cout << endl;
 
 //    cout << "seq_processing::recover_seq::last_nonzeros: " << last_nonzeros << endl;
 

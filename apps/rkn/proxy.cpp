@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     /*
      * Test the whole prediction process of RKN including the inverse square root of Gram matrix
      */
-    if (argc != 11){
+    if (argc != 14){
         cout << "Calling proxy without specifying role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible." << endl;
         return 1;
     }
@@ -48,11 +48,38 @@ int main(int argc, char* argv[]) {
     string haddress(argv[5]);
 
     // setup of the parameters of the experiment
-    bool random_flag = atoi(argv[6]) == 0 ? false : true; // whether to use random values or a real example
+    bool random_flag = atoi(argv[6]) != 0; // whether to use random values or a real example
     int n_anc = atoi(argv[7]); // number of anchor points
     int k_mer = atoi(argv[8]); // k-mer length
     double lambda = atof(argv[9]); // adjust the combination of ck[t-1] and ck[t]
     double sigma = atof(argv[10]); // implicitly used in similarity computation
+    int run_id = atoi(argv[11]); // the run id of the experiment
+    string network = argv[12]; // network type - LAN or WAN
+
+    int s_ind; // test sample index
+    int length; // length of the sequence
+    // if the random flag is true, the length of the synthetic sequence is set via the parameter. If the random flag
+    // is false, then the length of the sequence is set when the sequence is read later in the program. Instead of the
+    // length, test sequence id is set when the random flag is false.
+    if(random_flag) {
+        length = atoi(argv[13]);
+    }
+    else {
+        s_ind = atoi(argv[13]);
+    }
+
+    cout << "======================================================" << endl;
+    cout << "Parameters: " << endl;
+    cout << "Random Flag: " << random_flag << endl;
+    cout << "Number of Anchor Points: " << n_anc << endl;
+    cout << "k-mer: " << k_mer << endl;
+    cout << "Lambda: " << lambda << endl;
+    cout << "Sigma: " << sigma << endl;
+    cout << "Run ID: " << run_id << endl;
+    cout << "Network Type: " << network << endl;
+    cout << "Length of sequence (if random_flag is true): " << length << endl;
+    cout << "Sequence index (if random_flag is false): " << s_ind << endl;
+    cout << "======================================================" << endl;
 
     //ensure ports are not 0 for helper or client
     cout << "Setting ports for helper/client..." << endl;
@@ -78,22 +105,22 @@ int main(int argc, char* argv[]) {
     double reg = 0.1; // I do not remember this?
     double alpha = 1.0 / (pow(sigma, 2) * k_mer);
     string pooling = "gmp"; // pooling -- which is canceled and has no effect
-    string tfid = "a.101.1"; // sample id
+    string tfid = "a.102.1"; // sample id -- a.101.1 - a.102.1 - a.102.4
     string enc = "one_hot"; // encoding type
     string eps = "_eps"; // do not remember?
-    int s_ind = 1; // test sample index
     double epsilon = 0.01; // epsilon added on top of eigenvalues for numeric problems - to replicate RKN
     bool compute_gt = false; // indicate if the ground truth will be computed
 
-
-    int length;
     uint32_t* params = new uint32_t[2]; // to store the size information for SendBytes calls
     uint64_t** all_x;
     uint64_t*** anchor_points = new uint64_t**[k_mer];
     uint64_t*** tr_anchor_points = new uint64_t**[k_mer]; // transpose of the anchor points in each layer
     uint64_t* weights;
+    uint64_t bias;
+
+    auto start = chrono::high_resolution_clock::now();
+
     if(random_flag) { // random values
-        length = 20; // length of the synthetic sequence
         all_x = new uint64_t*[length];
         cout << "Generating data..." << endl;
         for(int s = 0; s < length; s++) {
@@ -112,11 +139,13 @@ int main(int argc, char* argv[]) {
                     tr_anchor_points[i][r][c] = anchor_points[i][c][r];
                 }
             }
+//            print2DArray("Anchor points " + to_string(i), convert2double(REC(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim), n_anc, n_dim);
         }
 
         // linear layer for the classification
         weights = proxy->createShare(random_1D_data(proxy, n_anc + 1, 0.0, 1.0), n_anc + 1);
 //        print1DArray("Weights", convert2double(REC(proxy, weights, n_anc), n_anc), n_anc);
+        bias = weights[n_anc];
     }
     else { // real values
         // prepare the string form of the parameters for the file name
@@ -133,9 +162,11 @@ int main(int argc, char* argv[]) {
         // sequence
         string folder_name = to_string(n_layer) + "_[" + to_string(n_anc) + "]_[" + to_string(k_mer) + "]_[" +
                              str_lmb + "]_[" + str_sigma + "]_" + str_reg;
-        string base_fn = "/home/aburak/Projects/Framework/rkn_results/" +  pooling + "/" + enc + "/" + folder_name + "/" + tfid;
+//        string base_fn = "/Users/aliburak/Projects/CECILIA/rkn_results/" +  pooling + "/" + enc + "/" + folder_name + "/" + tfid; // original experiments
+        string base_fn = "/Users/aliburak/Projects/RKN/results/" +  pooling + "/" + enc + "/" + folder_name + "/" + tfid; // new experiments to validate the correctness
         cout << "Base folder name: " << base_fn << endl;
-        string seq = recover_seq(base_fn + "/test_samples.csv", s_ind);
+        string seq = recover_seq(base_fn + "/test_samples.csv", s_ind); // original experiments
+//        string seq = recover_seq(base_fn + "/test_samples_batch_1.csv", s_ind); // new experiments to validate the correctness
         length = seq.length(); // length of the sequence
         cout << "Sequence with length " << length << " :" << endl;
         for(int i = 0; i < seq.length(); i++) {
@@ -162,22 +193,29 @@ int main(int argc, char* argv[]) {
         // linear layer for the classification
         weights = read_1D_array(proxy, base_fn + "/linear_layer_k" + to_string(k_mer) + "_anc" + to_string(n_anc) +
                                 "_dim" + to_string(n_dim), n_anc + 1);
-//        print1DArray("Weights", convert2double(REC(proxy, weights, n_anc), n_anc), n_anc);
+        cout << "Weights are read" << endl;
+        bias = weights[n_anc];
+//        print1DArray("Weights", convert2double(REC(proxy, weights, n_anc + 1), n_anc + 1), n_anc + 1);
     }
+
+    cout << "Preparation is done!" << endl;
 
     int size = k_mer * n_anc * n_dim;
     int size2 = k_mer * n_anc;
 
 //    proxy->SendBytes(RKN_PRE);
+//    print2DArray("Data", convert2double(REC(proxy, all_x, length, n_dim), length, n_dim), length, n_dim);
 
     // generate a random data to represent the output of the previous time point at the same layer
-    cout << "Generate ct1..." << endl;
+//    cout << "Generate ct1..." << endl;
     uint64_t* ct = zero_1D_data(proxy, size2 + n_anc);
     uint64_t* initial_ct = zero_1D_data(proxy, size2 + n_anc);
     for(int i = 0; i < n_anc; i++) {
         ct[i] = proxy->getPRole() * ((uint64_t) 1 << FRAC);
         initial_ct[i] = ct[i];
     }
+
+    auto start_initial_mapping = chrono::high_resolution_clock::now();
 
     // generate random sequence data
     for(int s = 0; s < length; s++) {
@@ -199,8 +237,11 @@ int main(int argc, char* argv[]) {
 //        print1DArray("all_x[s]", convert2double(REC(proxy, all_x[s], n_dim), n_dim), n_dim);
 //        print1DArray("before ct", convert2double(REC(proxy, ct, size2), size2), size2);
         uint64_t* tmp_ct = RKN_ITERATION(proxy, all_x[s], str_z, ct, n_dim, n_anc, k_mer, lambda, alpha);
+//        cout << "pre check" << endl;
         copy(tmp_ct, tmp_ct + size2, ct + n_anc);
+//        cout << "check" << endl;
 //        print1DArray("after ct", convert2double(REC(proxy, ct, size2), size2), size2);
+//        print1DArray("tmp_ct after char " + to_string(s), convert2double(REC(proxy, tmp_ct, size2), size2), size2);
 
         uint64_t** mat_ct = new uint64_t *[k_mer];
         for(int i = 0; i < k_mer; i++) {
@@ -215,7 +256,10 @@ int main(int argc, char* argv[]) {
         delete [] str_z;
     }
 
-    cout << "Initial mapping is done!" << endl;
+    auto end_initial_mapping = chrono::high_resolution_clock::now();
+//    cout << "Initial mapping is done!" << endl;
+
+//    print1DArray("Initial mapping", convert2double(REC(proxy, ct, size2 + n_anc), size2 + n_anc), size2 + n_anc);
 //    proxy->print1DArray("c[t]", proxy->Mconvert2double(proxy->MReconstruct(ct, size2 + n_anc), size2 + n_anc), size2 + n_anc);
 
     // convert c[t] to matrix
@@ -231,56 +275,116 @@ int main(int argc, char* argv[]) {
     params[0] = k_mer * n_anc * n_dim * n_anc;
     proxy->SendBytes(CORE_MMATMATMUL, params, 1);
     uint64_t*** gms = MATMATMUL(proxy, anchor_points, tr_anchor_points, k_mer, n_anc, n_dim, n_anc);
+//    print2DArray("Last Gram matrix", convert2double(REC(proxy, gms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
 
     //
     params[0] = k_mer;
     params[1] = n_anc;
     proxy->SendBytes(RKN_GM2KM, params, 2);
     uint64_t*** kmer_kms = GM2KM(proxy, gms, convert2uint64(alpha), k_mer, n_anc);
-
-    double*** rec_kmer_kms = new double**[k_mer];
-    for(int g = 0; g < k_mer; g++) {
-        rec_kmer_kms[g] = convert2double(REC(proxy, kmer_kms[g], n_anc, n_anc), n_anc, n_anc);
-    }
+//    print2DArray("Last kernel matrix", convert2double(REC(proxy, kmer_kms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
 
     // inverse square root of the Gram matrices
     params[0] = k_mer;
     params[1] = n_anc;
     proxy->SendBytes(RKN_MINVSQRT, params, 2);
     uint64_t*** invsqrt_gms = INVSQRT(proxy, kmer_kms, k_mer, n_anc, epsilon);
+//    print2DArray("INVSQRT of the last kernel matrix", convert2double(REC(proxy, invsqrt_gms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
+
+    auto end_invsqrt = chrono::high_resolution_clock::now();
 
     // final mapping of the sequence
     params[0] = k_mer * n_anc * n_anc;
     proxy->SendBytes(CORE_MMATVECMUL, params, 1);
     uint64_t** x_mapping = MATVECMUL(proxy, invsqrt_gms, mat_ct, k_mer, n_anc, n_anc);
+//    print1DArray("Final mapping", convert2double(REC(proxy, x_mapping[k_mer - 1], n_anc), n_anc), n_anc);
 
     // linear classifier layer
     params[0] = n_anc;
     proxy->SendBytes(CORE_DP, params, 1);
-    uint64_t prediction = DP(proxy, weights, x_mapping[k_mer - 1], n_anc);
+    uint64_t prediction = DP(proxy, weights, x_mapping[k_mer - 1], n_anc) + bias;
+
+//    print1DArray("Linear classifier weights", convert2double(REC(proxy, weights, n_anc), n_anc), n_anc);
 
     proxy->SendBytes(CORE_END);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken;
+    double exe_times[5];
 
-    printValue("Prediction", convert2double(REC(proxy, prediction)));
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * 1e-9;
+    cout<<"Total_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_times[0] = time_taken;
+
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start_initial_mapping).count() * 1e-9;
+    cout<<"Process_Without_Preparation_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_times[1] = time_taken;
+
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(end_initial_mapping - start_initial_mapping).count() * 1e-9;
+    cout<<"Initial_Mapping_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_times[2] = time_taken;
+
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(end_invsqrt - end_initial_mapping).count() * 1e-9;
+    cout<<"INVSQRT_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_times[3] = time_taken;
+
+    time_taken = chrono::duration_cast<chrono::nanoseconds>(end - end_invsqrt).count() * 1e-9;
+    cout<<"Linear_Classifier_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_times[4] = time_taken;
+
+    double d_prediction = convert2double(REC(proxy, prediction));
+    printValue("Prediction", d_prediction);
+
+    // writing the execution time results into a file
+    string result_fn;
+    if(random_flag) {
+        result_fn = "/Users/aliburak/Projects/CECILIA/exp_runners/rkn_experiments/pprkn_inference_results/synthetic/p" +
+                    to_string(proxy->getPRole()) + "_" + to_string(n_anc) + "_" + to_string(k_mer) + "_" +
+                    to_string(length) + "_" + to_string(run_id) + "_" + network + ".csv";
+    }
+    else {
+        result_fn = "/Users/aliburak/Projects/CECILIA/exp_runners/rkn_experiments/pprkn_inference_results/real/p" +
+                    to_string(proxy->getPRole()) + "_" + to_string(n_anc) + "_" + to_string(k_mer) + "_" +
+                    to_string(run_id) + "_" + network + "_" + tfid + "_" + to_string(s_ind) + "_" +
+                    to_string(length) + ".csv";
+    }
+
+    ofstream res_file (result_fn);
+    if (res_file.is_open())
+    {
+        for(int i = 0; i < 4; i++) {
+            res_file << exe_times[i] << ",";
+        }
+        res_file << exe_times[4];
+        if(!random_flag) {
+            res_file << "," << d_prediction;
+        }
+        res_file << "\n";
+        res_file.close();
+    }
+    else
+        cout << "Unable to open file!" << endl;
+    // end of writing the execution time results into a file
+
+
 
     for(int i = 0; i < k_mer; i++) {
         delete [] mat_ct[i];
-        delete [] x_mapping[i];
+//        delete [] x_mapping[i];
         for(int j = 0; j < n_anc; j++) {
             delete [] gms[i][j];
-            if(i != 0)
-            delete [] kmer_kms[i][j];
+//            if(i != 0)
+//            delete [] kmer_kms[i][j];
             delete [] invsqrt_gms[i][j];
         }
         delete [] gms[i];
-        if(i != 0)
-        delete [] kmer_kms[i];
+//        if(i != 0)
+//        delete [] kmer_kms[i];
         delete [] invsqrt_gms[i];
     }
     delete [] mat_ct;
-    delete [] x_mapping;
+//    delete [] x_mapping;
     delete [] gms;
-    delete [] kmer_kms;
+//    delete [] kmer_kms;
     delete [] invsqrt_gms;
 
 
@@ -295,10 +399,10 @@ int main(int argc, char* argv[]) {
         for(int i = 0; i < k_mer; i++) {
             rec_anc_points[i] = convert2double(REC(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim);
         }
-
+        cout << "check 1" << endl;
         double** rec_all_x = convert2double(REC(proxy, all_x, length, n_dim), length, n_dim);
         double* rec_ct = convert2double(REC(proxy, initial_ct, size2 + n_anc), size2 + n_anc);
-
+        cout << "check 2" << endl;
         double** gt_dp = new double*[k_mer];
         double** exp_gt_dp = new double*[k_mer];
         double** gt_skt = new double*[k_mer];
@@ -309,8 +413,9 @@ int main(int argc, char* argv[]) {
             gt_skt[k] = new double[n_anc];
             gt_ckt[k] = new double[n_anc];
         }
-
+        cout << "check 3" << endl;
         for(int iter = 0; iter < length; iter++) {
+            cout << "Iteration " << iter << endl;
             // Ground truth: b part
             // dot product
             for(int k = 0; k < k_mer; k++) {
@@ -345,7 +450,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-
+        cout << "check 4" << endl;
         // delete dynamically allocated arrays
         for(int i = 0; i < k_mer; i++) {
             delete [] gt_dp[i];
@@ -400,6 +505,12 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        double*** rec_kmer_kms = new double**[k_mer];
+        for(int g = 0; g < k_mer; g++) {
+            rec_kmer_kms[g] = convert2double(REC(proxy, kmer_kms[g], n_anc, n_anc), n_anc, n_anc);
+        }
+
+        cout << "check 5" << endl;
         double** gt_res = new double*[k_mer];
         double** gt_eigvals = new double*[k_mer];
         double** AT_gt_eigvals = new double*[k_mer];
@@ -457,20 +568,25 @@ int main(int argc, char* argv[]) {
             }
             delete [] tmp_invsqrt_gm;
         }
+        cout << "check 6" << endl;
 
-        double* rec_weights = convert2double(REC(proxy, weights, n_anc), n_anc);
-        double gt_prediction = multiply_vector_vector(gt_res[k_mer - 1], rec_weights, n_anc);
-
+        double* rec_weights = convert2double(REC(proxy, weights, n_anc + 1), n_anc + 1);
+        double rec_bias = rec_weights[n_anc];
+        double gt_prediction = multiply_vector_vector(gt_res[k_mer - 1], rec_weights, n_anc) + rec_bias;
+        cout << "check 7" << endl;
         double* total_diff = new double[k_mer];
         for(int i = 0; i < k_mer; i++) {
             total_diff[i] = 0;
         }
-
+        cout << "check 8" << endl;
         double** rec_x_mapping = convert2double(REC(proxy, x_mapping, k_mer, n_anc), k_mer, n_anc);
+        cout << "rec_x_mapping is done" << endl;
         double **diff = new double*[n_anc];
         for(int i = 0; i < n_anc; i++) {
+            cout << "Anchor point " << i << endl;
             diff[i] = new double[k_mer];
             for(int j = 0; j < k_mer; j++) {
+                cout << "k-mer " << j << endl;
                 diff[i][j] = gt_res[j][i] - rec_x_mapping[j][i];
                 total_diff[j] += abs(diff[i][j]);
             }
@@ -511,11 +627,16 @@ int main(int argc, char* argv[]) {
 
     // delete the rest of the dynamically allocated arrays
     for(int i = 0; i < k_mer; i++) {
+        delete [] x_mapping[i];
         for(int j = 0; j < n_anc; j++) {
+            delete [] kmer_kms[i][j];
             delete [] anchor_points[i][j];
         }
+        delete [] kmer_kms[i];
         delete [] anchor_points[i];
     }
+    delete [] x_mapping;
+    delete [] kmer_kms;
     delete [] anchor_points;
     for(int i = 0; i < length; i++) {
         delete [] all_x[i];

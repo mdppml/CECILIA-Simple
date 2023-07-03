@@ -1,0 +1,132 @@
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Size: 8000
+AUC :	0.508789
+Time taken by program is : 818.855411 sec
+Paper	1059.018796000	891.418177000	818.855411083
+Bytes Sent:	1059018796
+Bytes Received:	891418177
+Receive Time	792.640376300 sec
+Send Time	1.196044962 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Size: 8000
+AUC :	0.524414
+Time taken by program is : 732.726149 sec
+Paper	706.924121000	595.308230000	732.726148584
+Bytes Sent:	706924121
+Bytes Received:	595308230
+Receive Time	712.932939521 sec
+Send Time	1.019529998 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Size: 8000
+AUC :	0.494141
+Time taken by program is : 646.537392 sec
+Paper	354.829329000	299.198046000	646.537392375
+Bytes Sent:	354829329
+Bytes Received:	299198046
+Receive Time	633.374349832 sec
+Send Time	0.836369330 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Size: 8000
+AUC :	0.496094
+Time taken by program is : 604.681774 sec
+Paper	165.256341000	139.771202000	604.681774125
+Bytes Sent:	165256341
+Bytes Received:	139771202
+Receive Time	594.949482951 sec
+Send Time	0.746350296 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Size: 8000
+AUC :	0.495117
+Time taken by program is : 591.599468 sec
+Paper	84.037413000	71.471314000	591.599468167
+Bytes Sent:	84037413
+Bytes Received:	71471314
+Receive Time	583.266602742 sec
+Send Time	0.707290703 sec
+*****************************
+8,1000,1000,1000,1000,1000,1000,1000,1000
+Helper is connected
+P1 is connected
+random data
+Number of parties: 8
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+1000	
+Size: 8000
+AUC :	0.50293
+Time taken by program is : 599.397862 sec
+Paper	44.286262000	38.053403000	599.397861584
+Bytes Sent:	44286262
+Bytes Received:	38053403
+Receive Time	591.587292991 sec
+Send Time	0.708006429 sec
+*****************************

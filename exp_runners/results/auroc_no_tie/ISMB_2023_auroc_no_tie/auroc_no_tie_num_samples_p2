@@ -1,0 +1,85 @@
+3,64,64,64
+Helper is connected
+P1 is connected
+random data
+Number of parties: 3
+64	
+64	
+64	
+Size: 192
+AUC :	0.542969
+Time taken by program is : 16.642966 sec
+Paper	0.857773000	0.890906000	16.642966166
+Bytes Sent:	857773
+Bytes Received:	890906
+Receive Time	16.610798549 sec
+Send Time	0.016277913 sec
+*****************************
+3,128,128,128
+Helper is connected
+P1 is connected
+random data
+Number of parties: 3
+128	
+128	
+128	
+Size: 384
+AUC :	0.505859
+Time taken by program is : 33.401105 sec
+Paper	3.477417000	3.102998000	33.401105458
+Bytes Sent:	3477417
+Bytes Received:	3102998
+Receive Time	33.100306048 sec
+Send Time	0.041170346 sec
+*****************************
+3,256,256,256
+Helper is connected
+P1 is connected
+random data
+Number of parties: 3
+256	
+256	
+256	
+Size: 768
+AUC :	0.447266
+Time taken by program is : 65.952493 sec
+Paper	13.972825000	11.947846000	65.952493417
+Bytes Sent:	13972825
+Bytes Received:	11947846
+Receive Time	65.302672779 sec
+Send Time	0.067855089 sec
+*****************************
+3,512,512,512
+Helper is connected
+P1 is connected
+random data
+Number of parties: 3
+512	
+512	
+512	
+Size: 1536
+AUC :	0.480469
+Time taken by program is : 131.551060 sec
+Paper	55.661116000	47.045329000	131.551060208
+Bytes Sent:	55661116
+Bytes Received:	47045329
+Receive Time	129.587434733 sec
+Send Time	0.129277279 sec
+*****************************
+3,1024,1024,1024
+Helper is connected
+P1 is connected
+random data
+Number of parties: 3
+1024	
+1024	
+1024	
+Size: 3072
+AUC :	0.50293
+Time taken by program is : 233.123685 sec
+Paper	221.749139000	186.805616000	233.123684875
+Bytes Sent:	221749139
+Bytes Received:	186805616
+Receive Time	226.747876660 sec
+Send Time	0.299465283 sec
+*****************************
