@@ -8,7 +8,7 @@
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
 #include "../../utils/flib.h"
-#include "../cnn/mnist_data/mnist_reader.hpp"
+#include "../cnn/mnist_reader.hpp"
 #include <bitset>
 #include <unordered_map>
 
