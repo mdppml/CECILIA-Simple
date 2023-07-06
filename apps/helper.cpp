@@ -7,7 +7,6 @@
 #include "../core/rkn.h"
 #include "../core/auc.h"
 #include "../core/sort.h"
-#include "../booleancore/core.h"
 
 
 int main(int argc, char* argv[]) {
@@ -61,11 +60,6 @@ int main(int argc, char* argv[]) {
             case CORE_MMUL:
                 sz = helper->ReadInt();
                 Multiply(helper, nullptr, nullptr, sz);
-                break;
-            case CORE_MMUL2:
-                sz = helper->ReadInt();
-                size2 = helper->ReadInt();
-                MultiplyNarrow(helper, nullptr, nullptr, sz, size2);
                 break;
             case CORE_DP:
                 sz = helper->ReadInt();
@@ -231,40 +225,6 @@ int main(int argc, char* argv[]) {
             case CORE_SORT:
                 sz = helper->ReadInt();
                 Sort(helper, 0, sz);
-                break;
-            case CORE_VSORT:
-                sz = helper->ReadInt();
-                size1 = helper->ReadInt();
-                Sort(helper, 0, sz, size1, 0);
-                break;
-            case CORE_SORT2:
-                sz = helper->ReadInt();
-                size1 = helper->ReadInt();
-                SortNarrow(helper, 0, sz, size1);
-                break;
-            case BCORE_AND:
-                sz = helper->ReadInt();
-                AND2(helper,0,0, sz);
-                break;
-            case BCORE_SUB:
-                sz = helper->ReadInt();
-                BooleanSubstract2(helper,0,0, sz);
-                break;
-            case BCORE_A2B:
-                sz = helper->ReadInt();
-                Arithmetic2XOR(helper,0, sz);
-                break;
-            case BCORE_B2A:
-                sz = helper->ReadInt();
-                XOR2Arithmetic(helper,0, sz);
-                break;
-            case BCORE_B2As:
-                sz = helper->ReadInt();
-                XOR2Arithmetic2(helper,0, sz);
-                break;
-            case BCORE_B2Am:
-                sz = helper->ReadInt();
-                XOR2Arithmetic3(helper,0, sz);
                 break;
             case CORE_END:
                 keep_looping = false;
