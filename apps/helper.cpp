@@ -7,6 +7,7 @@
 #include "../core/rkn.h"
 #include "../core/auc.h"
 #include "../core/sort.h"
+#include "../booleancore/core.h"
 
 
 int main(int argc, char* argv[]) {
@@ -28,77 +29,82 @@ int main(int argc, char* argv[]) {
         switch(operation) {
             case CORE_MMSB:
                 sz = helper->ReadInt();
-                MSB(helper,nullptr,sz);
+                MostSignificantBit(helper, nullptr, sz);
                 break;
             case CORE_MSB:
-                MSB(helper,0);
+                MostSignificantBit(helper, 0);
                 break;
             case CORE_MC:
-                MOC(helper,0);
+                ModularConversion(helper, 0);
                 break;
             case CORE_MMC:
                 sz = helper->ReadInt();
-                MOC(helper,nullptr,sz);
+                ModularConversion(helper, nullptr, sz);
                 break;
             case CORE_CMP:
-                CMP(helper,0,0);
+                Compare(helper, 0, 0);
                 break;
             case CORE_MCMP:
                 sz = helper->ReadInt();
-                CMP(helper,nullptr,nullptr,sz);
+                Compare(helper, nullptr, nullptr, sz);
                 break;
             case CORE_MUX:
-                MUX(helper,0, 0, 0);
+                Multiplex(helper, 0, 0, 0);
                 break;
             case CORE_MMUX:
                 sz = helper->ReadInt();
-                MUX(helper,nullptr, nullptr, nullptr, sz);
+                Multiplex(helper, nullptr, nullptr, nullptr, sz);
                 break;
             case CORE_MUL:
-                MUL(helper,0, 0);
+                Multiply(helper, 0, 0);
                 break;
             case CORE_MMUL:
                 sz = helper->ReadInt();
-                MUL(helper,nullptr, nullptr, sz);
+                Multiply(helper, nullptr, nullptr, sz);
+                break;
+            case CORE_MMUL2:
+                sz = helper->ReadInt();
+                size2 = helper->ReadInt();
+                MultiplyNarrow(helper, nullptr, nullptr, sz, size2);
                 break;
             case CORE_DP:
                 sz = helper->ReadInt();
-                DP(helper, nullptr, nullptr, sz);
+                DotProduct(helper, nullptr, nullptr, sz);
                 break;
             case CORE_MDP:
                 sz = helper->ReadInt();
-                DP(helper, nullptr, nullptr, sz, 0);
+                DotProduct(helper, nullptr, nullptr, sz, 0);
                 break;
             case CORE_EXP:
-                EXP(helper, 0);
+                Exp(helper, 0);
                 break;
             case CORE_MEXP:
                 sz = helper->ReadInt();
-                EXP(helper, nullptr, sz);
+                Exp(helper, nullptr, sz);
                 break;
             case CORE_MATMATMUL:
                 sz = helper->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
-                MATMATMUL(helper, nullptr, nullptr, sz, 0, 0);
+                // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
+                MatrixMatrixMultiply(helper, nullptr, nullptr, sz, 0, 0);
                 break;
             case CORE_MMATMATMUL:
                 sz = helper->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MATMATMUL
-                MATMATMUL(helper, nullptr, nullptr, 0, sz, 0, 0);
+                // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
+                MatrixMatrixMultiply(helper, nullptr, nullptr, 0, sz, 0, 0);
                 break;
             case CORE_MATVECMUL:
                 sz = helper->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
-                MATVECMUL(helper, nullptr, nullptr, sz, 0);
+                // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
+                MatrixVectorMultiply(helper, nullptr, nullptr, sz, 0);
                 break;
             case CORE_MMATVECMUL:
                 sz = helper->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MATVECMUL
-                MATVECMUL(helper, nullptr, nullptr, 0, sz, 0);
+                // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
+                MatrixVectorMultiply(helper, nullptr, nullptr, 0, sz, 0);
                 break;
             case CNN_MAX:
                 sz = helper->ReadInt();
-                MAX(helper,nullptr, sz);
+                Max(helper, nullptr, sz);
                 break;
             case CNN_MMAX:
                 params[0] = helper->ReadInt();
@@ -112,7 +118,7 @@ int main(int argc, char* argv[]) {
                         and params[2] <= params[0]
                         and params[3] <= params[1]
                     ){
-                    MAX(helper, nullptr, params[0], params[1], params[2], params[3], true);
+                    Max(helper, nullptr, params[0], params[1], params[2], params[3], true);
                 }
                 else{
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;
@@ -120,21 +126,21 @@ int main(int argc, char* argv[]) {
                 break;
             case CNN_ARGMAX:
                 sz = helper->ReadInt();
-                ARGMAX(helper,nullptr, sz);
+                ArgMax(helper, nullptr, sz);
                 break;
             case CNN_RELU:
-                RELU(helper, 0);
+                ReLU(helper, 0);
                 break;
             case CNN_MRELU:
                 sz = helper->ReadInt();
-                RELU(helper, nullptr, sz);
+                ReLU(helper, nullptr, sz);
                 break;
             case CNN_DRLU:
-                DRELU(helper, 0);
+                DerivativeReLU(helper, 0);
                 break;
             case CNN_MDRLU:
                 sz = helper->ReadInt();
-                DRELU(helper, nullptr, sz);
+                DerivativeReLU(helper, nullptr, sz);
                 break;
             case CNN_CL:
                 params[0] = helper->ReadInt();
@@ -146,43 +152,44 @@ int main(int argc, char* argv[]) {
                 params[6] = helper->ReadInt();
                 params[7] = helper->ReadInt();
                 params[8] = helper->ReadInt();
-                CL(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4], params[5], params[6],
-                   params[7], nullptr, params[8]);
+                ConvolutionalLayer(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4],
+                                   params[5], params[6],
+                                   params[7], nullptr, params[8]);
                 break;
             case CNN_FCL:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
-                FCL(helper, nullptr, params[0], nullptr, params[1], nullptr);
+                FullyConnectedLayer(helper, nullptr, params[0], nullptr, params[1], nullptr);
                 break;
             case RKN_GM2KM:
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
-                GM2KM(helper, nullptr, 0, n_gms, sz);
+                GaussianKernel(helper, nullptr, 0, n_gms, sz);
                 break;
             case RKN_INVSQRT:
                 sz = helper->ReadInt();
-                INVSQRT(helper, nullptr, sz);
+                InverseSqrt(helper, nullptr, sz);
                 break;
             case RKN_MINVSQRT:
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
-                INVSQRT(helper, nullptr, n_gms, sz);
+                InverseSqrt(helper, nullptr, n_gms, sz);
                 break;
             case RKN_ITER:
                 size1 = helper->ReadInt();
                 size2 = helper->ReadInt();
-                RKN_ITERATION(helper, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
+                RknIteration(helper, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
                 break;
             case CORE_DIV:
-                DIV(helper, 0, 0);
+                Divide(helper, 0, 0);
                 break;
             case CORE_MDIV:
                 size1 = helper->ReadInt();
-                DIV(helper, 0, 0, size1);
+                Divide(helper, 0, 0, size1);
                 break;
             case CORE_MNORM:
                 size1 = helper->ReadInt();
-                NORM(helper, 0, 0, size1);
+                Normalize(helper, 0, 0, size1);
                 break;
             case AUC_MSB:
                 sz = helper->ReadInt();
@@ -214,16 +221,50 @@ int main(int argc, char* argv[]) {
                 break;
             case RKN_EIG:
                 sz = helper->ReadInt();
-                EIG(helper, sz);
+                EigenDecomposition(helper, sz);
                 break;
             case RKN_MEIG:
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
-                EIG(helper, n_gms, sz);
+                EigenDecomposition(helper, n_gms, sz);
                 break;
             case CORE_SORT:
                 sz = helper->ReadInt();
                 Sort(helper, 0, sz);
+                break;
+            case CORE_VSORT:
+                sz = helper->ReadInt();
+                size1 = helper->ReadInt();
+                Sort(helper, 0, sz, size1, 0);
+                break;
+            case CORE_SORT2:
+                sz = helper->ReadInt();
+                size1 = helper->ReadInt();
+                SortNarrow(helper, 0, sz, size1);
+                break;
+            case BCORE_AND:
+                sz = helper->ReadInt();
+                AND2(helper,0,0, sz);
+                break;
+            case BCORE_SUB:
+                sz = helper->ReadInt();
+                BooleanSubstract2(helper,0,0, sz);
+                break;
+            case BCORE_A2B:
+                sz = helper->ReadInt();
+                Arithmetic2XOR(helper,0, sz);
+                break;
+            case BCORE_B2A:
+                sz = helper->ReadInt();
+                XOR2Arithmetic(helper,0, sz);
+                break;
+            case BCORE_B2As:
+                sz = helper->ReadInt();
+                XOR2Arithmetic2(helper,0, sz);
+                break;
+            case BCORE_B2Am:
+                sz = helper->ReadInt();
+                XOR2Arithmetic3(helper,0, sz);
                 break;
             case CORE_END:
                 keep_looping = false;
