@@ -1,14 +1,13 @@
-/cmake-build-debug/
-/cmake-build-release/
-/CMakeFiles/
+cmake-build-debug/
+cmake-build-release/
+CMakeFiles/
 */correctness/*
 /apps/benchmark/toxi*
-/.idea/*
+.idea/
 
 figures/
 cecilia_benchmarking_results.ipynb
 .ipynb_checkpoints/
 .DS_Store
 rkn_results/
-exp_runner/.DS_Store
 ppRKN_inference_result_analysis.ipynb
