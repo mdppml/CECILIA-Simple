@@ -102,11 +102,9 @@ double ConvertToDouble(uint64_t x, int precision= FRACTIONAL_BITS) {
 
 uint64_t ConvertToUint64(double x, int precision = FRACTIONAL_BITS) {
     if (x < 0) {
-//        return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << (precision - 1))));
-        return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << precision)));
+        return (uint64_t) 0 - (uint64_t) floor(abs(x * ((uint64_t) 1 << precision)));
     } else {
-//        return (uint64_t) floor(x * (1 << (precision - 1)));
-        return (uint64_t) floor(x * (1 << precision));
+        return (uint64_t) floor(x * ((uint64_t) 1 << precision));
     }
 }
 

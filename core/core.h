@@ -32,7 +32,6 @@ uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
 }
 
 uint64_t *Reconstruct(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t mask= RING_SIZE) {
-
     uint64_t *b = new uint64_t[sz];
     if (proxy->GetPRole() == proxy1 ) {
         unsigned char *ptr = proxy->GetBuffer1();
@@ -528,10 +527,19 @@ void MostSignificantBitSubroutine(
 }
 
 
-// BenchmarkMostSignificantBit has 4 communication round. ModularConversion and PC are hardcoded in MostSignificantBit to reduce the number of communication rounds of MostSignificantBit calls.
-// TODO add shift to this and all calls of it
-uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, bool format = true) {
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+/**
+ * @brief Computes the most significant bit.
+ *
+ * MSB has 4 communication round. ModularConversion and PC are hardcoded in MostSignificantBit to reduce the number of
+ * communication rounds of MostSignificantBit calls.
+ * @param proxy p_proxy:
+ * @param x p_x:
+ * @param sz p_sz: The number of elements in x.
+ * @param format p_format: Whether to convert the result to the regular representation. Defaults to true.
+ * @return uint64_t* x < 0
+ */
+uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, int shift = FRACTIONAL_BITS, bool format = true) {
+    if ( proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
         uint8_t f = proxy->GenerateCommonRandomByte() & 0x1;
         uint64_t *z_1 = new uint64_t[sz];
         uint64_t *ya = new uint64_t[sz];
@@ -646,8 +654,8 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
             uint64_t val2 = (ConvertToLong(&ptr) + ConvertToLong(&ptr2)-(w[j]^res)*N1)/N1;
             jk += 16;
             if(format) {
-                val1 = ConvertToUint64((double) val1);
-                val2 = ConvertToUint64((double) val2);
+                val1 = ConvertToUint64((double) val1, shift);
+                val2 = ConvertToUint64((double) val2, shift);
             }
             uint64_t vs_1 = proxy->GenerateRandom();
             uint64_t vs_2 = (val1 - vs_1);
@@ -677,17 +685,18 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
  * @param x
  * @return The first bit of @p x
  */
-uint64_t MostSignificantBit(Party *const proxy, uint64_t x) {
+uint64_t MostSignificantBit(Party *const proxy, uint64_t x, int shift=FRACTIONAL_BITS) {
     if (proxy->GetPRole() == helper) {
-        MostSignificantBit(proxy, nullptr, 1);
+        MostSignificantBit(proxy, nullptr, 1, shift);
         return 0;
     } else {
-        auto result_array = MostSignificantBit(proxy, &x, 1);
+        auto result_array = MostSignificantBit(proxy, &x, 1, shift);
         uint64_t result = result_array[0];
         delete[] result_array;
         return result;
     }
 }
+
 
 /** Comparison between two numbers.
  *
@@ -697,18 +706,16 @@ uint64_t MostSignificantBit(Party *const proxy, uint64_t x) {
  * @return @p x > @p y
  */
 uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t sz, int shift = FRACTIONAL_BITS) {
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+    if ( proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
         uint64_t* diff = new uint64_t[sz];
         for (int i = 0; i < sz; i++) {
-            diff[i] = x[i] - y[i];
+            diff[i] = y[i] - x[i];
         }
-        uint64_t* m = MostSignificantBit(proxy, diff, sz);
-        for (int i = 0; i < sz; i++) {
-            m[i] = (proxy->GetPRole() << shift) - (m[i] << shift);
-        }
+        uint64_t* m = MostSignificantBit(proxy, diff, sz, shift);
+        delete[] diff;
         return m;
-    }else if (proxy->GetPRole() == helper) {
-        uint64_t* m = MostSignificantBit(proxy, 0, sz);
+    }else if ( proxy->GetPRole() == helper) {
+        MostSignificantBit(proxy, nullptr, sz, shift);
         return NULL;
     }
     return NULL;
@@ -719,7 +726,7 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
  * @param proxy
  * @param x
  * @param y
- * @return 0 if @p x < @p y else 1
+ * @return @p x > @p y
  */
 uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIONAL_BITS) {
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
@@ -734,22 +741,29 @@ uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIO
     return -1;
 }
 
+
 uint64_t* Equals(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t size, int shift = FRACTIONAL_BITS) {
-    uint64_t *xy = new uint64_t[size*2];
-    uint64_t *yx = new uint64_t[size*2];
-    std::memcpy(xy, x, size*8);
-    std::memcpy(yx, y, size*8);
-    std::memcpy(xy+size, y, size*8);
-    std::memcpy(yx+size, x, size*8);
-    uint64_t* greater_and_smaller = Compare(proxy, xy, yx, size, shift);
-    delete[] xy;
-    delete[] yx;
-    auto m = new uint64_t[size];
-    for (int i = 0; i < size; i++) {
-        m[i] = 1-greater_and_smaller[i]-greater_and_smaller[i+size];
+    if (proxy->GetPRole() != helper) {
+        uint64_t *xyx = new uint64_t[size*3];
+        std::copy(x, x+size, xyx);
+        std::copy(y, y+size, xyx+size);
+        std::copy(x, x+size, xyx+2*size);
+        uint64_t* greater_and_smaller = Compare(proxy, xyx, xyx+size, size*2, shift);
+        delete[] xyx;
+        auto m = new uint64_t[size];
+        for (int i = 0; i < size; i++) {
+            //if (proxy->getPRole() == P1) {
+             //   m[i] = greater_and_smaller[i]+greater_and_smaller[i+size]-convert2uint64(1.0, shift);
+            //} else {
+                m[i] = ConvertToUint64(0.5, shift) -greater_and_smaller[i] -greater_and_smaller[i+size];
+           // }
+        }
+        delete[] greater_and_smaller;
+        return m;
+    } else {
+        Compare(proxy, nullptr, nullptr, size*2, shift);
+        return nullptr;
     }
-    delete[] greater_and_smaller;
-    return m;
 }
 
 uint64_t Equals(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIONAL_BITS){
@@ -881,7 +895,7 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
 
     if (p_role == proxy1 || p_role == proxy2) {
         // compute the absolute of the input value
-        uint64_t* msb_a = MostSignificantBit(proxy, a, size);
+        uint64_t* msb_a = MostSignificantBit(proxy, a, size, shift);
         uint64_t* abs_a = new uint64_t[size];
         for(uint32_t i = 0; i < size; i++) {
             abs_a[i] = ((uint64_t) 0) - a[i];
@@ -945,7 +959,7 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
         }
 
         // get secret shared form of the bits of the values that could contribute into the result
-        uint64_t *bit_shares = MostSignificantBit(proxy, partial_a, size * n_bits);
+        uint64_t *bit_shares = MostSignificantBit(proxy, partial_a, size * n_bits, shift);
 
         // selection of the contribution of the bits of the value
         uint64_t *contributions = Multiplex(proxy, one_contributions, selected_e_contributions, bit_shares,
@@ -1025,10 +1039,10 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
 
         return contributions;
     }
-    else if (p_role == helper) {
-        MostSignificantBit(proxy, 0, size);
+    else if ( p_role == helper) {
+        MostSignificantBit(proxy, 0, size, shift);
         Multiplex(proxy, 0, 0, 0, size * (n_bits + 1), shift);
-        MostSignificantBit(proxy, 0, size * n_bits);
+        MostSignificantBit(proxy, 0, size * n_bits, shift);
         Multiplex(proxy, 0, 0, 0, size * n_bits, shift);
 
         int current_size = n_bits;
@@ -1453,7 +1467,7 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
                 inp2[i] = (uint64_t) 0 - a[i];
                 inp2[size + i] = (uint64_t) 0 - b[i];
             }
-            signs = MostSignificantBit(proxy, inp1, 2 * size);
+            signs = MostSignificantBit(proxy, inp1, 2 * size, shift);
             uint64_t *abs_vals = Multiplex(proxy, inp1, inp2, signs, 2 * size, shift);
             a = &abs_vals[0];
             b = &abs_vals[size];
@@ -1478,7 +1492,7 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
                 tmp = tmp << 1;
             }
         }
-        uint64_t *bits_of_a = MostSignificantBit(proxy, msb_bits_of_a, L_BIT * size, false);
+        uint64_t *bits_of_a = MostSignificantBit(proxy, msb_bits_of_a, L_BIT * size, shift, false);
 
         delete [] msb_bits_of_a;
 
@@ -1545,7 +1559,6 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
             delete [] Q;
             delete [] R;
             delete [] a;
-            delete [] b;
             return div_res;
         }
 
@@ -1555,11 +1568,11 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
     }
     else if (proxy->GetPRole() == helper) {
         if(first_call) {
-            MostSignificantBit(proxy, 0, 2 * size);
+            MostSignificantBit(proxy, 0, 2 * size, shift);
             Multiplex(proxy, 0, 0, 0, 2 * size, shift);
         }
 
-        MostSignificantBit(proxy, 0, L_BIT * size, false);
+        MostSignificantBit(proxy, 0, L_BIT * size, shift, false);
 
         for (int16_t i = L_BIT - 1; i >= 0; i--) {
             Compare(proxy, 0, 0, size, shift);
@@ -1624,7 +1637,7 @@ uint64_t* Normalise(Party *const proxy, const uint64_t *const a, const uint64_t 
                 z[j] = ((a[j] - u[j]) << i) - b[j];
             }
 
-            uint64_t *msb_z = MostSignificantBit(proxy, z, size);
+            uint64_t *msb_z = MostSignificantBit(proxy, z, size, shift);
             delete [] z;
 
             uint64_t *concat_cont_and_subt = new uint64_t[size * 2];
@@ -1654,7 +1667,7 @@ uint64_t* Normalise(Party *const proxy, const uint64_t *const a, const uint64_t 
     }
     else if (proxy->GetPRole() == helper) {
         for(int i = 1; i <= shift; i++) {
-            MostSignificantBit(proxy, 0, size);
+            MostSignificantBit(proxy, 0, size, shift);
             Multiply(proxy, 0, 0, 2 * size, shift);
         }
     }
