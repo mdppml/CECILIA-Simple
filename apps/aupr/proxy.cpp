@@ -177,7 +177,7 @@ void calc_auc_v2(Party *proxy) {
     uint32_t params[1] = {size};
     proxy->SendBytes(AUC_PR, params, 1);
     uint64_t aupr = PRCURVE(proxy, c_data, size);
-    cout << "AUPR :\t" << convert2double(REC(proxy, aupr)) << endl;
+    cout << "AUPR :\t" << convert2double(Reconstruct(proxy, aupr)) << endl;
 }
 
 //void calc_confidence(Party* proxy){

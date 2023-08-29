@@ -140,32 +140,32 @@ int main(int argc, char* argv[]) {
             case 0: {
                 cout << "call CL for CHAMELEON" << endl;
                 k_number = 5;
-                CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
+                ConvolutionalLayer(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                           nullptr, true);
                 updateParamsAfterCL();
                 updateParamsForFCL(100, true);
                 // FULLY CONNECTED LAYER
-                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-                RELU(helper, nullptr, nodes_out);
+                FullyConnectedLayer(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                ReLU(helper, nullptr, nodes_out);
                 updateParamsForFCL(10, false);
                 break;
             }
             case 1: {
                 k_number = 20;
                 cout << "call CL for LeNet" << endl;
-                CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
+                ConvolutionalLayer(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                    nullptr, false);
                 updateParamsAfterCL();
 
                 k_number = 50;
-                CL(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
+                ConvolutionalLayer(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                    nullptr, true);
                 updateParamsAfterCL();
 
                 // fully connected layer:
                 updateParamsForFCL(500, true);
-                FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-                RELU(helper, nullptr, nodes_out);
+                FullyConnectedLayer(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                ReLU(helper, nullptr, nodes_out);
 
                 updateParamsForFCL(10, false);
                 break;
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
             case 2:{
                 k_number = 8;
                 for (int k = 0; k < k_number; ++k) {
-                    MATVECMUL(helper, nullptr, nullptr, 0, i_height*i_width, 0);
+                    MatrixVectorMultiply(helper, nullptr, nullptr, 0, i_height*i_width, 0);
                 }
                 updateParamsAfterCL();
                 updateParamsForFCL(2, true);
@@ -185,8 +185,8 @@ int main(int argc, char* argv[]) {
             }
         }
         // FULLY CONNECTED LAYER
-        FCL(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-        ARGMAX(helper, nullptr, nodes_out);
+        FullyConnectedLayer(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+        ArgMax(helper, nullptr, nodes_out);
     }
     helper->PrintBytes();
     return 0;
