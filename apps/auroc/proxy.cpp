@@ -153,7 +153,7 @@ void calc_auc(Party *proxy) {
 //    cout << "MUL is over" << endl;
 
     for (int i = 0; i < size; i++) {
-        numerator = ADD(proxy, numerator, area[i]);
+        numerator = Add(proxy, numerator, area[i]);
     }
     delete[] mul1;
     delete[] mul2;
@@ -164,20 +164,20 @@ void calc_auc(Party *proxy) {
     TN = proxy->getPRole() * convert2uint64(size) - TP;
 
 //    cout << "MUL is being called... Again!" << endl;
-    cout << convert2double(REC(proxy, TN)) << "\t" << convert2double(REC(proxy, FN)) << endl;
+    cout << convert2double(Reconstruct(proxy, TN)) << "\t" << convert2double(Reconstruct(proxy, FN)) << endl;
     proxy->SendBytes(CORE_MUL);
-    uint64_t denominator = MUL(proxy, FN, TN);
+    uint64_t denominator = Multiply(proxy, FN, TN);
 
 //    cout << "NORM is being called..." << endl;
     uint64_t num[1] = {numerator};
     uint64_t den[1] = {denominator};
-    cout << convert2double(REC(proxy, numerator)) << "\t" << convert2double(REC(proxy, denominator)) << endl;
+    cout << convert2double(Reconstruct(proxy, numerator)) << "\t" << convert2double(Reconstruct(proxy, denominator)) << endl;
     params[0] = 1;
     proxy->SendBytes(CORE_MNORM, params, 1);
-    uint64_t *auc = NORM(proxy, num, den, 1);
+    uint64_t *auc = Normalize(proxy, num, den, 1);
 
 //    cout << "REC is being called..." << endl;
-    auc = REC(proxy, auc, 1);
+    auc = Reconstruct(proxy, auc, 1);
     cout << "AUC :\t" << convert2double(auc[0]) << endl;
     delete[] labels;
 }
@@ -188,7 +188,7 @@ void calc_auc_v2(Party *proxy) {
     uint32_t params[1] = {size};
     proxy->SendBytes(AUC_ROCNOTIE, params, 1);
     uint64_t auc = ROCNOTIE(proxy, c_data, size);
-    cout << "AUC :\t" << convert2double(REC(proxy, auc)) << endl;
+    cout << "AUC :\t" << convert2double(Reconstruct(proxy, auc)) << endl;
 }
 
 void sort_data(Party *proxy, int nstation, int delta) {
@@ -247,7 +247,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
 
                 uint32_t params[1] = {(uint32_t) diff_size};
                 proxy->SendBytes(CORE_MMSB, params, 1);
-                uint64_t *diff_res = MSB(proxy, diff, diff_size);
+                uint64_t *diff_res = MostSignificantBit(proxy, diff, diff_size);
 //                cout << "check 3" << endl;
 
                 for (int j = 0; j < diff_size; j++) {
@@ -259,7 +259,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                mux_res = proxy->MSelectShare(mux_val1, mux_val2, diff, 2 * diff_size);
                 params[0] = 2 * diff_size;
                 proxy->SendBytes(CORE_MMUX, params, 1);
-                mux_res = MUX(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
+                mux_res = Multiplex(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
                 for (int j = 0; j < diff_size; j++) {
                     c_data[fl_index][j].val = mux_res[j];
                     c_data[fl_index][j].label = mux_res[j + diff_size];
@@ -268,7 +268,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
 
                 params[0] = 2 * diff_size;
                 proxy->SendBytes(CORE_MMUX, params, 1);
-                mux_res = MUX(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
+                mux_res = Multiplex(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
 //                cout << "check 5.5" << endl;
                 for (int j = 0; j < diff_size; j++) {
                     c_data[ll_index][j].val = mux_res[j];
@@ -310,8 +310,8 @@ void sort_data(Party *proxy, int nstation, int delta) {
                         diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
                         params[0] = 1;
                         proxy->SendBytes(CORE_MMSB, params, 1);
-                        uint64_t *diff_res = MSB(proxy, diff, 1);
-                        uint64_t cmp = REC(proxy, diff_res[0]);
+                        uint64_t *diff_res = MostSignificantBit(proxy, diff, 1);
+                        uint64_t cmp = Reconstruct(proxy, diff_res[0]);
                         if (cmp == 0) {
                             sorted.push_back(c_data[fl_index][0]);
                             c_data[fl_index].pop_front();

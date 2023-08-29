@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
         all_x = new uint64_t*[length];
         cout << "Generating data..." << endl;
         for(int s = 0; s < length; s++) {
-            all_x[s] = proxy->createShare(random_1D_data(proxy, n_dim, 1, false), n_dim);
+            all_x[s] = proxy->createShare(random_1D_data(proxy, (size_t) n_dim, 1.0, (bool) false), n_dim);
         }
 
         // generate a random anchor points
@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
         proxy->SendBytes(RKN_ITER, params, 2);
 //        print1DArray("all_x[s]", convert2double(REC(proxy, all_x[s], n_dim), n_dim), n_dim);
 //        print1DArray("before ct", convert2double(REC(proxy, ct, size2), size2), size2);
-        uint64_t* tmp_ct = RKN_ITERATION(proxy, all_x[s], str_z, ct, n_dim, n_anc, k_mer, lambda, alpha);
+        uint64_t* tmp_ct = RknIteration(proxy, all_x[s], str_z, ct, n_dim, n_anc, k_mer, lambda, alpha);
 //        cout << "pre check" << endl;
         copy(tmp_ct, tmp_ct + size2, ct + n_anc);
 //        cout << "check" << endl;
@@ -274,21 +274,21 @@ int main(int argc, char* argv[]) {
     // Gram matrices of the anchor points
     params[0] = k_mer * n_anc * n_dim * n_anc;
     proxy->SendBytes(CORE_MMATMATMUL, params, 1);
-    uint64_t*** gms = MATMATMUL(proxy, anchor_points, tr_anchor_points, k_mer, n_anc, n_dim, n_anc);
+    uint64_t*** gms = MatrixMatrixMultiply(proxy, anchor_points, tr_anchor_points, k_mer, n_anc, n_dim, n_anc);
 //    print2DArray("Last Gram matrix", convert2double(REC(proxy, gms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
 
     //
     params[0] = k_mer;
     params[1] = n_anc;
     proxy->SendBytes(RKN_GM2KM, params, 2);
-    uint64_t*** kmer_kms = GM2KM(proxy, gms, convert2uint64(alpha), k_mer, n_anc);
+    uint64_t*** kmer_kms = GaussianKernel(proxy, gms, convert2uint64(alpha), k_mer, n_anc);
 //    print2DArray("Last kernel matrix", convert2double(REC(proxy, kmer_kms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
 
     // inverse square root of the Gram matrices
     params[0] = k_mer;
     params[1] = n_anc;
     proxy->SendBytes(RKN_MINVSQRT, params, 2);
-    uint64_t*** invsqrt_gms = INVSQRT(proxy, kmer_kms, k_mer, n_anc, epsilon);
+    uint64_t*** invsqrt_gms = InverseSqrt(proxy, kmer_kms, k_mer, n_anc, epsilon);
 //    print2DArray("INVSQRT of the last kernel matrix", convert2double(REC(proxy, invsqrt_gms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
 
     auto end_invsqrt = chrono::high_resolution_clock::now();
@@ -296,13 +296,13 @@ int main(int argc, char* argv[]) {
     // final mapping of the sequence
     params[0] = k_mer * n_anc * n_anc;
     proxy->SendBytes(CORE_MMATVECMUL, params, 1);
-    uint64_t** x_mapping = MATVECMUL(proxy, invsqrt_gms, mat_ct, k_mer, n_anc, n_anc);
+    uint64_t** x_mapping = MatrixVectorMultiply(proxy, invsqrt_gms, mat_ct, k_mer, n_anc, n_anc);
 //    print1DArray("Final mapping", convert2double(REC(proxy, x_mapping[k_mer - 1], n_anc), n_anc), n_anc);
 
     // linear classifier layer
     params[0] = n_anc;
     proxy->SendBytes(CORE_DP, params, 1);
-    uint64_t prediction = DP(proxy, weights, x_mapping[k_mer - 1], n_anc) + bias;
+    uint64_t prediction = DotProduct(proxy, weights, x_mapping[k_mer - 1], n_anc) + bias;
 
 //    print1DArray("Linear classifier weights", convert2double(REC(proxy, weights, n_anc), n_anc), n_anc);
 
@@ -331,7 +331,7 @@ int main(int argc, char* argv[]) {
     cout<<"Linear_Classifier_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
     exe_times[4] = time_taken;
 
-    double d_prediction = convert2double(REC(proxy, prediction));
+    double d_prediction = convert2double(Reconstruct(proxy, prediction));
     printValue("Prediction", d_prediction);
 
     // writing the execution time results into a file
@@ -397,11 +397,11 @@ int main(int argc, char* argv[]) {
         cout << "Ground truth computation starts..." << endl;
         double*** rec_anc_points = new double**[k_mer];
         for(int i = 0; i < k_mer; i++) {
-            rec_anc_points[i] = convert2double(REC(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim);
+            rec_anc_points[i] = convert2double(Reconstruct(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim);
         }
         cout << "check 1" << endl;
-        double** rec_all_x = convert2double(REC(proxy, all_x, length, n_dim), length, n_dim);
-        double* rec_ct = convert2double(REC(proxy, initial_ct, size2 + n_anc), size2 + n_anc);
+        double** rec_all_x = convert2double(Reconstruct(proxy, all_x, length, n_dim), length, n_dim);
+        double* rec_ct = convert2double(Reconstruct(proxy, initial_ct, size2 + n_anc), size2 + n_anc);
         cout << "check 2" << endl;
         double** gt_dp = new double*[k_mer];
         double** exp_gt_dp = new double*[k_mer];
@@ -507,7 +507,7 @@ int main(int argc, char* argv[]) {
 
         double*** rec_kmer_kms = new double**[k_mer];
         for(int g = 0; g < k_mer; g++) {
-            rec_kmer_kms[g] = convert2double(REC(proxy, kmer_kms[g], n_anc, n_anc), n_anc, n_anc);
+            rec_kmer_kms[g] = convert2double(Reconstruct(proxy, kmer_kms[g], n_anc, n_anc), n_anc, n_anc);
         }
 
         cout << "check 5" << endl;
@@ -570,7 +570,7 @@ int main(int argc, char* argv[]) {
         }
         cout << "check 6" << endl;
 
-        double* rec_weights = convert2double(REC(proxy, weights, n_anc + 1), n_anc + 1);
+        double* rec_weights = convert2double(Reconstruct(proxy, weights, n_anc + 1), n_anc + 1);
         double rec_bias = rec_weights[n_anc];
         double gt_prediction = multiply_vector_vector(gt_res[k_mer - 1], rec_weights, n_anc) + rec_bias;
         cout << "check 7" << endl;
@@ -579,7 +579,7 @@ int main(int argc, char* argv[]) {
             total_diff[i] = 0;
         }
         cout << "check 8" << endl;
-        double** rec_x_mapping = convert2double(REC(proxy, x_mapping, k_mer, n_anc), k_mer, n_anc);
+        double** rec_x_mapping = convert2double(Reconstruct(proxy, x_mapping, k_mer, n_anc), k_mer, n_anc);
         cout << "rec_x_mapping is done" << endl;
         double **diff = new double*[n_anc];
         for(int i = 0; i < n_anc; i++) {
@@ -596,7 +596,7 @@ int main(int argc, char* argv[]) {
 //        print1DArray("Total differences between mappings", total_diff, k_mer);
 
         printValue("GT Prediction", gt_prediction);
-        printValue("|Prediction - GT Prediction|", abs(convert2double(REC(proxy, prediction)) - gt_prediction));
+        printValue("|Prediction - GT Prediction|", abs(convert2double(Reconstruct(proxy, prediction)) - gt_prediction));
 
         // delete the dynamically allocated arrays
         for(int i = 0; i < k_mer; i++) {
