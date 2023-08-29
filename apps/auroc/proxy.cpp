@@ -135,7 +135,7 @@ void calc_auc(Party *proxy) {
     uint64_t *mul1 = new uint64_t[size];
     uint64_t *mul2 = new uint64_t[size];
     for (int i = 0; i < size; i++) {
-        TP = ADD(proxy, TP, labels[i]);
+        TP = Add(proxy, TP, labels[i]);
         FP = proxy->getPRole() * convert2uint64(i)  - TP;
 
         mul1[i] = TP;
@@ -149,7 +149,7 @@ void calc_auc(Party *proxy) {
 //    cout << "MUL is being called..." << endl;
     uint32_t params[1] = {size};
     proxy->SendBytes(CORE_MMUL, params, 1);
-    uint64_t *area = MUL(proxy, mul1, mul2, size);
+    uint64_t *area = Multiply(proxy, mul1, mul2, size);
 //    cout << "MUL is over" << endl;
 
     for (int i = 0; i < size; i++) {

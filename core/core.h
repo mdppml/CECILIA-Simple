@@ -225,7 +225,6 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
  * @param size the number of multiplication triples that will be generated
  */
  void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const c1, uint32_t size) {
-
      for (int i = 0; i < size; i++) {
         uint64_t a0 = proxy->generateCommonRandom();
         uint64_t a1 = proxy->generateCommonRandom2();

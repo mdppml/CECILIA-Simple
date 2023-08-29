@@ -5,8 +5,6 @@
 #ifndef CECILIA_SORT_H
 #define CECILIA_SORT_H
 
-#endif //CECILIA_SORT_H
-
 #include "core.h"
 #include "../booleancore/core.h"
 #include "../utils/flib.h"
@@ -159,7 +157,6 @@ uint64_t *GetRandomPermutation(const uint64_t *const randoms, uint32_t size){
  * @param size number of elements in data
  * */
 uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
-
     auto* r = new uint64_t[size];
     // construct permuted p and v shares
     auto* pip = new uint64_t[size];
@@ -1161,3 +1158,5 @@ uint64_t **Sort(
     }
     return 0;
 }
+
+#endif //CECILIA_SORT_H

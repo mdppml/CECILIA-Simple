@@ -4,6 +4,8 @@
 #include <chrono>
 #include <tuple>
 #include <iomanip>
+#include <ctype.h>
+#include "../../utils/parse_options.h"
 #include "../../core/core.h"
 #include "../../core/cnn.h"
 #include "../../core/rkn.h"
@@ -20,6 +22,7 @@ constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
 constexpr int sz = 10;
 constexpr int WSZ = 3;
+constexpr int num_repetition = 1;
 
 // ************************************ Ali  ***********************************************
 bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cnt){
@@ -272,7 +275,7 @@ bool MUL_Test(Party *proxy){
     return ((int) (rd - rcd) == 0);
 }
 
-bool MMUL_Test(Party *proxy){
+bool MMUL_Test(Party *proxy, double &exe_time, bool only_timing = false){
     cout<<setfill ('*')<<setw(50)<<"Calling MMUL";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     uint64_t *x = new uint64_t[sz];
@@ -280,8 +283,8 @@ bool MMUL_Test(Party *proxy){
     uint32_t* params = new uint32_t[1];
     params[0] = sz;
     for (int i=0;i<sz;i++){
-        double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
-        double yd = MIN_VAL + (double)(proxy->generateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
+        double xd = MIN_VAL + (double)(proxy->generateCommonRandom() & MAXMUL) / ((double)(MAXMUL / (MAX_VAL - MIN_VAL)));
+        double yd = MIN_VAL + (double)(proxy->generateCommonRandom() & MAXMUL) / ((double)(MAXMUL / (MAX_VAL - MIN_VAL)));
         x[i] = proxy->createShare(xd);
         y[i] = proxy->createShare(yd);
     }
@@ -377,10 +380,8 @@ bool MMUL2_Test(Party *proxy){
         proxy->SendBytes(CORE_MMUL2, params, 2);
         r = Multiply(proxy, x, y, sz, bsz);
     }
-
     auto end = chrono::high_resolution_clock::now();
-    double time_taken =
-            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
     cout<<"MultiplyNarrow Time:\t" << fixed
         << time_taken << setprecision(9) << " sec" << endl;
@@ -441,32 +442,42 @@ void MOC_Test(Party *proxy) {
         cout << "ModularConversion works incorrectly" << endl;
 }
 
-void MMOC_Test(Party *proxy) {
+bool MMOC_Test(Party *proxy, double &exe_time, bool only_timing = false) {
     cout << setfill('*') << setw(50) << "Calling Vectorized ModularConversion";
     cout << setfill('*') << setw(49) << "*" << endl;
-    uint64_t x[sz];
+    uint64_t *x = new uint64_t[sz];
     uint32_t *params = new uint32_t[1];
     params[0] = sz;
 
     for (int i = 0; i < sz; i++)
         x[i] = proxy->generateRandom() & N1_MASK;
+
     proxy->SendBytes(CORE_MMC, params, 1);
+    auto start = chrono::high_resolution_clock::now();
     uint64_t *r = ModularConversion(proxy, x, sz);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout << "Vectorized MOC Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
+
     // checking the result
-    uint64_t *x_reconstructed = Reconstruct(proxy, x, sz, N1_MASK);
-    uint64_t *r_reconstructed = Reconstruct(proxy, r, sz);
     bool flag = true;
-    for (int i = 0; i < sz; i++) {
-        if (x_reconstructed[i] != r_reconstructed[i]) {
-            flag = false;
-            break;
+    if(!only_timing) {
+        uint64_t *x_reconstructed = Reconstruct(proxy, x, sz, N1_MASK);
+        uint64_t *r_reconstructed = Reconstruct(proxy, r, sz);
+        for (int i = 0; i < sz; i++) {
+            if (x_reconstructed[i] != r_reconstructed[i]) {
+                flag = false;
+                break;
+            }
         }
     }
     if (flag)
         cout << "Vectorized ModularConversion works correctly" << endl;
     else
         cout << "Vectorized ModularConversion works incorrectly" << endl;
-
+    return flag;
 }
 
 void MSB_Test(Party *proxy) {
@@ -488,7 +499,7 @@ void MSB_Test(Party *proxy) {
     }
 }
 
-void MMSB_Test(Party *proxy) {
+void MMSB_Test(Party *proxy, double &exe_time, bool only_timing = false) {
     cout << setfill('*') << setw(50) << "Calling Vectorized MostSignificantBit";
     cout << setfill('*') << setw(49) << "*" << endl;
     uint32_t *params = new uint32_t[1];
@@ -501,25 +512,24 @@ void MMSB_Test(Party *proxy) {
     uint64_t *r;
     proxy->SendBytes(CORE_MMSB, params, 1);
     auto start = chrono::high_resolution_clock::now();
-    for (int i=0;i<1;i++){
-        r = MostSignificantBit(proxy, x, sz);
-    }
+    r = MostSignificantBit(proxy, x, sz);
     auto end = chrono::high_resolution_clock::now();
-    double time_taken =
-            chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
-    cout<<"MostSignificantBit Time:\t" << fixed
-        << time_taken << setprecision(9) << " sec" << endl;
-    //uint64_t *r = MSBv2(proxy,x,sz);
+    cout << "Vectorized MostSignificantBit Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
+
     // checking the result
-    uint64_t *x_reconstructed = Reconstruct(proxy, x, sz);
-    uint64_t *r_reconstructed = Reconstruct(proxy, r, sz);
     bool flag = true;
-    for (int i = 0; i < sz; i++) {
-        uint64_t r_computed = (x_reconstructed[i] >> (L_BIT - 1)) << FRAC;
-        if (r_computed != r_reconstructed[i]) {
-            flag = false;
-            break;
+    if(!only_timing) {
+        uint64_t *x_reconstructed = Reconstruct(proxy, x, sz);
+        uint64_t *r_reconstructed = Reconstruct(proxy, r, sz);
+        for (int i = 0; i < sz; i++) {
+            uint64_t r_computed = (x_reconstructed[i] >> (L_BIT - 1)) << FRAC;
+            if (r_computed != r_reconstructed[i]) {
+                flag = false;
+                break;
+            }
         }
     }
     if (flag) {
@@ -551,10 +561,11 @@ void CMP_Test(Party *proxy) {
         cout << "Compare works incorrectly" << endl;
 }
 
-void MCMP_Test(Party *proxy) {
+bool MCMP_Test(Party *proxy, double &exe_time, bool only_timing = false) {
     cout << setfill('*') << setw(50) << "Calling Vectorized Compare";
     cout << setfill('*') << setw(49) << "*" << endl;
-    uint64_t x[sz], y[sz];
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];;
     uint32_t *params = new uint32_t[1];
     params[0] = sz;
 
@@ -567,24 +578,34 @@ void MCMP_Test(Party *proxy) {
         y[i] = proxy->createShare(yd);
     }
     proxy->SendBytes(CORE_MCMP, params, 1);
+    auto start = chrono::high_resolution_clock::now();
     uint64_t *r = Compare(proxy, x, y, sz);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout << "Vectorized CMP Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
+
     // checking the result
-    uint64_t *x_reconstructed = Reconstruct(proxy, x, sz);
-    uint64_t *y_reconstructed = Reconstruct(proxy, y, sz);
-    uint64_t *r_reconstructed = Reconstruct(proxy, r, sz);
     bool flag = true;
-    for (int i = 0; i < sz; i++) {
-        uint64_t r_computed = (convert2double(x_reconstructed[i]) >= convert2double(y_reconstructed[i])) << FRAC;
-        if (r_computed != r_reconstructed[i]) {
-            flag = false;
-            break;
+    if(!only_timing) {
+        uint64_t *x_reconstructed = Reconstruct(proxy, x, sz);
+        uint64_t *y_reconstructed = Reconstruct(proxy, y, sz);
+        uint64_t *r_reconstructed = Reconstruct(proxy, r, sz);
+
+        for (int i = 0; i < sz; i++) {
+            uint64_t r_computed = (convert2double(x_reconstructed[i]) >= convert2double(y_reconstructed[i])) << FRAC;
+            if (r_computed != r_reconstructed[i]) {
+                flag = false;
+                break;
+            }
         }
     }
     if (flag)
         cout << "Vectorized Compare works correctly" << endl;
     else
         cout << "Vectorized Compare works incorrectly" << endl;
-
+    return flag;
 }
 
 void MUX_Test(Party *proxy, int &cnt) {
@@ -620,10 +641,13 @@ void MUX_Test(Party *proxy, int &cnt) {
     }
 }
 
-void MMUX_Test(Party *proxy) {
+bool MMUX_Test(Party *proxy, double &exe_time, bool only_timing = false) {
     cout << setfill('*') << setw(50) << "Calling Vectorized Multiplex";
     cout << setfill('*') << setw(49) << "*" << endl;
-    uint64_t x[sz], y[sz], z[sz];
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];
+    uint64_t *z = new uint64_t[sz];
+
 
     uint32_t *params = new uint32_t[1];
     params[0] = sz;
@@ -638,33 +662,47 @@ void MMUX_Test(Party *proxy) {
         y[i] = proxy->createShare(yd);
         z[i] = proxy->createShare(zd);
     }
+
     proxy->SendBytes(CORE_MMUX, params, 1);
+    auto start = chrono::high_resolution_clock::now();
     uint64_t *r = Multiplex(proxy, x, y, z, sz);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout << "Vectorized MUX Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
+
     // checking the result
-    uint64_t *tmp = Reconstruct(proxy, x, sz);
-    double *x_reconstructed = convert2double(tmp, sz);
-    delete [] tmp;
-    tmp = Reconstruct(proxy, y, sz);
-    double *y_reconstructed = convert2double(tmp, sz);
-    delete [] tmp;
-    tmp = Reconstruct(proxy, z, sz);
-    double *z_reconstructed = convert2double(tmp, sz);
-    delete [] tmp;
-    tmp = Reconstruct(proxy, r, sz);
-    double *r_reconstructed = convert2double(tmp, sz);
-    delete [] tmp;
     bool flag = true;
-    double r_computed;
-    for (int i = 0; i < sz; i++) {
-        if (z_reconstructed[i] == 0) {
-            r_computed = x_reconstructed[i];
-        } else if (z_reconstructed[i] == 1) {
-            r_computed = y_reconstructed[i];
+    if(!only_timing) {
+        uint64_t *tmp = Reconstruct(proxy, x, sz);
+        double *x_reconstructed = convert2double(tmp, sz);
+        delete [] tmp;
+        tmp = Reconstruct(proxy, y, sz);
+        double *y_reconstructed = convert2double(tmp, sz);
+        delete [] tmp;
+        tmp = Reconstruct(proxy, z, sz);
+        double *z_reconstructed = convert2double(tmp, sz);
+        delete [] tmp;
+        tmp = Reconstruct(proxy, r, sz);
+        double *r_reconstructed = convert2double(tmp, sz);
+        delete [] tmp;
+        double r_computed;
+        for (int i = 0; i < sz; i++) {
+            if (z_reconstructed[i] == 0) {
+                r_computed = x_reconstructed[i];
+            } else if (z_reconstructed[i] == 1) {
+                r_computed = y_reconstructed[i];
+            }
+            if (r_reconstructed[i] != r_computed) {
+                flag = false;
+                break;
+            }
         }
-        if (r_reconstructed[i] != r_computed) {
-            flag = false;
-            break;
-        }
+        delete [] x_reconstructed;
+        delete [] y_reconstructed;
+        delete [] z_reconstructed;
+        delete [] r_reconstructed;
     }
     if (flag)
         cout << "Vectorized Multiplex works correctly" << endl;
@@ -673,10 +711,7 @@ void MMUX_Test(Party *proxy) {
     }
     delete [] params;
     delete [] r;
-    delete [] x_reconstructed;
-    delete [] y_reconstructed;
-    delete [] z_reconstructed;
-    delete [] r_reconstructed;
+    return flag;
 }
 
 void MAX_Test(Party *proxy) {
@@ -1621,42 +1656,73 @@ void EXP_Test(Party *proxy) {
 
 }
 
-void MEXP_Test(Party *proxy) {
+bool MEXP_Test(Party *proxy, double &exe_time, int &cnt, bool only_timing = false) {
     cout << setfill('*') << setw(50) << "Calling MEXP";
     cout << setfill('*') << setw(49) << "*" << endl;
 
     uint32_t params[1];
-    int n_samples = 10;
+    int n_samples = sz;
     params[0] = n_samples;
-    uint64_t *x = proxy->createShare(random_1D_data(proxy, n_samples, proxy->getMinPower(), proxy->getMaxPower()),
-                                     n_samples);
-    proxy->SendBytes(CORE_MEXP, params, 1);
-    uint64_t *shr_exp = Exp(proxy, x, n_samples);
-    uint64_t *reconstructed_exp = Reconstruct(proxy, shr_exp, n_samples);
-    double *rec_exp = convert2double(reconstructed_exp, n_samples);
+    // random values
+    uint64_t *x = proxy->createShare(random_1D_data(proxy, n_samples, proxy->getMinPower() + 10, proxy->getMaxPower() - 10), n_samples);
 
-    // checking the result
-    double *originalX = convert2double(Reconstruct(proxy, x, n_samples), n_samples);
-    double *true_exp = new double[n_samples];
-    for (int i = 0; i < n_samples; i++) {
-        true_exp[i] = exp(originalX[i]);
-    }
+    // specific values
+//    int n_samples = 6;
+//    params[0] = n_samples;
+//    double tmp_test_values[6] = {-2.08377, -3.29118, -2.71972, -3.9096, -3.63482, -2.61542};
+//    uint64_t *x = proxy->createShare(tmp_test_values, n_samples);
+
+    proxy->SendBytes(CORE_MEXP, params, 1);
+    auto start = chrono::high_resolution_clock::now();
+    uint64_t *shr_exp = Exp(proxy, x, n_samples);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout << "Vectorized EXP Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
 
     bool flag = true;
-    for (int i = 0; i < n_samples; i++) {
-        cout << fixed << "power: " << originalX[i] << " -- computed: " << rec_exp[i] << " - expected: " << true_exp[i]
-             <<
-             " - absolute difference: " << abs(rec_exp[i] - true_exp[i]) << endl;
-        if (abs(true_exp[i] - rec_exp[i]) >= 0.1) {
-            flag = false;
-        }
-    }
-    if (flag) {
-        cout << "Exp works correctly" << endl;
-    } else {
-        cout << "Exp works incorrectly" << endl;
-    }
+    if(!only_timing) {
+        uint64_t *reconstructed_exp = Reconstruct(proxy, shr_exp, n_samples);
+        double *rec_exp = convert2double(reconstructed_exp, n_samples);
 
+        // checking the result
+        double *originalX = convert2double(Reconstruct(proxy, x, n_samples), n_samples);
+        double *true_exp = new double[n_samples];
+        for (int i = 0; i < n_samples; i++) {
+            true_exp[i] = exp(originalX[i]);
+        }
+
+        double max_diff = MIN_VAL;
+        double tmp_power;
+        double tmp_true_exp;
+        double tmp_rec_exp;
+        double tmp;
+        for (int i = 0; i < n_samples; i++) {
+            tmp = abs(rec_exp[i] - true_exp[i]);
+            cout << fixed << "power: " << originalX[i] << " -- computed: " << rec_exp[i] << " - expected: " << true_exp[i]
+                 <<
+                 " - absolute difference: " << tmp << endl;
+            if(tmp > max_diff) {
+                max_diff = tmp;
+                tmp_power = originalX[i];
+                tmp_true_exp = true_exp[i];
+                tmp_rec_exp = rec_exp[i];
+            }
+            if (abs((true_exp[i] - rec_exp[i]) * 100.0 / abs(true_exp[i])) >= 1) {
+                flag = false;
+                cnt++;
+            }
+        }
+        if (flag) {
+            cout << "EXP works correctly" << endl;
+        } else {
+            cout << "EXP works incorrectly" << endl;
+        }
+        cout << "Maximum absolute difference is " << max_diff << " and obtained for " << tmp_power << endl;
+        cout << fixed << "Computed: " << tmp_rec_exp << " - expected: " << tmp_true_exp << endl;
+    }
+    return flag;
 }
 
 void DP_Test(Party *proxy) {
@@ -1691,46 +1757,62 @@ void DP_Test(Party *proxy) {
     printValue("GT dot product", gt);
 }
 
-void MDP_Test(Party *proxy) {
+bool MDP_Test(Party *proxy, double &exe_time, bool only_timing = false) {
     cout << setfill('*') << setw(50) << "Calling MDP";
     cout << setfill('*') << setw(49) << "*" << endl;
 
     uint32_t *params = new uint32_t[1];
-    uint32_t size = 20; // size of the total vector
-    params[0] = size;
+    params[0] = sz;
 
     uint32_t d = 5; // size of each individual vector in the main vector
     double min_val = -10;
     double max_val = 10;
 
-    if (size % d != 0) {
+    if (sz % d != 0) {
         throw invalid_argument("DP_Test: The size must be divisible by d.");
     }
 
     // generate a vector of random values
-    uint64_t *vec1 = proxy->createShare(random_1D_data(proxy, size, min_val, max_val), size);
-    uint64_t *vec2 = proxy->createShare(random_1D_data(proxy, size, min_val, max_val), size);
+    uint64_t *vec1 = new uint64_t[sz];
+    uint64_t *vec2 = new uint64_t[sz];
+    for (int i = 0; i < sz; i++) {
+        double xd = MIN_VAL + (double) (proxy->generateCommonRandom() & RAND_MAX) / ((double) (RAND_MAX / (MAX_VAL - MIN_VAL)));
+        double yd = MIN_VAL + (double) (proxy->generateCommonRandom() & RAND_MAX) / ((double) (RAND_MAX / (MAX_VAL - MIN_VAL)));
+        double zd = (double) (proxy->generateCommonRandom() & 0x1);
+        vec1[i] = proxy->createShare(xd);
+        vec2[i] = proxy->createShare(yd);
+    }
 
     // call DotProduct
     proxy->SendBytes(CORE_MDP, params, 1);
-    uint64_t *res = DotProduct(proxy, vec1, vec2, size, d);
+    auto start = chrono::high_resolution_clock::now();
+    uint64_t *res = DotProduct(proxy, vec1, vec2, sz, d);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout << "Vectorized DP Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
 
     // check the results
-    double *gt = new double[size / d];
-    double *rec_vec1 = convert2double(Reconstruct(proxy, vec1, size), size);
-    double *rec_vec2 = convert2double(Reconstruct(proxy, vec2, size), size);
-    for (int i = 0; i < size; i += d) {
-        double tmp_sum = 0;
-        for (int j = i; j < i + d; j++) {
-            tmp_sum += rec_vec1[j] * rec_vec2[j];
+    bool flag = true;
+    if(!only_timing) {
+        double *gt = new double[sz / d];
+        double *rec_vec1 = convert2double(Reconstruct(proxy, vec1, sz), sz);
+        double *rec_vec2 = convert2double(Reconstruct(proxy, vec2, sz), sz);
+        for (int i = 0; i < sz; i += d) {
+            double tmp_sum = 0;
+            for (int j = i; j < i + d; j++) {
+                tmp_sum += rec_vec1[j] * rec_vec2[j];
+            }
+            gt[i / d] = tmp_sum;
         }
-        gt[i / d] = tmp_sum;
+
+        double *rec_res = convert2double(Reconstruct(proxy, res, sz / d), sz / d);
+
+        print1DArray("Computed dot product", rec_res, sz / d);
+        print1DArray("GT dot product", gt, sz / d);
     }
-
-    double *rec_res = convert2double(Reconstruct(proxy, res, size / d), size / d);
-
-    print1DArray("Computed dot product", rec_res, size / d);
-    print1DArray("GT dot product", gt, size / d);
+    return flag;
 }
 
 bool MATMATMUL_Test(Party *proxy) {
@@ -2081,65 +2163,81 @@ void MMATVECMUL_Test(Party *proxy) {
 //
 //}
 
-//void MINVSQRT_Test(Party* proxy) {
-//    /* In this function, we test the computation of the inverse square root of a Gram matrix.
-//     * We first generate a random Gram matrix by first generating a random data matrix D and
-//     * then computing D^T * D.
-//     */
-//    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
-//    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-//    // setting
-//    int n_row = 4;
-//    int n_col = 5;
-//    int n_gms = 3;
-//
-//    // generate a Gram matrix
-//    uint64_t ***invsqrt_data = new uint64_t**[n_gms];
-//    double ***Gs = new double**[n_gms];
-//    for(int i = 0; i < n_gms; i++) {
-//        invsqrt_data[i] = random_gram_matrix(proxy, n_row, n_col);
-//        Gs[i] = convert2double(Reconstruct(proxy, invsqrt_data[i], n_row, n_row), n_row, n_row);
-//    }
-//
-////    double** tmp = convert2double(Reconstruct(proxy, invsqrt_data, n_row, n_row), n_row, n_row);
-//
-//    proxy->SendBytes(RKN_MINVSQRT, n_gms,n_row);
-//    uint64_t*** invsqrt_G = InverseSqrt(proxy, invsqrt_data, n_gms, n_row);
-//
-//    double*** rec_invsqrt_G = new double**[n_gms];
-//    for(int g = 0; g < n_gms; g++) {
-//        rec_invsqrt_G[g] = convert2double(Reconstruct(proxy, invsqrt_G[g], n_row, n_row), n_row, n_row);
-//        print2DArray("The inverse square root of the Gram matrix", rec_invsqrt_G[g], n_row, n_row);
-//
-//        double* straighten_invsqrt_G = new double[n_row * n_row];
-//        for(uint32_t i = 0; i < n_row * n_row; i++) {
-//            straighten_invsqrt_G[i] = Gs[g][i % n_row][i / n_row];
-//        }
-//        EigenSolver<Matrix<double, Dynamic, Dynamic>> ges;
-//        Map<Matrix<double, Dynamic, Dynamic>> matrix_G(straighten_invsqrt_G, n_row, n_row);
-//        ges.compute(matrix_G);
-//        Matrix<double, Dynamic, Dynamic> eig_vecs = ges.eigenvectors().real();
-//        Matrix<double, Dynamic, 1> eig_vals = ges.eigenvalues().real();
-////        cout << eig_vals << endl;
-//
-//        cout << "============= GT Inverse square root of the Gram matrix ======================" << endl;
-//        Matrix<double, Dynamic, Dynamic> vals = eig_vals;
-//        cout << eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Transpose(eig_vecs) << endl;
-//        cout << "============================================================================" << endl;
-//
-//        print2DArray("The inverse of the Gram matrix",
-//                     multiply_matrices(rec_invsqrt_G[g], rec_invsqrt_G[g], n_row, n_row, n_row), n_row, n_row);
-//
-//        cout << "============= GT Inverse of the Gram matrix ======================" << endl;
-//        cout << matrix_G.inverse() << endl;
-//        cout << "============================================================================" << endl;
-//    }
-//
-//}
+bool MINVSQRT_Test(Party* proxy, double &exe_time, bool only_timing = false) {
+    /* In this function, we test the computation of the inverse square root of a Gram matrix.
+     * We first generate a random Gram matrix by first generating a random data matrix D and
+     * then computing D^T * D.
+     */
+    cout<<setfill ('*')<<setw(50)<<"Calling MINVSQRT";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    // setting
+    int n_row = 100;
+    int n_col = 100;
+    int n_gms = 10;
+
+    // generate a Gram matrix
+    uint64_t ***invsqrt_data = new uint64_t**[n_gms];
+    for(int i = 0; i < n_gms; i++) {
+        invsqrt_data[i] = random_gram_matrix(proxy, n_row, n_col);
+    }
+
+//    double** tmp = convert2double(REC(proxy, invsqrt_data, n_row, n_row), n_row, n_row);
+
+    uint32_t *params = new uint32_t[2];
+    params[0] = n_gms;
+    params[1] = n_row;
+
+    proxy->SendBytes(RKN_MINVSQRT, params, 2);
+    auto start = chrono::high_resolution_clock::now();
+    uint64_t*** invsqrt_G = InverseSqrt(proxy, invsqrt_data, n_gms, n_row);
+    auto end = chrono::high_resolution_clock::now();
+    double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
+    time_taken *= 1e-9;
+    cout << "Vectorized INVSQRT Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
+    exe_time = time_taken;
+
+    bool flag = true;
+    if(!only_timing) {
+        double ***Gs = new double**[n_gms];
+        for(int i = 0; i < n_gms; i++) {
+            Gs[i] = convert2double(Reconstruct(proxy, invsqrt_data[i], n_row, n_row), n_row, n_row);
+        }
+
+        double*** rec_invsqrt_G = new double**[n_gms];
+        for(int g = 0; g < n_gms; g++) {
+            rec_invsqrt_G[g] = convert2double(Reconstruct(proxy, invsqrt_G[g], n_row, n_row), n_row, n_row);
+            print2DArray("The inverse square root of the Gram matrix", rec_invsqrt_G[g], n_row, n_row);
+
+            double* straighten_invsqrt_G = new double[n_row * n_row];
+            for(uint32_t i = 0; i < n_row * n_row; i++) {
+                straighten_invsqrt_G[i] = Gs[g][i % n_row][i / n_row];
+            }
+            EigenSolver<Matrix<double, Dynamic, Dynamic>> ges;
+            Map<Matrix<double, Dynamic, Dynamic>> matrix_G(straighten_invsqrt_G, n_row, n_row);
+            ges.compute(matrix_G);
+            Matrix<double, Dynamic, Dynamic> eig_vecs = ges.eigenvectors().real();
+            Matrix<double, Dynamic, 1> eig_vals = ges.eigenvalues().real();
+    //        cout << eig_vals << endl;
+
+            cout << "============= GT Inverse square root of the Gram matrix ======================" << endl;
+            Matrix<double, Dynamic, Dynamic> vals = eig_vals;
+            cout << eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Eigen::Transpose(eig_vecs) << endl;
+            cout << "============================================================================" << endl;
+
+            print2DArray("The inverse of the Gram matrix",
+                         multiply_matrices(rec_invsqrt_G[g], rec_invsqrt_G[g], n_row, n_row, n_row), n_row, n_row);
+
+            cout << "============= GT Inverse of the Gram matrix ======================" << endl;
+            cout << matrix_G.inverse() << endl;
+            cout << "============================================================================" << endl;
+        }
+    }
+    return flag;
+}
 
 double fRand(double fMin, double fMax)
 {
-    double f = (double)rand() / RAND_MAX;
+    double f = (double) rand() / RAND_MAX;
     return fMin + f * (fMax - fMin);
 }
 
@@ -3591,11 +3689,234 @@ bool NETWORK_M_INPUTS_TEST(Party *proxy) {
 
 // Main function to run the experiments
 int main(int argc, char *argv[]) {
-    uint8_t role = atoi(argv[1]);
-    uint16_t cport = atoi(argv[2]);
-    string caddress(argv[3]);
-    uint16_t hport = atoi(argv[4]);
-    string haddress(argv[5]);
+    // MAPS FUNCTIONS TO NUMBERS SO THAT WE CAN USE SWITCH-CASE TO DETERMINE WHICH FUNCTION WILL BE RUN
+    unordered_map<int, string> function_mapping;
+    function_mapping[0] = "All (default)";
+    function_mapping[1] = "Vectorized MUL";
+    function_mapping[2] = "Vectorized MUX";
+    function_mapping[3] = "Vectorized DP";
+    function_mapping[4] = "Vectorized MOC";
+    function_mapping[5] = "Vectorized MSB";
+    function_mapping[6] = "Vectorized CMP";
+    function_mapping[7] = "Vectorized EXP";
+    function_mapping[8] = "Vectorized INVSQRT";
+
+    // DEFINES THE FLAGS AND THE OPTIONS
+    unordered_map<string, string> flag_mapping;
+    flag_mapping["role"] = "-r";
+    flag_mapping["proxy-port"] = "-cp";
+    flag_mapping["proxy-ip"] = "-ci";
+    flag_mapping["helper-port"] = "-hp";
+    flag_mapping["helper-ip"] = "-hi";
+    flag_mapping["function"] = "-f";
+    flag_mapping["save-exe-time-result"] = "-s";
+    flag_mapping["only-timing"] = "-t";
+    flag_mapping["exp-id"] = "-id";
+    flag_mapping["network"] = "-n";
+
+    // CHECK IF AT LEAST THE ROLE IS GIVEN
+    if(argc == 1) {
+        cout << "Too less argument!" << endl;
+        cout << "Run \"proxy_test -h\" to see the required arguments and other options" << endl;
+        return -1;
+    }
+
+    // CHECK IF THERE ARE TOO MANY ARGUMENTS
+    if(argc > (flag_mapping.size() + 1)) {
+        cout << "Too many arguments!" << endl;
+        cout << "Run \"proxy_test -h\" to see the required arguments and other options" << endl;
+        return -14;
+    }
+
+    // HELP PAGE PRINT OUTS
+    if(argc == 2 && strcmp(argv[1], "-h") == 0) {
+        cout << "proxy_test [flag] [flag-value]" << endl;
+        cout << flag_mapping["role"] << "\t\t" << "(REQUIRED) 0 or 1 determining the role, i.e. whether the proxy acts as P1 or P2, respectively" << endl;
+        cout << flag_mapping["proxy-port"] << "\t\t" << "Port for the connection between proxies - default 9999" << endl;
+        cout << flag_mapping["proxy-ip"] << "\t\t" << "IP address for proxy connection - default 127.0.0.1" << endl;
+        cout << flag_mapping["helper-port"] << "\t\t" << "Port for the connection to the helper - default 7777" << endl;
+        cout << flag_mapping["helper-ip"] << "\t\t" << "IP address for helper connection - default 127.0.0.1" << endl;
+        cout << flag_mapping["function"] << "\t\t" << "Function: determines which functions are going to be tested" << endl;
+        for(int i = 0; i < function_mapping.size(); i++) {
+            cout << "\t\t\t" << i << ": " << function_mapping[i] << endl;
+        }
+        cout << flag_mapping["only-timing"] << "\t\t" << "Indicate whether the ground truths are going to be computed as well - default 0" << endl;
+        cout << "\t\t\t" << "0: Compute ground truths and check correctness" << endl;
+        cout << "\t\t\t" << "1: Testing only timing and skip ground truth computations" << endl;
+        cout << flag_mapping["save-exe-time-result"] << "\t\t" << "Determines if the result will be saved - default \"False\"" << endl;
+        cout << "\t\t\t" << "0: False - Do not save results" << endl;
+        cout << "\t\t\t" << "1: True - Save the results" << endl;
+        cout << flag_mapping["exp-id"] << "\t\t" << "ID of the experiment that is going to be used in the name of the file in case the output wants to be saved - default \"DEFAULT\"" << endl;
+        cout << flag_mapping["network"] << "\t\t" << "Network type (LAN or WAN) that is going to be used in the name of the file in case the output wants to be saved - default \"NA\"" << endl;
+        return 0;
+    }
+
+    uint8_t role;
+    uint16_t cport = 9999;
+    string caddress = "127.0.0.1";
+    uint16_t hport = 7777;
+    string haddress = "127.0.0.1";
+    int function = 0;
+    bool timing_exp = false;
+    bool save_flag = false;
+    string exp_id = "DEFAULT";
+    string network = "NA";
+
+    bool role_set = false;
+
+    // CHECK THE GIVEN ARGUMENTS AND ASSIGN THEM ACCORDINGLY IF THEY ARE CORRECT
+    for(int i = 1; i < argc; i += 2) {
+        char* option = argv[i];
+        // CHECK IF THERE IS A NEXT ARGUMENT
+        if(argc < i + 2) {
+            cout << "Argument is not given for the flag " << option << "!" << endl;
+            return -15;
+        }
+
+        if(option == flag_mapping["role"]) {
+            if(isNumberCheck(argv[i + 1]) && (atoi(argv[i + 1]) == 0 || atoi(argv[i + 1]) == 1)) {
+                role = atoi(argv[i + 1]);
+                role_set = true;
+            }
+            else {
+                cout << "Role needs to be 0 or 1!" << endl;
+                return -2;
+            }
+        }
+        else if(option == flag_mapping["proxy-port"]) {
+            if(isNumberCheck(argv[i + 1]))
+                cport = atoi(argv[i + 1]);
+            else {
+                cout << "Proxy port needs to be number!" << endl;
+                return -3;
+            }
+        }
+        else if(option == flag_mapping["proxy-ip"]) {
+            if(validateIP(argv[i + 1]))
+                caddress = argv[i + 1];
+            else {
+                cout << "Proxy IP is not valid!" << endl;
+                return -4;
+            }
+        }
+        else if(option == flag_mapping["helper-port"]) {
+            if(isNumberCheck(argv[i + 1]))
+                hport = atoi(argv[i + 1]);
+            else {
+                cout << "Helper port needs to be number!" << endl;
+                return -5;
+            }
+        }
+        else if(option == flag_mapping["helper-ip"]) {
+            if(validateIP(argv[i + 1]))
+                haddress = argv[i + 1];
+            else {
+                cout << "Helper IP is not valid!" << endl;
+                return -6;
+            }
+        }
+        else if(option == flag_mapping["function"]) {
+            if(isNumberCheck(argv[i + 1]) && atoi(argv[i + 1]) < function_mapping.size() && atoi(argv[i + 1]) >= 0)
+                function = atoi(argv[i + 1]);
+            else {
+                cout << "Function is not valid!" << endl;
+                return -7;
+            }
+        }
+        else if(option == flag_mapping["only-timing"]) {
+            if(isNumberCheck(argv[i + 1])) {
+                if(atoi(argv[i + 1]) == 1) {
+                    timing_exp = true;
+                }
+            }
+            else {
+                cout << flag_mapping["only-timing"] << " needs to be an integer!" << endl;
+                return -8;
+            }
+        }
+        else if(option == flag_mapping["save-exe-time-result"]) {
+            if(isNumberCheck(argv[i + 1])) {
+                if(atoi(argv[i + 1]) == 1) {
+                    save_flag = true;
+                }
+            }
+            else {
+                cout << flag_mapping["save-exe-time-result"] << " needs to be an integer!" << endl;
+                return -9;
+            }
+        }
+        else if(option == flag_mapping["exp-id"]) {
+            exp_id = argv[i + 1];
+        }
+        else if(option == flag_mapping["network"]) {
+            if(!isNumberCheck(argv[i + 1])) {
+                for (int c = 0; c < strlen(argv[i + 1]); c++)
+                    argv[i + 1][c] = toupper(argv[i + 1][c]);
+                if(strcmp(argv[i + 1], "LAN") == 0 || strcmp(argv[i + 1], "WAN") == 0) {
+                    network = argv[i + 1];
+                }
+                else {
+                    cout << flag_mapping["network"] << " needs to be either LAN or WAN!" << endl;
+                    return -11;
+                }
+            }
+            else {
+                cout << flag_mapping["network"] << " needs to be string and either LAN or WAN!" << endl;
+                return -12;
+            }
+        }
+        else {
+            cout << "There is no flag with name " << option << "!" << endl;
+            return -13;
+        }
+    }
+
+    if(!role_set) {
+        cout << "Role must be set!" << endl;
+        return -16;
+    }
+
+
+
+
+//    uint8_t role = atoi(argv[1]);
+//    uint16_t cport = atoi(argv[2]);
+//    string caddress(argv[3]);
+//    uint16_t hport = atoi(argv[4]);
+//    string haddress(argv[5]);
+
+    // function to run
+//    int function = 0;
+//    if(argc >= 7) {
+//        function = atoi(argv[6]);
+//    }
+//    cout << "function: " << function << endl;
+
+    // true if the experiments are only for timing analysis -- skipping ground truths of the functions
+//    bool timing_exp = false;
+//    if(argc >= 8 && atoi(argv[7]) == 1) {
+//        timing_exp = true;
+//    }
+//    cout << "timing experiment: " << timing_exp << endl;
+
+    // experiment ID
+//    string exp_id = "default";
+//    if(argc >= 9) {
+//        exp_id = argv[8];
+//    }
+//    cout << "experiment id: " << exp_id << endl;
+
+    // experiment ID
+//    string network = "not-specified";
+//    if(argc >= 10) {
+//        network = argv[9];
+//    }
+//    cout << "network: " << network << endl;
+
+//    if(argc > 10) {
+//        cout << "Too many arguments!" << endl;
+//        return -1;
+//    }
 
     Party *proxy;
     if (role == 0)
@@ -3609,8 +3930,48 @@ int main(int argc, char *argv[]) {
     int ind = 0;
     int cnt = 0;
     unordered_map<string, int> umap;
+    double *exe_time = new double[num_repetition];
+    double tmp_time;
     auto start = chrono::high_resolution_clock::now();
-    while (ind < 1 ) { // && result
+    exe_time[ind] = 0;
+    while (ind < num_repetition ) { // && result
+        cout << "Iteration: " << ind << endl;
+        switch(function) {
+            case 1:
+                MMUL_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            case 2:
+                MMUX_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            case 3:
+                MDP_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            case 4:
+                MMOC_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            case 5:
+                MMSB_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            case 6:
+                MCMP_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            case 7:
+                MEXP_Test(proxy, exe_time[ind], cnt, timing_exp);
+                break;
+            case 8:
+                MINVSQRT_Test(proxy, exe_time[ind], timing_exp);
+                break;
+            default: // all functions
+                MMUL_Test(proxy, exe_time[ind], timing_exp);
+                MMOC_Test(proxy, exe_time[ind], timing_exp);
+                MMSB_Test(proxy, exe_time[ind], timing_exp);
+                MCMP_Test(proxy, exe_time[ind], timing_exp);
+                MMUX_Test(proxy, exe_time[ind], timing_exp);
+                MDP_Test(proxy, exe_time[ind], timing_exp);
+                MEXP_Test(proxy, exe_time[ind], cnt, timing_exp);
+                MINVSQRT_Test(proxy, exe_time[ind], timing_exp);
+        }
+
         // **************************** test cases for Ali ************************************
 //        result = MUL_Test_v2(proxy, ind, umap, cnt);
         // ************************************************************************************
@@ -3619,24 +3980,25 @@ int main(int argc, char *argv[]) {
 //        local_MMUL_Test(proxy, cnt);
 
 //        result = TRUNCATE_Test(proxy, cnt, umap);
+//
 //        ADD_Test(proxy);
-//        result = MUL_Test(proxy);
-//        result = MMUL_Test(proxy);
-        //MAX_Specific_Test(proxy);
-
+//
+//        MUL_Test(proxy);
+//        MMUL_Test(proxy, exe_time[ind], timing_exp);
+//
+//        MAX_Specific_Test(proxy);
+//
 //        MOC_Test(proxy);
-//        MMOC_Test(proxy);
+//        MMOC_Test(proxy, exe_time[ind], timing_exp);
 //
 //        MSB_Test(proxy);
-//          MMSB_Test(proxy);
-//        MMUL2_Test(proxy);
-        MMUL_Test(proxy);
+//        MMSB_Test(proxy, exe_time[ind], timing_exp);
 //
 //        CMP_Test(proxy);
-//        MCMP_Test(proxy);
+//        MCMP_Test(proxy, exe_time[ind], timing_exp);
 //
 //        MUX_Test(proxy, cnt);
-//        MMUX_Test(proxy);
+//        MMUX_Test(proxy, exe_time[ind], timing_exp);
 //
 //        MAX_Test(proxy);
 //        MMAX_Test(proxy);
@@ -3661,23 +4023,41 @@ int main(int argc, char *argv[]) {
 //        CL_Test(proxy);
 //
 //        EXP_Test(proxy);
-//        MEXP_Test(proxy);
+//        MEXP_Test(proxy, exe_time[ind], timing_exp);
 //
 //        DP_Test(proxy);
-//        MDP_Test(proxy);
+//        MDP_Test(proxy, exe_time[ind], timing_exp);
 //        MATMATMUL_Test(proxy);
 //        MMATMATMUL_Test(proxy);
 //
 //        MATVECMUL_Test(proxy);
 //
 //        INVSQRT_Test(proxy);
-//        MINVSQRT_Test(proxy);
+//        MINVSQRT_Test(proxy, exe_time[ind], timing_exp);
 //
 //        ppRKN_ITER_Test(proxy);
 //        ppRKN_PREDICTION_Test(proxy);
         ind++;
     }
     cout << "Number of wrong operations: " << cnt << endl;
+
+    double total_exe = 0;
+    for(int i = 0; i < num_repetition; i++) {
+        cout << exe_time[i] << endl;
+        total_exe += exe_time[i];
+    }
+    double average_runtime = total_exe / num_repetition;
+    cout << "Average execution time: " << average_runtime << endl;
+
+    // write the average runtime to a file if it is P1
+//    if(proxy->getPRole() == P1) {
+//        ofstream output_file;
+//        output_file.open ("/Users/aliburak/Projects/CECILIA/exp_runners/rkn_experiments/benchmarking/function_" +
+//            to_string(function) + "_" + exp_id + "_" + network + ".txt");
+//        output_file << fixed << setprecision(3) << average_runtime;
+//        output_file.close();
+//    }
+
 
 
 //    bool all_correct0 = true;

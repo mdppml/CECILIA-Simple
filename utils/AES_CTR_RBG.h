@@ -25,6 +25,7 @@ using CryptoPP::NotCopyable;
 using CryptoPP::lword;
 
 static long long reseed_interval = 1LL << 48;
+static int RANDOM_BUFFER_SIZE = BUFFER_SIZE;
 
 class AES_CTR_RBG : public RandomNumberGenerator, public NotCopyable
 {
@@ -32,7 +33,7 @@ public:
     explicit AES_CTR_RBG(const CryptoPP::byte *seed = nullptr, size_t length = 0)
     : m_pCipher(new CTR_Mode<AES>::Encryption)
     {
-        m_keyed = false;
+        initialised = false;
         EntropyHelper(seed, length, true);
     }
     
@@ -54,11 +55,54 @@ public:
     //   Therefore, this must be done outside of this class.
     void GenerateBlock(CryptoPP::byte *output, size_t size) override
     {
-        if (!m_keyed) {
-            m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
-            m_keyed = true;
+        initialise();
+        size_t remaining_bytes = size;
+        size_t transferred_bytes = 0;
+        size_t bytes_in_buffer = RANDOM_BUFFER_SIZE - _buffer_position;
+        while (bytes_in_buffer < remaining_bytes) {
+            ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, bytes_in_buffer);
+            transferred_bytes += bytes_in_buffer;
+            remaining_bytes -= bytes_in_buffer;
+            _replenishBuffer();
+            bytes_in_buffer = RANDOM_BUFFER_SIZE;
         }
-        m_pCipher->GenerateBlock(output, size);
+        ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, remaining_bytes);
+        _buffer_position += remaining_bytes;
+    }
+
+    CryptoPP::byte GenerateByte() override
+    {
+        initialise();
+        if (_buffer_position == RANDOM_BUFFER_SIZE) {
+            _replenishBuffer();
+        }
+        CryptoPP::byte byte = _current_buffer[_buffer_position];
+        _buffer_position += 1;
+        return byte;
+    }
+
+    uint64_t GenerateLongLong() {
+        initialise();
+        if (_buffer_position+8 > RANDOM_BUFFER_SIZE) {
+            _replenishBuffer();
+        }
+        uint64_t random = *(uint64_t *)(_current_buffer +_buffer_position);
+        _buffer_position += 8;
+        return random;
+    }
+
+    /**\brief makes sure that everything is initialised
+     *
+     */
+    void initialise() {
+        if (!initialised) {
+            m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
+            _current_buffer = new CryptoPP::byte[BUFFER_SIZE];
+            _unused_buffer = new CryptoPP::byte[BUFFER_SIZE];
+            _fillUnusedBuffer();
+            _replenishBuffer();
+            initialised = true;
+        }
     }
 
 protected:
@@ -94,12 +138,31 @@ protected:
         
         memcpy(m_key.data(), seed.data() + 0, 16);
         memcpy(m_iv.data(), seed.data() + 16, 16);
-        m_keyed = false;
+        initialised = false;
     }
     
 private:
+    std::thread _buffer_thread{};
+    CryptoPP::byte* _current_buffer;
+    CryptoPP::byte* _unused_buffer;
+    size_t _buffer_position = 0;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_key;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_iv;
     member_ptr<CTR_Mode<AES>::Encryption> m_pCipher;
-    bool m_keyed;
+    bool initialised;
+
+    void _replenishBuffer() {
+        if (_buffer_thread.joinable()) {
+            _buffer_thread.join();
+        }
+        CryptoPP::byte* swap = _current_buffer;
+        _current_buffer = _unused_buffer;
+        _unused_buffer = swap;
+        _buffer_position = 0;
+        _buffer_thread = thread(&AES_CTR_RBG::_fillUnusedBuffer, this);
+    }
+
+    void _fillUnusedBuffer() {
+        m_pCipher->GenerateBlock(_unused_buffer, RANDOM_BUFFER_SIZE);
+    }
 };

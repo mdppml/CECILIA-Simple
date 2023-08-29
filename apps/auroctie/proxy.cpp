@@ -88,7 +88,7 @@ void calc_auc_v2(Party* proxy){
     uint32_t params[1] = {size};
     proxy->SendBytes(AUC_ROCWITHTIE, params, 1);
     uint64_t auc = ROCWITHTIE(proxy, c_data, size);
-    cout << "AUC :\t" << convert2double(REC(proxy, auc)) << endl;
+    cout << "AUC :\t" << convert2double(Reconstruct(proxy, auc)) << endl;
 }
 
 //void calc_confidence(Party* proxy){

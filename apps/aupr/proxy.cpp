@@ -177,7 +177,7 @@ void calc_auc_v2(Party *proxy) {
     uint32_t params[1] = {size};
     proxy->SendBytes(AUC_PR, params, 1);
     uint64_t aupr = PRCURVE(proxy, c_data, size);
-    cout << "AUPR :\t" << convert2double(REC(proxy, aupr)) << endl;
+    cout << "AUPR :\t" << convert2double(Reconstruct(proxy, aupr)) << endl;
 }
 
 //void calc_confidence(Party* proxy){
@@ -471,7 +471,7 @@ int main(int argc, char* argv[]) {
 
     time_taken = chrono::duration_cast<chrono::nanoseconds>(mid - start).count();
     time_taken *= 1e-9;
-    cout << "Time taken by SORT is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
+    cout << "Time taken by Sort is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
 
     time_taken = chrono::duration_cast<chrono::nanoseconds>(end - mid).count();
     time_taken *= 1e-9;

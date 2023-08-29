@@ -304,7 +304,8 @@ uint64_t*** GaussianKernel(Party* proxy, uint64_t ***G, uint64_t alpha, uint32_t
     int p_role = proxy->getPRole();
     if(p_role == P1 || p_role == P2) {
         uint32_t step_size = (size * (size + 1)) / 2;
-        cout << "Step size in GM2KM_v2: " << step_size << endl;
+//        cout << "Step size in GM2KM_v2: " << step_size << endl;
+//        cout << "Alpha: " << convert2double(alpha) << endl;
 
         // computes the initial form of the kernel matrices
         uint64_t ***km = new uint64_t**[n_gms];
@@ -937,7 +938,7 @@ uint64_t* RknIteration(Party* proxy, uint64_t* x, uint64_t* z, uint64_t* ct1, ui
 //        print1DArray("skt in pprkn_iteration", convert2double(Reconstruct(proxy, skt, size2), size2), size2);
 
         // computation of c_{k-1}[t-1] * b_{k}[t]
-    //    cout << "********* lambda: " << convert2uint64(lambda) << endl;
+//        cout << "********* lambda: " << convert2double(lambda) << endl;
         uint64_t* ckt = new uint64_t[size2];
         for(uint32_t i = 0; i < size2; i++) {
     //        ckt[i] = skt[i] + convert2uint64(lambda * convert2double(ct1[i + n_anc]));

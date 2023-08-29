@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+using namespace std;
+
 /**
  \enum     etype
  \brief    Data types for command line parameters
@@ -69,6 +71,22 @@ int32_t parse_options(int32_t* argcp, char*** argvp, parsing_ctx* options, uint3
 void print_usage(std::string progname, parsing_ctx* options, uint32_t nops);
 void tokenize(const std::string& str, std::vector<uint32_t>& tokens, const std::string& delimiters = "| \t");
 void tokenize_verilog(const std::string& str, std::vector<uint32_t>& tokens, const std::string& delimiters = " \t");
+
+//bool check_number(string str) {
+//    for (int i = 0; i < str.length(); i++)
+//        if (isdigit(str[i]) == false)
+//            return false;
+//    return true;
+//}
+
+// check if a given string is a numeric string or not
+bool isNumberCheck(const string &str);
+
+// Function to split string `str` using a given delimiter
+vector<string> splitString(const string &str, char delim);
+
+// Function to validate an IP address
+bool validateIP(string ip);
 
 #endif /* PARSE_OPTIONS_H_ */
 

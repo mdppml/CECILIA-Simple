@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
             }
             if (padding > 0) {
                 uint64_t padding_value = proxy->createShare(0.0);
-                input[i][j] = PAD(input[i][j], i_height, i_width, padding_value, padding);
+                input[i][j] = Pad(input[i][j], i_height, i_width, padding_value, padding);
             }
         }
 
@@ -348,7 +348,7 @@ int main(int argc, char *argv[]) {
 
         switch (nn_mode) {                              // from here on network architectures differ
             case 0: { // Chameleon
-                conv = CL(proxy, input[image], i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
+                conv = ConvolutionalLayer(proxy, input[image], i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
                           max_win_width, bias[curr_layer], true);
                 delete_image_share(input, image);
                 updateParamsAfterCL();
@@ -359,13 +359,13 @@ int main(int argc, char *argv[]) {
                 if (image == i_number - 1) {
                     delete_model_weights(model_weights, curr_layer, 0, nodes_out);
                 }
-                prev_layer_res = FCL(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
-                prev_layer_res = RELU(proxy, prev_layer_res, nodes_out);
+                prev_layer_res = FullyConnectedLayer(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
+                prev_layer_res = ReLU(proxy, prev_layer_res, nodes_out);
                 updateParamsForFCL(bias_dimensions, false);
                 break;
             }
             case 1: { // SecureNN
-                conv = CL(proxy, input[image], i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
+                conv = ConvolutionalLayer(proxy, input[image], i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
                           max_win_width, bias[curr_layer], false);
                 delete_image_share(input, image);
                 updateParamsAfterCL();
@@ -379,7 +379,7 @@ int main(int argc, char *argv[]) {
                     delete_model_weights(model_weights, curr_layer, i_channel, bias_dimensions[curr_layer]);
                 }
 
-                conv = CL(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
+                conv = ConvolutionalLayer(proxy, conv, i_channel, i_height, i_width, kernel, k_dim, k_number, stride, max_win_height,
                           max_win_width, bias[curr_layer], true);
                 updateParamsAfterCL();
 
@@ -389,8 +389,8 @@ int main(int argc, char *argv[]) {
                 if (image == i_number - 1) {
                     delete_model_weights(model_weights, curr_layer, 0, nodes_out);
                 }
-                prev_layer_res = FCL(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
-                prev_layer_res = RELU(proxy, prev_layer_res, nodes_out);
+                prev_layer_res = FullyConnectedLayer(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
+                prev_layer_res = ReLU(proxy, prev_layer_res, nodes_out);
                 updateParamsForFCL(bias_dimensions, false);
                 break;
             }
@@ -398,13 +398,13 @@ int main(int argc, char *argv[]) {
                 // CONVOLUTIONAL LAYER (adapted to non-symmetric filter size
                 conv = new uint64_t **[k_number];
                 for (int k = 0; k < k_number; ++k) {
-                    conv[k] = MATVECMUL(proxy, input[image], kernel[k], 1, i_height, i_width);
-                    conv[k][0][0] = MAX(proxy, conv[k][0], i_height);
+                    conv[k] = MatrixVectorMultiply(proxy, input[image], kernel[k], 1, i_height, i_width);
+                    conv[k][0][0] = Max(proxy, conv[k][0], i_height);
                 }
                 delete_image_share(input, image);
                 updateParamsAfterCL();
 
-                prev_layer_res = FLT(conv, i_height, i_width, i_channel);
+                prev_layer_res = Flatten(conv, i_height, i_width, i_channel);
                 updateParamsForFCL(bias_dimensions, true);
             }
         }
@@ -414,8 +414,8 @@ int main(int argc, char *argv[]) {
             delete_model_weights(model_weights, curr_layer, 0, nodes_out);
         }
 
-        uint64_t *output = FCL(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
-        prediction[image] = convert2double(REC(proxy, ARGMAX(proxy, output, nodes_out)));
+        uint64_t *output = FullyConnectedLayer(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
+        prediction[image] = convert2double(Reconstruct(proxy, ArgMax(proxy, output, nodes_out)));
         //print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
         cout << "predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
 
@@ -424,7 +424,7 @@ int main(int argc, char *argv[]) {
         } else {
             incorrect++;
         }
-        double *inference_res = convert2double(REC(proxy, output, nodes_out), nodes_out);
+        double *inference_res = convert2double(Reconstruct(proxy, output, nodes_out), nodes_out);
         if (trained_for_MNIST and eval_correctness and proxy->getPRole() == P1) {
             ofstream image_file;
             string path;
@@ -439,7 +439,6 @@ int main(int argc, char *argv[]) {
             image_file.open(path, std::ios::app);
             if (!image_file) {
                 cout << "Error opening file for appending prediction at " << path << endl;
-
                 return 1;
             }
             /*for (int v = 0; v < nodes_out; ++v) {
@@ -466,7 +465,6 @@ int main(int argc, char *argv[]) {
     delete[] bias;
     delete[] model_weights;
     proxy->PrintBytes();
-    proxy->piK();
 
     print1DArray("Prediction: ", prediction, i_number);
     double* ground_truth = new double [i_number];
