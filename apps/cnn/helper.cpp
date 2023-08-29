@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
     uint16_t port = strtol(argv[2], nullptr, 10);
     uint32_t nn_mode = atoi(argv[3]);
 
-    auto *helper = new Party(HELPER,port,address);
+    auto *helper = new Party(helper, port, address);
 
     // parse model parameters
     initParams(nn_mode);

@@ -5,16 +5,14 @@
 #ifndef CECILIA_SORT_H
 #define CECILIA_SORT_H
 
-#endif //CECILIA_SORT_H
-
 #include "core.h"
 #include "../utils/flib.h"
 #include "bitset"
 #include "string.h"
 
 
-uint64_t* generateF(Party *const proxy, const uint64_t *const a, uint32_t size) {
-    if(proxy->getPRole() == P1) {
+uint64_t* GenerateF(Party *const proxy, const uint64_t *const a, uint32_t size) {
+    if(proxy->GetPRole() == proxy1) {
         auto *result = new uint64_t[2 * size];
         for(int i = 0; i < size; ++i) {
             result[i] = (1 - a[i]);
@@ -22,7 +20,7 @@ uint64_t* generateF(Party *const proxy, const uint64_t *const a, uint32_t size) 
         }
         return result;
     }
-    else if(proxy->getPRole() == P2) {
+    else if(proxy->GetPRole() == proxy2) {
         auto *result = new uint64_t[2 * size];
         for(int i = 0; i < size; ++i) {
             result[i] = (0 - a[i]);
@@ -33,7 +31,7 @@ uint64_t* generateF(Party *const proxy, const uint64_t *const a, uint32_t size) 
     else return nullptr;
 }
 
-uint64_t* generateS(const uint64_t *const a, uint32_t size) {
+uint64_t* GenerateS(const uint64_t *const a, uint32_t size) {
     auto *result = new uint64_t[size];
     result[0] = a[0];
     for(int i = 1; i < size; ++i) {
@@ -42,7 +40,7 @@ uint64_t* generateS(const uint64_t *const a, uint32_t size) {
     return result;
 }
 
-uint64_t* generateP(const uint64_t *const t, uint32_t size) {
+uint64_t* GenerateP(const uint64_t *const t, uint32_t size) {
     auto *result = new uint64_t[size];
     for(int i = 0; i < size; ++i) {
         result[i] = (t[i] + t[i + size]) ;  //removed %L correct?
@@ -50,12 +48,12 @@ uint64_t* generateP(const uint64_t *const t, uint32_t size) {
     return result;
 }
 
-uint64_t *generatePermutation(Party *const proxy, const uint64_t *const x, uint32_t size) {
-    if(proxy->getPRole() == P1 || proxy->getPRole() == P2) {
-        uint64_t *f = generateF(proxy, x, size);
-        uint64_t *s = generateS(f, size * 2);
+uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint32_t size) {
+    if(proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+        uint64_t *f = GenerateF(proxy, x, size);
+        uint64_t *s = GenerateS(f, size * 2);
         uint64_t *t = Multiply(proxy, f, s, size * 2);
-        uint64_t *p = generateP(t, size);
+        uint64_t *p = GenerateP(t, size);
         delete[] f;
         delete[] s;
         delete[] t;
@@ -67,7 +65,7 @@ uint64_t *generatePermutation(Party *const proxy, const uint64_t *const x, uint3
     }
 }
 
-uint64_t *getRandomPermutation(const uint64_t *const randoms, uint32_t size){
+uint64_t *GetRandomPermutation(const uint64_t *const randoms, uint32_t size){
 
     uint64_t to_permute[size];
     for(int i = 0; i < size; i++)  to_permute[i] = i+1;
@@ -82,9 +80,9 @@ uint64_t *getRandomPermutation(const uint64_t *const randoms, uint32_t size){
     return result;
 }
 
-uint64_t *applyPermutation(Party *proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
+uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
 
-    // paperdaki ikinci algoritma, sortlanmis v nin sharelarini verecek
+    // the second algorithm in the paper will give the shares of sorted v
     auto* r = new uint64_t[size];
     // construct permuted p and v shares
     auto* pip = new uint64_t[size];
@@ -94,82 +92,82 @@ uint64_t *applyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
     auto* pr_inv = new uint64_t[size];
     long long x;   //pointer lazım mı?
     long long n = (long long) (((long long)1 << 61) - 1);
-    x = proxy->generateCommonRandom() % n;
+    x = proxy->GenerateCommonRandom() % n;
 
-    if (proxy->getPRole() == P1) {
+    if (proxy->GetPRole() == proxy1) {
         for (int i = 0; i < size; i++) {
-            r[i] = proxy->generateRandom() % n;   //need to be smaller than n
+            r[i] = proxy->GenerateRandom() % n;   //need to be smaller than n
             v[i] += r[i];
         }
     }
 
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
 
         for (int i = 0; i < size; i++) {
             pip[i] = p[pi[i]-1];
             piv[i] = v[pi[i]-1];
         }
-        unsigned char *ptr = proxy->getBuffer1();
+        unsigned char *ptr = proxy->GetBuffer1();
 
         for (int i = 0; i < size; i++) {
-            addVal2CharArray(pip[i], &ptr);
-            addVal2CharArray(piv[i], &ptr);
+            AddValueToCharArray(pip[i], &ptr);
+            AddValueToCharArray(piv[i], &ptr);
         }
-        thread thr1 = thread(Send, proxy->getSocketHelper(), proxy->getBuffer1(), size * 16);
-        thread thr2 = thread( Receive, proxy->getSocketHelper(),proxy->getBuffer2(),size * 8); //receives a share from pv_inv
+        thread thr1 = thread(Send, proxy->GetSocketHelper(), proxy->GetBuffer1(), size * 16);
+        thread thr2 = thread(Receive, proxy->GetSocketHelper(), proxy->GetBuffer2(), size * 8); //receives a share from pv_inv
         thr1.join();
         thr2.join();
-        if(proxy->getPRole() == P1) {
+        if(proxy->GetPRole() == proxy1) {
 
             for (int i = 0; i < size; i++) {
-                r[i] = (uint64_t) multMod((long long) r[i], x, n);
+                r[i] = (uint64_t) MultMod((long long) r[i], x, n);
             }
 
             for (int i = 0; i < size; i++) {
                 pir[i] = r[pi[i]-1];
             }
-            ptr = proxy->getBuffer1();
+            ptr = proxy->GetBuffer1();
             for (int i = 0; i < size; i++) {
-                addVal2CharArray(pir[i], &ptr);
+                AddValueToCharArray(pir[i], &ptr);
             }
-            Send(proxy->getSocketHelper(), proxy->getBuffer1(), size * 8);  //sent pir to helper
+            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * 8);  //sent pir to helper
         }
 
-        ptr = proxy->getBuffer2();
+        ptr = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pv_inv[i] = convert2Long(&ptr);   //they got the pvinv shares but P1 needs to eliminate the effect of r
+            pv_inv[i] = ConvertToLong(&ptr);   //they got the pvinv shares but proxy1 needs to eliminate the effect of r
         }
 
-        if(proxy->getPRole() == P2){   //P2
-            Receive(proxy->getSocketHelper(),proxy->getBuffer1(),size*8);
-            ptr = proxy->getBuffer1();
+        if(proxy->GetPRole() == proxy2){   //proxy2
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * 8);
+            ptr = proxy->GetBuffer1();
             for (int i = 0; i < size; i++) {
-                pr_inv[i] = convert2Long(&ptr);
+                pr_inv[i] = ConvertToLong(&ptr);
             }
 
-            long long xinv = getModularInverse_n(x, n);
+            long long xinv = GetModularInverseN(x, n);
             for (int i = 0; i < size; i++) {
-                pr_inv[i] = (uint64_t) multMod((long long) pr_inv[i], xinv, n);
+                pr_inv[i] = (uint64_t) MultMod((long long) pr_inv[i], xinv, n);
                 pv_inv[i] = pv_inv[i] - pr_inv[i];
             }
 
         }
     }
-    else { // HELPER
+    else { // helper
 
-        unsigned char *ptr1 = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
+        unsigned char *ptr1 = proxy->GetBuffer1();
+        unsigned char *ptr2 = proxy->GetBuffer2();
 
-        thread thr1 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer1(), size * 16);
-        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), size * 16);
+        thread thr1 = thread(Receive, proxy->GetSocketP1(), proxy->GetBuffer1(), size * 16);
+        thread thr2 = thread(Receive, proxy->GetSocketP2(), proxy->GetBuffer2(), size * 16);
         thr1.join();
         thr2.join();
 
         for (int i = 0; i < size; i++) {
-            pip[i] = convert2Long(&ptr1);
-            piv[i] = convert2Long(&ptr1);
-            pip[i] += convert2Long(&ptr2);
-            piv[i] += convert2Long(&ptr2);
+            pip[i] = ConvertToLong(&ptr1);
+            piv[i] = ConvertToLong(&ptr1);
+            pip[i] += ConvertToLong(&ptr2);
+            piv[i] += ConvertToLong(&ptr2);
         }
 
         for(int i = 0; i < size; i++){  //applying inverse permutation, check
@@ -177,26 +175,26 @@ uint64_t *applyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
         }
 
         //we need to create shares to send
-        ptr1 = proxy->getBuffer1();
-        ptr2 = proxy->getBuffer2();
+        ptr1 = proxy->GetBuffer1();
+        ptr2 = proxy->GetBuffer2();
         uint64_t tempShare;
         for (int i = 0; i < size; i++) {
-            tempShare = proxy->generateRandom();
-            addVal2CharArray(tempShare, &ptr1);   //aslında sharelar olmalı
-            addVal2CharArray(pv_inv[i] - tempShare, &ptr2);
+            tempShare = proxy->GenerateRandom();
+            AddValueToCharArray(tempShare, &ptr1);   //aslında sharelar olmalı
+            AddValueToCharArray(pv_inv[i] - tempShare, &ptr2);
 
         }
 
-        thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), size * 8);
-        thr2 = thread( Send, proxy->getSocketP2(), proxy->getBuffer2(), size * 8);
+        thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), size * 8);
+        thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), size * 8);
         thr1.join();
         thr2.join();
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), size * 8);
+        Receive(proxy->GetSocketP1(), proxy->GetBuffer1(), size * 8);
 
-        ptr1 = proxy->getBuffer1();
+        ptr1 = proxy->GetBuffer1();
         for (int i = 0; i < size; i++) {
-            pir[i] = convert2Long(&ptr1);
+            pir[i] = ConvertToLong(&ptr1);
         }
 
 
@@ -204,12 +202,12 @@ uint64_t *applyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
             pr_inv[pip[i]-1] = pir[i];
         }
 
-        ptr1 = proxy->getBuffer1();
+        ptr1 = proxy->GetBuffer1();
         for (int i = 0; i < size; i++) {
-            addVal2CharArray(pr_inv[i], &ptr1);
+            AddValueToCharArray(pr_inv[i], &ptr1);
         }
 
-        Send(proxy->getSocketP2(), proxy->getBuffer1(), size * 8);
+        Send(proxy->GetSocketP2(), proxy->GetBuffer1(), size * 8);
 
 
     }
@@ -223,15 +221,15 @@ uint64_t *applyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
 
 uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //size = size of array
     int LT= 64;
-    if (proxy->getPRole() == HELPER) {
+    if (proxy->GetPRole() == helper) {
         for(int i = 0; i < LT; ++i) {
             MostSignificantBit(proxy, 0, size);
-            generatePermutation(proxy, 0, size);
-            applyPermutation(proxy,0,0, 0, size);
+            GeneratePermutation(proxy, 0, size);
+            ApplyPermutation(proxy, 0, 0, 0, size);
         }
         return 0;
     }
-    else {  //P1 or P2
+    else {  //proxy1 or proxy2
         double tt1, tt2, tt3, tt4, tt5=0;
         auto *randoms = new uint64_t[size];
         auto* res = new uint64_t[size];
@@ -251,23 +249,23 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //
             tt1 = tt1 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
-            uint64_t* perm = generatePermutation(proxy, msb_array, size);  //obtain permutation for msb
+            uint64_t* perm = GeneratePermutation(proxy, msb_array, size);  //obtain permutation for msb
             end = chrono::high_resolution_clock::now();
             tt2 = tt2 +chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
             for (int j = 0; j < size ; j++)
-                randoms[j] = proxy->generateCommonRandom();
+                randoms[j] = proxy->GenerateCommonRandom();
             end = chrono::high_resolution_clock::now();
             tt3 = tt3 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
-            uint64_t* pi = getRandomPermutation(randoms, size);
+            uint64_t* pi = GetRandomPermutation(randoms, size);
             end = chrono::high_resolution_clock::now();
             tt4 = tt4 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
-            uint64_t* temp = applyPermutation(proxy,perm,res, pi, size);  //apply the permutation to the current array
+            uint64_t* temp = ApplyPermutation(proxy, perm, res, pi, size);  //apply the permutation to the current array
             end = chrono::high_resolution_clock::now();
             tt5 = tt5 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
             for (int j = 0; j < size ; ++j) {
@@ -289,3 +287,4 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //
     }
     return 0;
 }
+#endif //CECILIA_SORT_H

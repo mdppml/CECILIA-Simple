@@ -4,17 +4,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define PARTCOUNT 100
-#define MAXSAMPLESIZE 50000
+#define PARTITION_COUNT 100
+#define MAX_SAMPLE_SIZE 50000
 
-void swap(uint64_t* a, uint64_t* b)
+void Swap(uint64_t* a, uint64_t* b)
 {
     uint64_t t = *a;
     *a = *b;
     *b = t;
 }
 
-int partition (uint64_t real_arr[], int low, int high)
+int Partition (uint64_t real_arr[], int low, int high)
 {
     uint64_t pivot = real_arr[high]; // pivot
     int i = (low - 1); // Index of smaller element
@@ -25,29 +25,29 @@ int partition (uint64_t real_arr[], int low, int high)
         if (real_arr[j] > pivot)
         {
             i++; // increment index of smaller element
-            swap(&real_arr[i], &real_arr[j]);
+            Swap(&real_arr[i], &real_arr[j]);
         }
     }
-    swap(&real_arr[i + 1], &real_arr[high]);
+    Swap(&real_arr[i + 1], &real_arr[high]);
     return (i + 1);
 }
-void quickSort(uint64_t real_arr[], int low, int high)
+void QuickSort(uint64_t real_arr[], int low, int high)
 {
     if (low < high)
     {
         /* pi is partitioning index, arr[p] is now
          at right place */
-        int pi = partition(real_arr, low, high);
+        int pi = Partition(real_arr, low, high);
 
         // Separately sort elements before
-        // partition and after partition
-        quickSort(real_arr, low, pi - 1);
-        quickSort(real_arr, pi + 1, high);
+        // partition and after Partition
+        QuickSort(real_arr, low, pi - 1);
+        QuickSort(real_arr, pi + 1, high);
     }
 }
 
-void sort_values(uint64_t real_arr[], int n){
-    quickSort(real_arr, 0, n);
+void SortValues(uint64_t real_arr[], int n){
+    QuickSort(real_arr, 0, n);
 }
 
 

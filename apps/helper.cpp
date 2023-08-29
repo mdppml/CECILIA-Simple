@@ -17,90 +17,90 @@ int main(int argc, char* argv[]) {
     string address(argv[1]);
     uint16_t port = strtol(argv[2], nullptr, 10);
 
-    auto *helper = new Party(HELPER,port,address);
+    auto *helper = new Party(helper, port, address);
     bool keep_looping = true;
     uint32_t sz, n_gms, size1, size2;
     uint64_t params [9];
-    op operation;
+    Operation operation;
     auto start = chrono::high_resolution_clock::now();
     while (keep_looping){
-        operation = static_cast<op>(helper->ReadByte());
+        operation = static_cast<Operation>(helper->ReadByte());
         switch(operation) {
-            case CORE_MMSB:
+            case coreVectorisedMostSignificantBit:
                 sz = helper->ReadInt();
                 MostSignificantBit(helper, nullptr, sz);
                 break;
-            case CORE_MSB:
+            case coreMostSignificantBit:
                 MostSignificantBit(helper, 0);
                 break;
-            case CORE_MC:
+            case coreModularConversion:
                 ModularConversion(helper, 0);
                 break;
-            case CORE_MMC:
+            case coreVectorisedModularConversion:
                 sz = helper->ReadInt();
                 ModularConversion(helper, nullptr, sz);
                 break;
-            case CORE_CMP:
+            case coreCompare:
                 Compare(helper, 0, 0);
                 break;
-            case CORE_MCMP:
+            case coreVectorisedCompare:
                 sz = helper->ReadInt();
                 Compare(helper, nullptr, nullptr, sz);
                 break;
-            case CORE_MUX:
+            case coreMultiplex:
                 Multiplex(helper, 0, 0, 0);
                 break;
-            case CORE_MMUX:
+            case coreVectorisedMultiplex:
                 sz = helper->ReadInt();
                 Multiplex(helper, nullptr, nullptr, nullptr, sz);
                 break;
-            case CORE_MUL:
+            case coreMultiply:
                 Multiply(helper, 0, 0);
                 break;
-            case CORE_MMUL:
+            case coreVectorisedMultiply:
                 sz = helper->ReadInt();
                 Multiply(helper, nullptr, nullptr, sz);
                 break;
-            case CORE_DP:
+            case coreDotProduct:
                 sz = helper->ReadInt();
                 DotProduct(helper, nullptr, nullptr, sz);
                 break;
-            case CORE_MDP:
+            case coreVectorisedDotProduct:
                 sz = helper->ReadInt();
                 DotProduct(helper, nullptr, nullptr, sz, 0);
                 break;
-            case CORE_EXP:
+            case coreExp:
                 Exp(helper, 0);
                 break;
-            case CORE_MEXP:
+            case coreVectorisedExp:
                 sz = helper->ReadInt();
                 Exp(helper, nullptr, sz);
                 break;
-            case CORE_MATMATMUL:
+            case coreMatrixMatrixMultiply:
                 sz = helper->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
                 MatrixMatrixMultiply(helper, nullptr, nullptr, sz, 0, 0);
                 break;
-            case CORE_MMATMATMUL:
+            case coreVectorisedMatrixMatrixMultiply:
                 sz = helper->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
                 MatrixMatrixMultiply(helper, nullptr, nullptr, 0, sz, 0, 0);
                 break;
-            case CORE_MATVECMUL:
+            case coreMatrixVectorMultiply:
                 sz = helper->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
                 MatrixVectorMultiply(helper, nullptr, nullptr, sz, 0);
                 break;
-            case CORE_MMATVECMUL:
+            case coreVectorisedMatrixVectorMultiply:
                 sz = helper->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
                 MatrixVectorMultiply(helper, nullptr, nullptr, 0, sz, 0);
                 break;
-            case CNN_MAX:
+            case cnnMax:
                 sz = helper->ReadInt();
                 Max(helper, nullptr, sz);
                 break;
-            case CNN_MMAX:
+            case cnnVectorisedMax:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
                 params[2] = helper->ReadInt();
@@ -118,25 +118,25 @@ int main(int argc, char* argv[]) {
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;
                 }
                 break;
-            case CNN_ARGMAX:
+            case cnnArgMax:
                 sz = helper->ReadInt();
                 ArgMax(helper, nullptr, sz);
                 break;
-            case CNN_RELU:
+            case cnnReLU:
                 ReLU(helper, 0);
                 break;
-            case CNN_MRELU:
+            case cnnVectorisedReLU:
                 sz = helper->ReadInt();
                 ReLU(helper, nullptr, sz);
                 break;
-            case CNN_DRLU:
+            case cnnDerivativeReLU:
                 DerivativeReLU(helper, 0);
                 break;
-            case CNN_MDRLU:
+            case cnnVectorisedDerivativeReLU:
                 sz = helper->ReadInt();
                 DerivativeReLU(helper, nullptr, sz);
                 break;
-            case CNN_CL:
+            case cnnConvolutionalLayer:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
                 params[2] = helper->ReadInt();
@@ -150,83 +150,83 @@ int main(int argc, char* argv[]) {
                                    params[5], params[6],
                                    params[7], nullptr, params[8]);
                 break;
-            case CNN_FCL:
+            case cnnFullyConnectedLayer:
                 params[0] = helper->ReadInt();
                 params[1] = helper->ReadInt();
                 FullyConnectedLayer(helper, nullptr, params[0], nullptr, params[1], nullptr);
                 break;
-            case RKN_GM2KM:
+            case rknGaussianKernel:
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
                 GaussianKernel(helper, nullptr, 0, n_gms, sz);
                 break;
-            case RKN_INVSQRT:
+            case rknInverseSqrt:
                 sz = helper->ReadInt();
                 InverseSqrt(helper, nullptr, sz);
                 break;
-            case RKN_MINVSQRT:
+            case rknVectorisedInverseSqrt:
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
                 InverseSqrt(helper, nullptr, n_gms, sz);
                 break;
-            case RKN_ITER:
+            case rknIteration:
                 size1 = helper->ReadInt();
                 size2 = helper->ReadInt();
                 RknIteration(helper, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
                 break;
-            case CORE_DIV:
+            case coreDivide:
                 Divide(helper, 0, 0);
                 break;
-            case CORE_MDIV:
+            case coreVectorisedDivide:
                 size1 = helper->ReadInt();
                 Divide(helper, 0, 0, size1);
                 break;
-            case CORE_MNORM:
+            case coreNormalise:
                 size1 = helper->ReadInt();
                 Normalize(helper, 0, 0, size1);
                 break;
-            case AUC_MSB:
+            case aucMostSignificantBit:
                 sz = helper->ReadInt();
-                AUCMSB(helper,nullptr,sz);
+                aucMostSignificantBit(helper, nullptr, sz);
                 break;
-            case AUC_TDIV:
-                DIVISION(helper,0,0);
+            case aucDivide:
+                aucDivide(helper, 0, 0);
                 break;
-            case AUC_MROU:
+            case aucVectorisedRound:
                 sz = helper->ReadInt();
-                MRound(helper,nullptr,sz);
+                Round(helper, nullptr, sz);
                 break;
-            case AUC_MDIV:
+            case aucVectorisedDivide:
                 sz = helper->ReadInt();
-                MDIVISION(helper,nullptr,nullptr,sz);
+                aucDivide(helper, nullptr, nullptr, sz);
                 break;
-            case AUC_ROCNOTIE:
+            case aucRocNoTie:
                 sz = helper->ReadInt();
                 cout << "Sz: " << sz << endl;
-                ROCNOTIE(helper, 0, sz);
+                RocNoTie(helper, 0, sz);
                 break;
-            case AUC_ROCWITHTIE:
+            case aucRocWithTie:
                 sz = helper->ReadInt();
-                ROCWITHTIE(helper, 0, sz);
+                RocWithTie(helper, 0, sz);
                 break;
-            case AUC_PR:
+            case aucPrCurve:
                 sz = helper->ReadInt();
-                PRCURVE(helper, 0, sz);
+                PrCurve(helper, 0, sz);
                 break;
-            case RKN_EIG:
+            case rknEigenDecomposition:
                 sz = helper->ReadInt();
                 EigenDecomposition(helper, sz);
                 break;
-            case RKN_MEIG:
+            case rknVectorisedEigenDecomposition:
                 n_gms = helper->ReadInt();
                 sz = helper->ReadInt();
                 EigenDecomposition(helper, n_gms, sz);
                 break;
-            case CORE_SORT:
+            case coreSort:
                 sz = helper->ReadInt();
                 Sort(helper, 0, sz);
                 break;
-            case CORE_END:
+            case coreEnd:
                 keep_looping = false;
                 break;
         }

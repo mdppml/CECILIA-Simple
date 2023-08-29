@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-uint64_t convert2Long(unsigned char **ptr){
+uint64_t ConvertToLong(unsigned char **ptr){
     uint64_t val = 0;
     for (int i=56;i>=0;i-=8){
         val=val+((uint64_t)(**ptr)<<i);
@@ -16,7 +16,7 @@ uint64_t convert2Long(unsigned char **ptr){
     }
     return val;
 }
-uint32_t convert2Int(unsigned char **ptr){
+uint32_t ConvertToInt(unsigned char **ptr){
     uint32_t val = 0;
     for (int i=24;i>=0;i-=8){
         val=val+((uint64_t)(**ptr)<<i);
@@ -24,73 +24,74 @@ uint32_t convert2Int(unsigned char **ptr){
     }
     return val;
 }
-uint8_t convert2uint8(unsigned char **ptr){
+uint8_t ConvertToUint8(unsigned char **ptr){
     uint8_t val = (uint8_t)(**ptr);
     (*ptr)++;
     return val;
 }
-void convert2Array(unsigned char **ptr, uint8_t arr[],int sz){
+void ConvertToArray(unsigned char **ptr, uint8_t arr[], int sz){
     for (int i=0;i<sz;i++) {
         arr[i] = (**ptr);
         (*ptr)++;
     }
 }
-void convert2Array(unsigned char **ptr, uint64_t arr[], int sz){
+void ConvertToArray(unsigned char **ptr, uint64_t arr[], int sz){
     for (int i=0;i<sz;i++) {
-        arr[i] = convert2Long(ptr);
+        arr[i] = ConvertToLong(ptr);
     }
 }
-void convert2Array(unsigned char **ptr, uint64_t *&arr, uint32_t size){
+void ConvertToArray(unsigned char **ptr, uint64_t *&arr, uint32_t size){
     // Recover a one dimensional dynamic array
     arr = new uint64_t[size];
     for( uint32_t i = 0; i < size; i++) {
-        arr[i] = convert2Long(ptr);
+        arr[i] = ConvertToLong(ptr);
     }
 }
-void addVal2CharArray(uint64_t val,unsigned char **ptr){
+void AddValueToCharArray(uint64_t val, unsigned char **ptr){
     for (int i=56;i>=0;i-=8){
         (**ptr)=(val>>i)&0xff;
         (*ptr)++;
     }
 }
-void addVal2CharArray(uint32_t val,unsigned char **ptr){
+void AddValueToCharArray(uint32_t val, unsigned char **ptr){
     for (int i=24;i>=0;i-=8){
         (**ptr)=(val>>i)&0xff;
         (*ptr)++;
     }
 }
-void addVal2CharArray(uint8_t val,unsigned char **ptr){
+void AddValueToCharArray(uint8_t val, unsigned char **ptr){
     (**ptr)=(val)&0xff;
     (*ptr)++;
 }
-void addVal2CharArray(uint8_t val[],unsigned char **ptr, int sz){
+void AddValueToCharArray(uint8_t val[], unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
         (**ptr)=(val[i])&0xff;
         (*ptr)++;
     }
 }
-void addVal2CharArray(uint64_t *val, unsigned char **ptr, int sz){
+void AddValueToCharArray(uint64_t *val, unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
-        addVal2CharArray(val[i],ptr);
+        AddValueToCharArray(val[i], ptr);
     }
 }
-void addArray2CharArray( uint64_t **val, unsigned char **ptr, uint32_t n_row, uint32_t n_col){
+void AddArrayToCharArray(uint64_t **val, unsigned char **ptr, uint32_t n_row, uint32_t n_col){
     // Add uint64_t vals in **val to the buffer to send
     for( uint32_t i = 0; i < n_row; i++) {
         for( uint32_t j = 0; j < n_col; j++) {
-            addVal2CharArray(val[i][j], &*ptr);
+            AddValueToCharArray(val[i][j], &*ptr);
         }
     }
 }
-uint8_t bit(uint64_t val,uint8_t ind){
+uint8_t Bit(uint64_t val, uint8_t ind){
     return (val>>ind)&0x1;
 }
-uint8_t mod(int k, int n) {
+
+// what does this do exactly? TODO give more descriptive name
+uint8_t Mod(int k, int n) {
     return ((k %= n) < 0) ? k+n : k;
 }
 
-double convert2double(uint64_t x, int precision=FRAC) {
-//    double tmp = (uint64_t) 1 << (precision - 1);
+double ConvertToDouble(uint64_t x, int precision= FRACTIONAL_BITS) {
     double tmp = (double)((uint64_t) 1 << precision);
     if ((int) (x >> 63) == 1) {
         return -1 * ((double) (~x + 1) / tmp);
@@ -99,7 +100,7 @@ double convert2double(uint64_t x, int precision=FRAC) {
     }
 }
 
-uint64_t convert2uint64(double x, int precision = FRAC) {
+uint64_t ConvertToUint64(double x, int precision = FRACTIONAL_BITS) {
     if (x < 0) {
 //        return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << (precision - 1))));
         return (uint64_t) 0 - (uint64_t) floor(abs(x * (1 << precision)));
@@ -109,32 +110,32 @@ uint64_t convert2uint64(double x, int precision = FRAC) {
     }
 }
 
-void convert22DArray(unsigned char **ptr, uint64_t **&arr, uint32_t n_row, uint32_t n_col){
-    // Recover a two dimensional dynamic array from a straightened two dimensional array
+void ConvertTo2dArray(unsigned char **ptr, uint64_t **&arr, uint32_t n_row, uint32_t n_col){
+    // Recover a two-dimensional dynamic array from a straightened two-dimensional array
     arr = new uint64_t*[n_row];
     for( uint32_t i = 0; i < n_row; i++) {
         arr[i] = new uint64_t[n_col];
         for( uint32_t j = 0; j < n_col; j++) {
-            arr[i][j] = convert2Long(ptr);
+            arr[i][j] = ConvertToLong(ptr);
         }
     }
 }
 
-void convert23DArray(unsigned char **ptr, uint64_t ***&arr, uint32_t n_arrs, uint32_t n_row, uint32_t n_col){
-    // Recover a two dimensional dynamic array from a straightened two dimensional array
+void ConvertTo3dArray(unsigned char **ptr, uint64_t ***&arr, uint32_t n_arrs, uint32_t n_row, uint32_t n_col){
+    // Recover a three-dimensional dynamic array from a straightened three-dimensional array
     arr = new uint64_t**[n_arrs];
     for( uint32_t g = 0; g < n_arrs; g++) {
         arr[g] = new uint64_t*[n_row];
         for( uint32_t i = 0; i < n_row; i++) {
             arr[g][i] = new uint64_t[n_col];
             for( uint32_t j = 0; j < n_col; j++) {
-                arr[g][i][j] = convert2Long(ptr);
+                arr[g][i][j] = ConvertToLong(ptr);
             }
         }
     }
 }
 
-double *convert2double(uint64_t *x, uint32_t size, int precision=FRAC) {
+double *ConvertToDouble(uint64_t *x, uint32_t size, int precision= FRACTIONAL_BITS) {
     double *res = new double[size];
     double tmp = 1 << precision;
     for (int i = 0; i < size; i++) {
@@ -147,7 +148,7 @@ double *convert2double(uint64_t *x, uint32_t size, int precision=FRAC) {
     return res;
 }
 
-uint64_t* convert2uint64(double* x, uint32_t size, int precision=FRAC) {
+uint64_t* ConvertToUint64(double* x, uint32_t size, int precision= FRACTIONAL_BITS) {
     uint64_t *res = new uint64_t[size];
     double tmp = 1 << precision;
     for (int i = 0; i < size; i++) {
@@ -160,7 +161,7 @@ uint64_t* convert2uint64(double* x, uint32_t size, int precision=FRAC) {
     return res;
 }
 
-double **convert2double(uint64_t **x, uint32_t n_row, uint32_t n_col, int precision=FRAC) {
+double **ConvertToDouble(uint64_t **x, uint32_t n_row, uint32_t n_col, int precision= FRACTIONAL_BITS) {
     /*
      * Convert two-dimensional uint64 array to two-dimensional double array
      *
@@ -188,7 +189,7 @@ double **convert2double(uint64_t **x, uint32_t n_row, uint32_t n_col, int precis
     return res;
 }
 
-uint64_t **convert2uint64(double** x, uint32_t n_row, uint32_t n_col, int precision=FRAC) {
+uint64_t **ConvertToUint64(double** x, uint32_t n_row, uint32_t n_col, int precision= FRACTIONAL_BITS) {
     /*
      * Convert two-dimensional double array to two-dimensional uint64 array
      *
@@ -216,7 +217,7 @@ uint64_t **convert2uint64(double** x, uint32_t n_row, uint32_t n_col, int precis
     return res;
 }
 
-uint64_t *straighten2DArray(uint64_t** x, uint32_t n_row, uint32_t n_col) {
+uint64_t *Straighten2dArray(uint64_t** x, uint32_t n_row, uint32_t n_col) {
     /*
      * Straighten two-dimensional uint64 array
      *
@@ -237,7 +238,7 @@ uint64_t *straighten2DArray(uint64_t** x, uint32_t n_row, uint32_t n_col) {
     return str_x;
 }
 
-double *straighten2DArray(double** x, uint32_t n_row, uint32_t n_col) {
+double *Straighten2dArray(double** x, uint32_t n_row, uint32_t n_col) {
     /*
      * Straighten two-dimensional double array
      *
@@ -257,8 +258,7 @@ double *straighten2DArray(double** x, uint32_t n_row, uint32_t n_col) {
     }
     return str_x;
 }
-long long getModularInverse_n(long long a, long long m)
-{
+long long GetModularInverseN(long long a, long long m) {
     long long m0 = m;
     long long y = 0, x = 1;
 
@@ -280,7 +280,8 @@ long long getModularInverse_n(long long a, long long m)
     return x;
 }
 
-long long multMod(long long x, long long y, long long m) {
+// what does this do, exactly? TODO give more descriptive name
+long long MultMod(long long x, long long y, long long m) {
     long long res = 0;
     x = x % m;
     while (y > 0) {
@@ -291,10 +292,10 @@ long long multMod(long long x, long long y, long long m) {
     }
     return res % m;
 }
-uint64_t getModularInverse(uint64_t a){
+uint64_t GetModularInverse(uint64_t a){
     /**
-     * Get the MoDular Inverse (ModularInverse) of a given number a with specified modulo. For the resulting/returned value b must hold
-     *      ab mod(modulo) are congruent to 1.
+     * Get the Modular Inverse (ModularInverse) of a given number a with specified modulo. For the resulting/returned value b must hold
+     *      ab Mod(modulo) are congruent to 1.
      * @param a the value for which the modular inverse shall be calculated.
      * The modulo under which a and the inverse are multiplied equal to 1 will always be the ring size.
      * @return the modular inverse of a under the ring size of 16.
@@ -310,14 +311,14 @@ uint64_t getModularInverse(uint64_t a){
 /*
  * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
  */
-uint64_t AS(uint64_t z, int n_shift = FRAC) {
+uint64_t ArithmeticShift(uint64_t z, int n_shift = FRACTIONAL_BITS) {
     z = static_cast<uint64_t>( static_cast<int64_t>(z) >> n_shift);
     return z;
 }
 
 
 // Local functions which does not require security and works with secret shared values
-uint64_t local_MUL(uint64_t a, uint64_t b, int shift = FRAC) {
+uint64_t LocalMultiply(uint64_t a, uint64_t b, int shift = FRACTIONAL_BITS) {
     /*
      * Input(s)
      * a: the first multiplicand in our number format- uint64_t
@@ -343,7 +344,7 @@ uint64_t local_MUL(uint64_t a, uint64_t b, int shift = FRAC) {
     return z;
 }
 
-uint64_t* local_MUL(uint64_t *a, uint64_t *b, uint32_t size) {
+uint64_t* LocalMultiply(uint64_t *a, uint64_t *b, uint32_t size) {
     /*
      * Input(s)
      * a: one of the vectors of the multiplicands - uint64_t vector
@@ -355,12 +356,12 @@ uint64_t* local_MUL(uint64_t *a, uint64_t *b, uint32_t size) {
      */
     uint64_t *result = new uint64_t[size];
     for (uint32_t i = 0; i < size; i++) {
-        result[i] = local_MUL(a[i], b[i]);
+        result[i] = LocalMultiply(a[i], b[i]);
     }
     return result;
 }
 
-uint64_t** local_MATMATMUL(uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+uint64_t** LocalMatrixMatrixMultiply(uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
     /*
      * Perform multiplication of matrices a and b. The function assumes that the number of columns of a equals to
      * the number of rows of b.
@@ -379,7 +380,7 @@ uint64_t** local_MATMATMUL(uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t 
         for (uint32_t j = 0; j < b_col; j++) {
             tmp_sum = 0;
             for (uint32_t k = 0; k < a_col; k++) {
-                tmp_sum += local_MUL(a[i][k], b[k][j]);
+                tmp_sum += LocalMultiply(a[i][k], b[k][j]);
             }
             result[i][j] = tmp_sum;
         }
@@ -387,7 +388,7 @@ uint64_t** local_MATMATMUL(uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t 
     return result;
 }
 
-uint64_t*** local_MATMATMUL(uint64_t ***a, uint64_t ***b, uint32_t n_mats, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+uint64_t*** LocalMatrixMatrixMultiply(uint64_t ***a, uint64_t ***b, uint32_t n_mats, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
     /*
      * Perform several multiplication of matrices a and b. The function assumes that the number of columns of a equals to
      * the number of rows of b.
@@ -408,7 +409,7 @@ uint64_t*** local_MATMATMUL(uint64_t ***a, uint64_t ***b, uint32_t n_mats, uint3
             for (uint32_t j = 0; j < b_col; j++) {
                 tmp_sum = 0;
                 for (uint32_t k = 0; k < a_col; k++) {
-                    tmp_sum += local_MUL(a[g][i][k], b[g][k][j]);
+                    tmp_sum += LocalMultiply(a[g][i][k], b[g][k][j]);
                 }
                 result[g][i][j] = tmp_sum;
             }

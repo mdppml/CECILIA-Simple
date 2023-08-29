@@ -33,7 +33,7 @@ client_data* c_data;
 //    uint64_t numerator2 = 0;
 //    for (int i=0;i<size;i++) {
 //        TP = proxy->ADD(TP, labels[i]);
-//        if (proxy->GetRole()==P1)
+//        if (proxy->GetRole()==proxy1)
 //            FP = i - TP;
 //        else
 //            FP = 0 - TP;
@@ -62,7 +62,7 @@ client_data* c_data;
 //    uint64_t FN = TP;
 //    uint64_t TN = 0;
 //
-//    if (proxy->GetRole()==P1)
+//    if (proxy->GetRole()==proxy1)
 //        TN = size - TP;
 //    else
 //        TN = 0 - TP;
@@ -75,7 +75,7 @@ client_data* c_data;
 //    numerator = 2*numerator+numerator2;
 //
 //    //proxy->SendBytes(TDIV);
-//    uint64_t auc = proxy->DIVISION(numerator,denominator);
+//    uint64_t auc = proxy->aucDivide(numerator,denominator);
 //
 //    auc = proxy->Reconstruct(auc);
 //    cout<<"AUC :\t"<<auc<<endl;
@@ -86,9 +86,9 @@ client_data* c_data;
 void calc_auc_v2(Party* proxy){
     uint32_t size = c_data[0].size();
     uint32_t params[1] = {size};
-    proxy->SendBytes(AUC_ROCWITHTIE, params, 1);
-    uint64_t auc = ROCWITHTIE(proxy, c_data, size);
-    cout << "AUC :\t" << convert2double(Reconstruct(proxy, auc)) << endl;
+    proxy->SendBytes(aucRocWithTie, params, 1);
+    uint64_t auc = RocWithTie(proxy, c_data, size);
+    cout << "AUC :\t" << ConvertToDouble(REC(proxy, auc)) << endl;
 }
 
 //void calc_confidence(Party* proxy){
@@ -103,16 +103,16 @@ void calc_auc_v2(Party* proxy){
 //        else
 //            preds[k] = 2; // the last prediction must be in the list.
 //
-//        preds[k]= preds[k]*proxy->generateCommonRandom(); // multiply with random value
+//        preds[k]= preds[k]*proxy->GenerateCommonRandom(); // multiply with random value
 //        //i++;
-//        /*if ((proxy->generateCommonRandom()%10) == 0){ // add dummy predictions
-//            if ((proxy->generateCommonRandom()%2) == 0) {
-//                preds[i] = proxy->generateRandom(); // random dummy
+//        /*if ((proxy->GenerateCommonRandom()%10) == 0){ // add dummy predictions
+//            if ((proxy->GenerateCommonRandom()%2) == 0) {
+//                preds[i] = proxy->GenerateRandom(); // random dummy
 //            }else{
 //                if (proxy->GetRole()) // zero dummy
-//                    preds[i] = proxy->generateCommonRandom();
+//                    preds[i] = proxy->GenerateCommonRandom();
 //                else
-//                    preds[i] = 0 - proxy->generateCommonRandom();
+//                    preds[i] = 0 - proxy->GenerateCommonRandom();
 //
 //                dummy_indexes[j++] = i++;
 //            }
@@ -121,7 +121,7 @@ void calc_auc_v2(Party* proxy){
 //
 //    //get a permutation of preds
 //    proxy->SendBytes(MROU, size);
-//    uint64_t* rpreds = MRound(proxy, preds,size);
+//    uint64_t* rpreds = Round(proxy, preds,size);
 //    delete [] preds;
 //
 //    //get the reverse permutation of rpreds
@@ -323,15 +323,15 @@ int main(int argc, char* argv[]) {
 
     Party *proxy;
     if (role == 0)
-        proxy = new Party(P1, hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2, hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
     if (file_flag) {
-        file_data(ss, c_data, nstation, sample_size);
+        FileData(ss, c_data, nstation, sample_size);
     }
     else{
-        random_data(proxy, c_data, nstation, sample_size);
+        RandomData(proxy, c_data, nstation, sample_size);
     }
 
     cout << "Number of parties: " << nstation << endl;
@@ -340,7 +340,7 @@ int main(int argc, char* argv[]) {
 
     auto start = chrono::high_resolution_clock::now();
 //    sort_data(nstation,proxy, delta);
-    SORT(proxy, c_data, nstation, delta);
+    Sort(proxy, c_data, nstation, delta);
 
 //    cout << "Data after sorting: " << endl;
 //    uint64_t total_n_samples = 0;
@@ -348,7 +348,7 @@ int main(int argc, char* argv[]) {
 //        total_n_samples += sample_size[i];
 //    }
 //    uint64_t tmp_size[1] = {total_n_samples};
-//    print_data(proxy, 1, tmp_size, c_data, true);
+//    PrintData(proxy, 1, tmp_size, c_data, true);
 
 //    calc_confidence(proxy);
     cout<<"Confidence mapping was calculated"<<endl;
@@ -367,7 +367,7 @@ int main(int argc, char* argv[]) {
     proxy->PrintPaperFriendly(time_taken);
 
 
-    proxy->SendBytes(CORE_END);
+    proxy->SendBytes(coreEnd);
     proxy->PrintBytes();
     delete [] c_data;
 

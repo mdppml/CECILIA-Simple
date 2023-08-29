@@ -21,7 +21,7 @@ client_data* c_data;
 //    struct stat buf;
 //    return (stat (s.c_str(), &buf) == 0);
 //}
-//void read_directory(const std::string& name, vector<string>& v)
+//void ReadDirectory(const std::string& name, vector<string>& v)
 //{
 //    DIR* dirp = opendir(name.c_str());
 //    struct dirent * dp;
@@ -30,21 +30,21 @@ client_data* c_data;
 //    }
 //    closedir(dirp);
 //}
-//void random_data(int nstation, uint64_t* sample_size,int role){
+//void RandomData(int nstation, uint64_t* sample_size,int Role){
 //    srand(100);
 //    c_data = new client_data[nstation];
 //    int ind = 10;
 //    for (int i=0;i<nstation;i++){
-//        uint64_t tmp[MAXSAMPLESIZE];
+//        uint64_t tmp[MAX_SAMPLE_SIZE];
 //        for (int j=0;j<sample_size[i];j++){
 //            tmp[j] = (rand()%10000)+1;
 //        }
 //
-//        sort_values(tmp,sample_size[i]);
+//        SortValues(tmp,sample_size[i]);
 //        for (int j=0;j<sample_size[i];j++){
 //            uint64_t l = rand()%2;
 //
-//            if (role == 0)
+//            if (Role == 0)
 //                c_data[i].push_back({(uint64_t)rand(),(uint64_t)rand()});
 //            else
 //                c_data[i].push_back({tmp[j]-rand(),l-rand()});
@@ -53,9 +53,9 @@ client_data* c_data;
 //    }
 //
 //}
-//void file_data(string path){
+//void FileData(string path){
 //    vector<string> f_list;
-//    read_directory(path,f_list);
+//    ReadDirectory(path,f_list);
 //    c_data = new client_data[f_list.size()];
 //    int f_index = 0;
 //    for(string file : f_list) {
@@ -86,7 +86,7 @@ client_data* c_data;
 //    }
 //    nstation = f_index;
 //}
-//void print_data(int nstation, uint64_t* sample_size){
+//void PrintData(int nstation, uint64_t* sample_size){
 //    for (int i=0;i<nstation;i++){
 //        cout<<"Station : "<<i<<endl;
 //        for(prediction n : c_data[i]) {
@@ -94,7 +94,7 @@ client_data* c_data;
 //        }
 //    }
 //}
-//void print_data(int nstation, uint64_t* sample_size, Party* proxy){
+//void PrintData(int nstation, uint64_t* sample_size, Party* proxy){
 //    for (int i=0;i<nstation;i++){
 //        cout<<"Station : "<<i<<endl;
 //        for(prediction n : c_data[i]) {
@@ -125,30 +125,30 @@ void del(){
 //    for (int i=0;i<size;i++) {
 //        TP = ADD(proxy,TP, labels[i]);
 //        recas[i] = TP;
-//        if (proxy->getPRole() == P1)
+//        if (proxy->GetPRole() == proxy1)
 //            tmp = tmp + 1;
 //        precs[i] = tmp;
 //    }
 //    uint64_t prec;
 //    uint64_t reca;
-//    proxy->SendBytes(AUC_MDIV,size);
-//    precs = MDIVISION(proxy,recas,precs,size);
+//    proxy->SendBytes(aucVectorisedDivide,size);
+//    precs = aucDivide(proxy,recas,precs,size);
 //    for (int i=0;i<size;i++){
 //        prec = precs[i];
 //        reca = recas[i];
-//        proxy->SendBytes(CORE_MUL);
+//        proxy->SendBytes(coreMultiply);
 //        uint64_t area = MUL(proxy,pre_prec,reca-pre_reca);
-//        proxy->SendBytes(CORE_MUL);
+//        proxy->SendBytes(coreMultiply);
 //        area = MUL(proxy,area,c_data[0][i].val);
 //        numerator = ADD(proxy,numerator,area);
 //
-//        proxy->SendBytes(CORE_MUL);
+//        proxy->SendBytes(coreMultiply);
 //        area = MUL(proxy,reca-pre_reca,prec-pre_prec);
-//        proxy->SendBytes(CORE_MUL);
+//        proxy->SendBytes(coreMultiply);
 //        area = MUL(proxy,area,c_data[0][i].val);
 //        numerator2 = ADD(proxy,numerator2,area);
 //
-//        proxy->SendBytes(CORE_MMUX,2);
+//        proxy->SendBytes(coreVectorisedMultiplex,2);
 //        uint64_t *tmp2 = MUX(proxy,(uint64_t[]){pre_prec,pre_reca},(uint64_t[]){prec,reca},(uint64_t[]){c_data[0][i].val,c_data[0][i].val},2);
 //        pre_prec = tmp2[0];
 //        pre_reca = tmp2[1];
@@ -161,8 +161,8 @@ void del(){
 //    numerator = 2*numerator + numerator2;
 //    uint64_t denominator = 2*TP;
 //
-//    proxy->SendBytes(AUC_TDIV);
-//    uint64_t prc = DIVISION(proxy,numerator,denominator);
+//    proxy->SendBytes(aucDivide);
+//    uint64_t prc = aucDivide(proxy,numerator,denominator);
 //
 //    prc = REC(proxy,prc);
 //
@@ -175,9 +175,9 @@ void del(){
 void calc_auc_v2(Party *proxy) {
     uint32_t size = c_data[0].size();
     uint32_t params[1] = {size};
-    proxy->SendBytes(AUC_PR, params, 1);
-    uint64_t aupr = PRCURVE(proxy, c_data, size);
-    cout << "AUPR :\t" << convert2double(Reconstruct(proxy, aupr)) << endl;
+    proxy->SendBytes(aucPrCurve, params, 1);
+    uint64_t aupr = PrCurve(proxy, c_data, size);
+    cout << "AUPR :\t" << ConvertToDouble(REC(proxy, aupr)) << endl;
 }
 
 //void calc_confidence(Party* proxy){
@@ -192,16 +192,16 @@ void calc_auc_v2(Party *proxy) {
 //        else
 //            preds[k] = 2; // the last prediction must be in the list.
 //
-//        preds[k]= preds[k]*proxy->generateCommonRandom(); // multiply with random value
+//        preds[k]= preds[k]*proxy->GenerateCommonRandom(); // multiply with random value
 //        //i++;
-//        /*if ((proxy->generateCommonRandom()%10) == 0){ // add dummy predictions
-//            if ((proxy->generateCommonRandom()%2) == 0) {
-//                preds[i] = proxy->generateRandom(); // random dummy
+//        /*if ((proxy->GenerateCommonRandom()%10) == 0){ // add dummy predictions
+//            if ((proxy->GenerateCommonRandom()%2) == 0) {
+//                preds[i] = proxy->GenerateRandom(); // random dummy
 //            }else{
 //                if (proxy->GetRole()) // zero dummy
-//                    preds[i] = proxy->generateCommonRandom();
+//                    preds[i] = proxy->GenerateCommonRandom();
 //                else
-//                    preds[i] = 0 - proxy->generateCommonRandom();
+//                    preds[i] = 0 - proxy->GenerateCommonRandom();
 //
 //                dummy_indexes[j++] = i++;
 //            }
@@ -209,8 +209,8 @@ void calc_auc_v2(Party *proxy) {
 //    }
 //
 //    //get a permutation of preds
-//    proxy->SendBytes(AUC_MROU, size);
-//    uint64_t* rpreds = MRound(proxy,preds,size);
+//    proxy->SendBytes(aucVectorisedRound, size);
+//    uint64_t* rpreds = Round(proxy,preds,size);
 //    delete [] preds;
 //
 //    //get the reverse permutation of rpreds
@@ -266,8 +266,8 @@ void calc_auc_v2(Party *proxy) {
 //                }
 //
 //
-//                proxy->SendBytes(CORE_MMSB, diff_size);
-//                uint64_t * diff_res = MSB(proxy,diff,diff_size);
+//                proxy->SendBytes(coreVectorisedMostSignificantBit, diff_size);
+//                uint64_t * diff_res = BenchmarkMostSignificantBit(proxy,diff,diff_size);
 //
 //                for (int j=0;j<diff_size;j++){
 //                    diff[j] = diff_res[j];
@@ -275,14 +275,14 @@ void calc_auc_v2(Party *proxy) {
 //                }
 //
 //
-//                proxy->SendBytes(CORE_MMUX, 2*diff_size);
+//                proxy->SendBytes(coreVectorisedMultiplex, 2*diff_size);
 //                mux_res = MUX(proxy,mux_val1,mux_val2,diff,2*diff_size);
 //                for (int j=0;j<diff_size;j++){
 //                    c_data[fl_index][j].val = mux_res[j];
 //                    c_data[fl_index][j].label = mux_res[j+diff_size];
 //                }
 //
-//                proxy->SendBytes(CORE_MMUX, 2*diff_size);
+//                proxy->SendBytes(coreVectorisedMultiplex, 2*diff_size);
 //                mux_res = MUX(proxy,mux_val2,mux_val1,diff,2*diff_size);
 //                for (int j=0;j<diff_size;j++){
 //                    c_data[ll_index][j].val = mux_res[j];
@@ -304,8 +304,8 @@ void calc_auc_v2(Party *proxy) {
 //                    }
 //                    if (fl_pop != ll_pop) {
 //                        diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
-//                        proxy->SendBytes(AUC_MSB, 1);
-//                        uint64_t *diff_res = AUCMSB(proxy,diff, 1);
+//                        proxy->SendBytes(aucMostSignificantBit, 1);
+//                        uint64_t *diff_res = aucMostSignificantBit(proxy,diff, 1);
 //                        uint64_t cmp = REC(proxy,diff_res[0]);
 //                        if (cmp == 0) {
 //                            sorted.push_back(c_data[fl_index][0]);
@@ -424,15 +424,15 @@ int main(int argc, char* argv[]) {
 
     Party *proxy;
     if (role==0)
-        proxy = new Party(P1,hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2,hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
     if (file_flag) {
-        file_data(ss, c_data, nstation, sample_size);
+        FileData(ss, c_data, nstation, sample_size);
     }
     else{
-        random_data(proxy, c_data, nstation, sample_size);
+        RandomData(proxy, c_data, nstation, sample_size);
     }
 
     cout << "Number of parties: " << nstation << endl;
@@ -446,7 +446,7 @@ int main(int argc, char* argv[]) {
 //    calc_auc(proxy);
 
 //    cout << "Data after sorting: " << endl;
-    SORT(proxy, c_data, nstation, delta);
+    Sort(proxy, c_data, nstation, delta);
     auto mid = chrono::high_resolution_clock::now();
 //    cout<<"Confidence mapping was calculated"<<endl;
 //    cout << "======================" << endl;
@@ -455,7 +455,7 @@ int main(int argc, char* argv[]) {
 //        total_n_samples += sample_size[i];
 //    }
 //    uint64_t tmp_size[1] = {total_n_samples};
-//    print_data(proxy, 1, tmp_size, c_data, true);
+//    PrintData(proxy, 1, tmp_size, c_data, true);
 //    cout << "======================" << endl;
 
     calc_auc_v2(proxy);
@@ -477,7 +477,7 @@ int main(int argc, char* argv[]) {
     time_taken *= 1e-9;
     cout << "Time taken by AUC computation is : " << fixed << time_taken << setprecision(9) << " sec" << endl;
 
-    proxy->SendBytes(CORE_END);
+    proxy->SendBytes(coreEnd);
     proxy->PrintBytes();
     del();
     cout<<"*****************************"<<endl;

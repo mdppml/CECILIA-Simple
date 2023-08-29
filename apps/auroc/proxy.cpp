@@ -25,7 +25,7 @@ client_data *c_data;
 //    return (stat(s.c_str(), &buf) == 0);
 //}
 //
-//void read_directory(const std::string &name, vector<string> &v) {
+//void ReadDirectory(const std::string &name, vector<string> &v) {
 //    DIR *dirp = opendir(name.c_str());
 //    struct dirent *dp;
 //    while ((dp = readdir(dirp)) != NULL) {
@@ -34,22 +34,22 @@ client_data *c_data;
 //    closedir(dirp);
 //}
 //
-//void random_data(Party *proxy, int nstation, uint64_t *sample_size) {
+//void RandomData(Party *proxy, int nstation, uint64_t *sample_size) {
 //    srand(100);
 //    c_data = new client_data[nstation];
 //    for (int i = 0; i < nstation; i++) {
-//        uint64_t tmp[MAXSAMPLESIZE];
+//        uint64_t tmp[MAX_SAMPLE_SIZE];
 //        for (int j = 0; j < sample_size[i]; j++) {
 ////            tmp[j] = (rand() % 10000) + 1;
-//            tmp[j] = proxy->generateCommonRandom() & MAXSCALAR;
+//            tmp[j] = proxy->GenerateCommonRandom() & MAX_SCALAR;
 //        }
 //
-//        sort_values(tmp, sample_size[i]);
+//        SortValues(tmp, sample_size[i]);
 //        for (int j = 0; j < sample_size[i]; j++) {
-//            uint64_t l = proxy->createShare(convert2uint64(rand() % 2));
-//            c_data[i].push_back({proxy->createShare(tmp[j]), l});
+//            uint64_t l = proxy->CreateShare(ConvertToUint64(rand() % 2));
+//            c_data[i].push_back({proxy->CreateShare(tmp[j]), l});
 //
-////            if (role == 0)
+////            if (Role == 0)
 ////                c_data[i].push_back({(uint64_t) rand(), (uint64_t) rand()});
 ////            else
 ////                c_data[i].push_back({tmp[j] - rand(), l - rand(),});
@@ -59,10 +59,10 @@ client_data *c_data;
 //
 //}
 //
-//// Do we need to update file_data function considering the changes that we made in the number format?
-//void file_data(string path) {
+//// Do we need to update FileData function considering the changes that we made in the number format?
+//void FileData(string path) {
 //    vector<string> f_list;
-//    read_directory(path, f_list);
+//    ReadDirectory(path, f_list);
 //    c_data = new client_data[f_list.size()];
 //    int f_index = 0;
 //    for (string file: f_list) {
@@ -93,7 +93,7 @@ client_data *c_data;
 //    nstation = f_index;
 //}
 //
-//void print_data(int nstation, uint64_t *sample_size) {
+//void PrintData(int nstation, uint64_t *sample_size) {
 //    for (int i = 0; i < nstation; i++) {
 //        cout << "Station : " << i << endl;
 //        for (prediction n: c_data[i]) {
@@ -102,15 +102,15 @@ client_data *c_data;
 //    }
 //}
 //
-//void print_data(Party *proxy, int nstation, uint64_t *sample_size, client_data *data = c_data) {
+//void PrintData(Party *proxy, int nstation, uint64_t *sample_size, client_data *data = c_data) {
 //    for (int i = 0; i < nstation; i++) {
 //        cout << "Station : " << i << endl;
 //        for (prediction n: data[i]) {
-//            cout << convert2double(REC(proxy, n.val)) << "\t" << convert2double(REC(proxy, n.label)) << endl;
+//            cout << ConvertToDouble(REC(proxy, n.val)) << "\t" << ConvertToDouble(REC(proxy, n.label)) << endl;
 //        }
 //        cout << "[";
 //        for (prediction n: data[i]) {
-//            cout << convert2double(REC(proxy, n.label)) << ", ";
+//            cout << ConvertToDouble(REC(proxy, n.label)) << ", ";
 //        }
 //        cout << "]" << endl;
 //    }
@@ -135,50 +135,50 @@ void calc_auc(Party *proxy) {
     uint64_t *mul1 = new uint64_t[size];
     uint64_t *mul2 = new uint64_t[size];
     for (int i = 0; i < size; i++) {
-        TP = Add(proxy, TP, labels[i]);
-        FP = proxy->getPRole() * convert2uint64(i)  - TP;
+        TP = ADD(proxy, TP, labels[i]);
+        FP = proxy->GetPRole() * ConvertToUint64(i) - TP;
 
         mul1[i] = TP;
         mul2[i] = FP - pre_FP;
 
         pre_FP = FP;
     }
-//    cout << "TP: " << convert2double(REC(proxy, TP)) << "\tFP: " << convert2double(REC(proxy, FP)) << endl;
+//    cout << "TP: " << ConvertToDouble(REC(proxy, TP)) << "\tFP: " << ConvertToDouble(REC(proxy, FP)) << endl;
 
 
 //    cout << "MUL is being called..." << endl;
     uint32_t params[1] = {size};
-    proxy->SendBytes(CORE_MMUL, params, 1);
-    uint64_t *area = Multiply(proxy, mul1, mul2, size);
+    proxy->SendBytes(coreVectorisedMultiply, params, 1);
+    uint64_t *area = MUL(proxy, mul1, mul2, size);
 //    cout << "MUL is over" << endl;
 
     for (int i = 0; i < size; i++) {
-        numerator = Add(proxy, numerator, area[i]);
+        numerator = ADD(proxy, numerator, area[i]);
     }
     delete[] mul1;
     delete[] mul2;
     delete[] area;
 
     uint64_t FN = TP;
-    uint64_t TN = proxy->createShare( (uint64_t) 0);
-    TN = proxy->getPRole() * convert2uint64(size) - TP;
+    uint64_t TN = proxy->CreateShare((uint64_t) 0);
+    TN = proxy->GetPRole() * ConvertToUint64(size) - TP;
 
 //    cout << "MUL is being called... Again!" << endl;
-    cout << convert2double(Reconstruct(proxy, TN)) << "\t" << convert2double(Reconstruct(proxy, FN)) << endl;
-    proxy->SendBytes(CORE_MUL);
-    uint64_t denominator = Multiply(proxy, FN, TN);
+    cout << ConvertToDouble(REC(proxy, TN)) << "\t" << ConvertToDouble(REC(proxy, FN)) << endl;
+    proxy->SendBytes(coreMultiply);
+    uint64_t denominator = MUL(proxy, FN, TN);
 
 //    cout << "NORM is being called..." << endl;
     uint64_t num[1] = {numerator};
     uint64_t den[1] = {denominator};
-    cout << convert2double(Reconstruct(proxy, numerator)) << "\t" << convert2double(Reconstruct(proxy, denominator)) << endl;
+    cout << ConvertToDouble(REC(proxy, numerator)) << "\t" << ConvertToDouble(REC(proxy, denominator)) << endl;
     params[0] = 1;
-    proxy->SendBytes(CORE_MNORM, params, 1);
-    uint64_t *auc = Normalize(proxy, num, den, 1);
+    proxy->SendBytes(coreNormalise, params, 1);
+    uint64_t *auc = NORM(proxy, num, den, 1);
 
 //    cout << "REC is being called..." << endl;
-    auc = Reconstruct(proxy, auc, 1);
-    cout << "AUC :\t" << convert2double(auc[0]) << endl;
+    auc = REC(proxy, auc, 1);
+    cout << "AUC :\t" << ConvertToDouble(auc[0]) << endl;
     delete[] labels;
 }
 
@@ -186,9 +186,9 @@ void calc_auc(Party *proxy) {
 void calc_auc_v2(Party *proxy) {
     uint32_t size = c_data[0].size();
     uint32_t params[1] = {size};
-    proxy->SendBytes(AUC_ROCNOTIE, params, 1);
-    uint64_t auc = ROCNOTIE(proxy, c_data, size);
-    cout << "AUC :\t" << convert2double(Reconstruct(proxy, auc)) << endl;
+    proxy->SendBytes(aucRocNoTie, params, 1);
+    uint64_t auc = RocNoTie(proxy, c_data, size);
+    cout << "AUC :\t" << ConvertToDouble(REC(proxy, auc)) << endl;
 }
 
 void sort_data(Party *proxy, int nstation, int delta) {
@@ -224,7 +224,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                tmp_sample_size[1] = c_data[ll_index].size();
 //                data[0] = c_data[fl_index];
 //                data[1] = c_data[ll_index];
-//                print_data(proxy, 2, tmp_sample_size, data);
+//                PrintData(proxy, 2, tmp_sample_size, data);
 //                cout << "-----------------------------------" << endl;
 
 //                cout << "Count: " << cnt << endl;
@@ -246,8 +246,8 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                cout << "check 2" << endl;
 
                 uint32_t params[1] = {(uint32_t) diff_size};
-                proxy->SendBytes(CORE_MMSB, params, 1);
-                uint64_t *diff_res = MostSignificantBit(proxy, diff, diff_size);
+                proxy->SendBytes(coreVectorisedMostSignificantBit, params, 1);
+                uint64_t *diff_res = MSB(proxy, diff, diff_size);
 //                cout << "check 3" << endl;
 
                 for (int j = 0; j < diff_size; j++) {
@@ -258,8 +258,8 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                cout << "check 4" << endl;
 //                mux_res = proxy->MSelectShare(mux_val1, mux_val2, diff, 2 * diff_size);
                 params[0] = 2 * diff_size;
-                proxy->SendBytes(CORE_MMUX, params, 1);
-                mux_res = Multiplex(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
+                proxy->SendBytes(coreVectorisedMultiplex, params, 1);
+                mux_res = MUX(proxy, mux_val1, mux_val2, diff, 2 * diff_size);
                 for (int j = 0; j < diff_size; j++) {
                     c_data[fl_index][j].val = mux_res[j];
                     c_data[fl_index][j].label = mux_res[j + diff_size];
@@ -267,8 +267,8 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                cout << "check 5" << endl;
 
                 params[0] = 2 * diff_size;
-                proxy->SendBytes(CORE_MMUX, params, 1);
-                mux_res = Multiplex(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
+                proxy->SendBytes(coreVectorisedMultiplex, params, 1);
+                mux_res = MUX(proxy, mux_val2, mux_val1, diff, 2 * diff_size);
 //                cout << "check 5.5" << endl;
                 for (int j = 0; j < diff_size; j++) {
                     c_data[ll_index][j].val = mux_res[j];
@@ -309,9 +309,9 @@ void sort_data(Party *proxy, int nstation, int delta) {
                     if (fl_pop != ll_pop) {
                         diff[0] = c_data[fl_index][0].val - c_data[ll_index][0].val;
                         params[0] = 1;
-                        proxy->SendBytes(CORE_MMSB, params, 1);
-                        uint64_t *diff_res = MostSignificantBit(proxy, diff, 1);
-                        uint64_t cmp = Reconstruct(proxy, diff_res[0]);
+                        proxy->SendBytes(coreVectorisedMostSignificantBit, params, 1);
+                        uint64_t *diff_res = MSB(proxy, diff, 1);
+                        uint64_t cmp = REC(proxy, diff_res[0]);
                         if (cmp == 0) {
                             sorted.push_back(c_data[fl_index][0]);
                             c_data[fl_index].pop_front();
@@ -335,7 +335,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                tmp_sample_size[1] = c_data[ll_index].size();
 //                data[0] = c_data[fl_index];
 //                data[1] = c_data[ll_index];
-//                print_data(proxy, 2, tmp_sample_size, data);
+//                PrintData(proxy, 2, tmp_sample_size, data);
 
                 if(c_data[ll_index].size() > c_data[fl_index].size()) {
                     int tmp = ll_index;
@@ -349,7 +349,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
 //                tmp_sample_size[1] = c_data[ll_index].size();
 //                data[0] = c_data[fl_index];
 //                data[1] = c_data[ll_index];
-//                print_data(proxy, 2, tmp_sample_size, data);
+//                PrintData(proxy, 2, tmp_sample_size, data);
 //                cout << "***************************************" << endl;
 
 //                cout << "Over" << endl;
@@ -409,7 +409,7 @@ void sort_data(Party *proxy, int nstation, int delta) {
         nstation = (nstation / 2) + (nstation % 2);
 
 //        cout << "=========================================" << endl;
-//        print_data(proxy, nstation, tmp_sample_size);
+//        PrintData(proxy, nstation, tmp_sample_size);
 //        cout << "=========================================" << endl;
 
     }
@@ -475,18 +475,18 @@ int main(int argc, char *argv[]) {
 
     Party *proxy;
     if (role == 0)
-        proxy = new Party(P1, hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2, hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
 
     // determine which type of data is going to be used -- real or synthetic
     if (file_flag) {
         cout << "real data" << endl;
-        file_data(ss, c_data, nstation, sample_size);
+        FileData(ss, c_data, nstation, sample_size);
     } else {
         cout << "random data" << endl;
-        random_data(proxy, c_data, nstation, sample_size);
+        RandomData(proxy, c_data, nstation, sample_size);
     }
 
     cout << "Number of parties: " << nstation << endl;
@@ -494,14 +494,14 @@ int main(int argc, char *argv[]) {
         cout << sample_size[i] << "\t" << endl;
 
 //    cout << "=========== Data of each station ==================" << endl;
-//    print_data(proxy, nstation, sample_size, true);
+//    PrintData(proxy, nstation, sample_size, true);
 //    cout << "================================" << endl;
 
     auto start = chrono::high_resolution_clock::now();
 
 //    cout << "Sorting..." << endl;
 //    sort_data(proxy, nstation, delta);
-    SORT(proxy, c_data, nstation, delta);
+    Sort(proxy, c_data, nstation, delta);
 
 //    cout << "Data after sorting: " << endl;
 //    uint64_t total_n_samples = 0;
@@ -509,7 +509,7 @@ int main(int argc, char *argv[]) {
 //        total_n_samples += sample_size[i];
 //    }
 //    uint64_t tmp_size[1] = {total_n_samples};
-//    print_data(proxy, 1, tmp_size, true);
+//    PrintData(proxy, 1, tmp_size, true);
 
 //    cout << "... is done!" << endl;
 //    calc_auc(proxy);
@@ -526,9 +526,9 @@ int main(int argc, char *argv[]) {
 
     proxy->PrintPaperFriendly(time_taken);
 
-    //print_data(nstation,sample_size,proxy);
+    //PrintData(nstation,sample_size,proxy);
 
-    proxy->SendBytes(CORE_END);
+    proxy->SendBytes(coreEnd);
     proxy->PrintBytes();
     del();
     cout << "*****************************" << endl;

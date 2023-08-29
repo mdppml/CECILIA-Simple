@@ -1,3 +1,6 @@
+#ifndef AES_CTR_RBG_H
+#define AES_CTR_RBG_H
+
 #include <cryptopp/secblock.h>
 using CryptoPP::AlignedSecByteBlock;
 using CryptoPP::FixedSizeSecBlock;
@@ -26,28 +29,24 @@ using CryptoPP::lword;
 
 #include <thread>
 
-static long long RESEED_INTERVAL = 1LL << 48;
-static int RANDOM_BUFFER_SIZE = BUFFER_SIZE;
+static const long long kReseedInterval = 1LL << 48;
+static const int kRandomBufferSize = BUFFER_SIZE;
 
-class AES_CTR_RBG : public RandomNumberGenerator, public NotCopyable
+class AesCtrRbg : public RandomNumberGenerator, public NotCopyable
 {
 public:
-    explicit AES_CTR_RBG(const CryptoPP::byte *seed = nullptr, size_t length = 0)
-    : m_pCipher(new CTR_Mode<AES>::Encryption)
-    {
+    explicit AesCtrRbg(const CryptoPP::byte *seed = nullptr, size_t length = 0)
+    : m_pCipher(new CTR_Mode<AES>::Encryption) {
         initialised = false;
         EntropyHelper(seed, length, true);
-        _current_buffer = new CryptoPP::byte[RANDOM_BUFFER_SIZE];
-        _unused_buffer = new CryptoPP::byte[RANDOM_BUFFER_SIZE];
     }
 
-    ~AES_CTR_RBG() override {
-        delete[] _current_buffer;
-        delete[] _unused_buffer;
+    ~AesCtrRbg() override {
+        delete[] current_buffer;
+        delete[] unused_buffer;
     }
-    
-    [[nodiscard]] bool CanIncorporateEntropy() const override
-    {
+
+    [[nodiscard]] bool CanIncorporateEntropy() const override {
         return true;
     }
 
@@ -55,8 +54,7 @@ public:
      * @param input provided seed
      * @param length should be at least 32 for AES-128
      */
-    void IncorporateEntropy(const CryptoPP::byte *input, size_t length) override
-    {
+    void IncorporateEntropy(const CryptoPP::byte *input, size_t length) override {
         EntropyHelper(input, length, false);
     }
 
@@ -66,52 +64,51 @@ public:
      */
     void GenerateBlock(CryptoPP::byte *output, size_t size) override
     {
-        initialise();
+        Initialise();
         size_t remaining_bytes = size;
         size_t transferred_bytes = 0;
-        size_t bytes_in_buffer = RANDOM_BUFFER_SIZE - _buffer_position;
+        size_t bytes_in_buffer = kRandomBufferSize - buffer_position;
         while (bytes_in_buffer < remaining_bytes) {
-            ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, bytes_in_buffer);
+            ::memcpy(output + transferred_bytes, current_buffer + buffer_position, bytes_in_buffer);
             transferred_bytes += bytes_in_buffer;
             remaining_bytes -= bytes_in_buffer;
-            _replenishBuffer();
-            bytes_in_buffer = RANDOM_BUFFER_SIZE;
+            ReplenishBuffer();
+            bytes_in_buffer = kRandomBufferSize;
         }
-        ::memcpy(output + transferred_bytes, _current_buffer + _buffer_position, remaining_bytes);
-        _buffer_position += remaining_bytes;
+        ::memcpy(output + transferred_bytes, current_buffer + buffer_position, remaining_bytes);
+        buffer_position += remaining_bytes;
     }
 
-    CryptoPP::byte GenerateByte() override
-    {
-        initialise();
-        if (_buffer_position == RANDOM_BUFFER_SIZE) {
-            _replenishBuffer();
+    CryptoPP::byte GenerateByte() override {
+        Initialise();
+        if (buffer_position == kRandomBufferSize) {
+            ReplenishBuffer();
         }
-        CryptoPP::byte byte = _current_buffer[_buffer_position];
-        _buffer_position += 1;
+        CryptoPP::byte byte = current_buffer[buffer_position];
+        buffer_position += 1;
         return byte;
     }
 
-    uint64_t GenerateLongLong() {
-        initialise();
-        if (_buffer_position+8 > RANDOM_BUFFER_SIZE) {
-            _replenishBuffer();
+    uint64_t GenerateUint64() {
+        Initialise();
+        if (buffer_position+8 > kRandomBufferSize) {
+            ReplenishBuffer();
         }
-        uint64_t random = *(uint64_t *)(_current_buffer +_buffer_position);
-        _buffer_position += 8;
+        uint64_t random = *(uint64_t *)(current_buffer +buffer_position);
+        buffer_position += 8;
         return random;
     }
 
     /**\brief makes sure that everything is initialised
      *
      */
-    void initialise() {
+    void Initialise() {
         if (!initialised) {
             m_pCipher->SetKeyWithIV(m_key, m_key.size(), m_iv, m_iv.size());
-            _current_buffer = new CryptoPP::byte[BUFFER_SIZE];
-            _unused_buffer = new CryptoPP::byte[BUFFER_SIZE];
-            _fillUnusedBuffer();
-            _replenishBuffer();
+            current_buffer = new CryptoPP::byte[kRandomBufferSize];
+            unused_buffer = new CryptoPP::byte[kRandomBufferSize];
+            FillUnusedBuffer();
+            ReplenishBuffer();
             initialised = true;
         }
     }
@@ -119,18 +116,15 @@ public:
 protected:
     // Sets up to use the cipher. It's a helper to allow a throw
     //   in the constructor during initialization.
-    void EntropyHelper(const CryptoPP::byte* input, size_t length, bool ctor = false)
-    {
+    void EntropyHelper(const CryptoPP::byte* input, size_t length, bool ctor = false) {
         if(ctor)
         {
             memset(m_key, 0x00, m_key.size());
             memset(m_iv, 0x00, m_iv.size());
         }
-        
         // 16-byte key, 16-byte nonce
         AlignedSecByteBlock seed(16 + 16);
         SHA512 hash;
-        
         if(input && length)
         {
             // Use the user supplied seed.
@@ -142,38 +136,38 @@ protected:
             OS_GenerateRandomBlock(false, seed, seed.size());
             hash.Update(seed, seed.size());
         }
-        
         hash.Update(m_key.data(), m_key.size());
         hash.Update(m_iv.data(), m_iv.size());
         hash.TruncatedFinal(seed.data(), seed.size());
-        
         memcpy(m_key.data(), seed.data() + 0, 16);
         memcpy(m_iv.data(), seed.data() + 16, 16);
         initialised = false;
     }
-    
+
 private:
-    std::thread _buffer_thread{};
-    CryptoPP::byte* _current_buffer;
-    CryptoPP::byte* _unused_buffer;
-    size_t _buffer_position = 0;
+    std::thread buffer_thread{};
+    CryptoPP::byte* current_buffer;
+    CryptoPP::byte* unused_buffer;
+    size_t buffer_position = 0;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_key;
     FixedSizeSecBlock<CryptoPP::byte, 16> m_iv;
     member_ptr<CTR_Mode<AES>::Encryption> m_pCipher;
     bool initialised;
 
-    void _replenishBuffer() {
-        if (_buffer_thread.joinable()) {
-            _buffer_thread.join();
+    void ReplenishBuffer() {
+        if (buffer_thread.joinable()) {
+            buffer_thread.join();
         }
-        CryptoPP::byte* swap = _current_buffer;
-        _current_buffer = _unused_buffer;
-        _unused_buffer = swap;
-        _buffer_position = 0;
-        _buffer_thread = thread(&AES_CTR_RBG::_fillUnusedBuffer, this);
+        CryptoPP::byte* swap = current_buffer;
+        current_buffer = unused_buffer;
+        unused_buffer = swap;
+        buffer_position = 0;
+        buffer_thread = thread(&AesCtrRbg::FillUnusedBuffer, this);
     }
 
-    void _fillUnusedBuffer() {
-        m_pCipher->GenerateBlock(_unused_buffer, RANDOM_BUFFER_SIZE);
+    void FillUnusedBuffer() {
+        m_pCipher->GenerateBlock(unused_buffer, kRandomBufferSize);
     }
 };
+
+#endif // AES_CTR_RBG_H
