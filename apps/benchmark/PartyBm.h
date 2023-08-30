@@ -262,11 +262,11 @@ public:
     }
 
     void BenchmarkReLU() {
-        ReLU(this, flattened_matrix_, flattened_matrix_size_);
+        Relu(this, flattened_matrix_, flattened_matrix_size_);
     }
 
     void BenchmarkDerivateReLU() {
-        DerivativeReLU(this, flattened_matrix_, flattened_matrix_size_);
+        DerivativeRelu(this, flattened_matrix_, flattened_matrix_size_);
     }
 
     void BenchmarkConvolutionalLayer() {
@@ -336,12 +336,11 @@ private:
         map["MatrixVectorMultiply"] = &PartyBm::BenchmarkMatrixVectorMultiply;
         map["Reconstruct"] = &PartyBm::BenchmarkReconstruct;
         map["ModularInverse"] = &PartyBm::BenchmarkModularInverse;
-        map["ReLU"] = &PartyBm::BenchmarkReLU;
-        map["DerivativeReLU"] = &PartyBm::BenchmarkDerivateReLU;
+        map["Relu"] = &PartyBm::BenchmarkReLU;
+        map["DerivativeRelu"] = &PartyBm::BenchmarkDerivateReLU;
         map["ConvolutionalLayer"] = &PartyBm::BenchmarkConvolutionalLayer;
         map["FullyConnectedLayer"] = &PartyBm::BenchmarkFullyConnectedLayer;
         map["InverseSqrt"] = &PartyBm::BenchmarkInverseSqrt;
-        map["CreateShare"] = &PartyBm::createShare_BM;
         map["GaussianKernel"] = &PartyBm::BenchmarkGaussianKernel;
         map["ArgMax"] = &PartyBm::BenchmarkArgMax;
         map["Max"] = &PartyBm::BenchmarkMax;

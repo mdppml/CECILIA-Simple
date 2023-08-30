@@ -19,20 +19,19 @@ void SORT_test(Party *proxy){
     cout<<"Size: "<<size<<endl;
     auto* a =new uint64_t[size];
     for(int i = 0; i < size; i++) {
-        a[i] = proxy->generateCommonRandom()*proxy->generateCommonRandom();
-        //cout << a[i] << " ";
+        a[i] = proxy->GenerateCommonRandom()*proxy->GenerateCommonRandom();
     }
 
     cout << "Creating shares...\n";
     auto* x = new uint64_t[size];
     for (int i=0;i<size;i++) {
-        x[i] = proxy->createShare(a[i]);
+        x[i] = proxy->CreateShare(a[i]);
     }
 
     cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(CORE_SORT, params, 1);
+    proxy->SendBytes(coreSort, params, 1);
     cout << "Calling Sort..\n";
     auto start = chrono::high_resolution_clock::now();
     uint64_t* s = Sort(proxy, x, size);
@@ -70,9 +69,9 @@ int main(int argc, char* argv[]) {
 
     Party *proxy;
     if (role == 0)
-        proxy = new Party(P1, hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2, hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
 
 
@@ -85,8 +84,7 @@ int main(int argc, char* argv[]) {
     cout<<time_taken<<endl;
 
 
-    proxy->SendBytes(CORE_END);
-    //proxy->PrintBytes();
+    proxy->SendBytes(coreEnd);
 
     return 0;
 }

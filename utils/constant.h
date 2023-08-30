@@ -49,7 +49,7 @@ enum Operation {
     // AUC
     aucMostSignificantBit,aucDivide,aucVectorisedRound,aucVectorisedDivide,aucRocNoTie,aucRocWithTie,aucPrCurve,
     // CNN
-    cnnMax, cnnVectorisedMax, cnnArgMax, cnnReLU, cnnVectorisedReLU, cnnDerivativeReLU, cnnVectorisedDerivativeReLU,
+    cnnMax, cnnVectorisedMax, cnnArgMax, cnnRelu, cnnVectorisedRelu, cnnDerivativeRelu, cnnVectorisedDerivativeRelu,
     cnnConvolutionalLayer, cnnFullyConnectedLayer,
     // RKN
     rknEigenDecomposition, rknVectorisedEigenDecomposition, rknGaussianKernel, rknInverseSqrt, rknVectorisedInverseSqrt,

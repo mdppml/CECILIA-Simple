@@ -700,9 +700,9 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
 }
 
 /**
- * Method for private computation of the ReLU function.
+ * Method for private computation of the Relu function.
  * @param proxy
- * @param x - secret share of variable x for which to compute ReLU(x)
+ * @param x - secret share of variable x for which to compute Relu(x)
  * @return
  */
 uint64_t ReLU(Party *const proxy, uint64_t x){
@@ -827,13 +827,13 @@ uint64_t ReLU(Party *const proxy, uint64_t x){
 }
 
 /**
- * Method for private computation of the ReLU function.
+ * Method for private computation of the Relu function.
  * @param proxy
- * @param x - vector of variables for which to compute ReLU
+ * @param x - vector of variables for which to compute Relu
  * @param size - size of vector x
  * @return vector of resulting values for each position in x, must be deleted if not needed anymore.
  */
-uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
+uint64_t* Relu(Party *const proxy, const uint64_t *const x, uint64_t size){
     uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t commonValues[2*size];
@@ -974,12 +974,12 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
 
 
 /**
- * Method for private computation of the derivative of the ReLU function.
+ * Method for private computation of the derivative of the Relu function.
  * @param proxy
- * @param x - variable x for which to compute ReLU'(x), the derivative of the ReLU function.
+ * @param x - variable x for which to compute ReLU'(x), the derivative of the Relu function.
  * @return
  */
-uint64_t DerivativeReLU(Party *const proxy, uint64_t x){
+uint64_t DerivativeRelu(Party *const proxy, uint64_t x){
     uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint8_t exchangingBit = 2;
@@ -1047,13 +1047,13 @@ uint64_t DerivativeReLU(Party *const proxy, uint64_t x){
 }
 
 /**
- * Method for private computation of the derivative of the ReLU function.
+ * Method for private computation of the derivative of the Relu function.
  * @param proxy
- * @param x - vector of variables for which to compute ReLU' (the derivative of the ReLU function).
+ * @param x - vector of variables for which to compute Relu' (the derivative of the ReLU function).
  * @param size - size of vector x
- * @return vector containing the resulting DerivativeReLU(x), must be deleted if not needed anymore.
+ * @return vector containing the resulting DerivativeRelu(x), must be deleted if not needed anymore.
  */
-uint64_t* DerivativeReLU(Party *const proxy, const uint64_t *const x, uint32_t size){
+uint64_t* DerivativeRelu(Party *const proxy, const uint64_t *const x, uint32_t size){
     uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint32_t exchangingBit = 2 * size;
@@ -1241,7 +1241,7 @@ uint64_t * Flatten(const uint64_t *const *const *const images, uint32_t i_height
 // LAYER FUNCTIONS:
 
 /**
- * Implements the function of a convolutional layer (ConvolutionalLayer) using ReLU as activation function
+ * Implements the function of a convolutional layer (ConvolutionalLayer) using Relu as activation function
  * and then Maxpool with a 2x2 filter if according parameter is set.
  *
  * @param proxy
@@ -1340,7 +1340,7 @@ uint64_t*** ConvolutionalLayer(
         delete[] conv_result;
 
         // ACTIVATION:
-        uint64_t* conv_activated = ReLU(proxy, conv_reshaped, conv_len * output_channel);
+        uint64_t* conv_activated = Relu(proxy, conv_reshaped, conv_len * output_channel);
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
         uint32_t out_len = out_height*out_width;
@@ -1388,7 +1388,7 @@ uint64_t*** ConvolutionalLayer(
         // convolution:
         MatrixMatrixMultiply(proxy, nullptr, nullptr, 0, i_channel * output_channel * k_size * conv_len, 0, 0);
         // ACTIVATION:
-        ReLU(proxy, nullptr, conv_len * output_channel);
+        Relu(proxy, nullptr, conv_len * output_channel);
         if (doMaxpooling){
             // Maxpool:
             Max(proxy, nullptr, output_channel * conv_height, conv_width, max_win_height, max_win_width);

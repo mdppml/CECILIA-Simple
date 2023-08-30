@@ -1598,7 +1598,7 @@ uint64_t Divide(Party *const proxy, uint64_t a, uint64_t b, int shift = FRACTION
  * @param size: the number of elements in a and b
  * @return div: uint64_t vector consisting of elementwise division of a/b
  */
-uint64_t* Normalize(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, int shift = FRACTIONAL_BITS) {
+uint64_t* Normalise(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, int shift = FRACTIONAL_BITS) {
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t *u = new uint64_t[size]; // holds how much needs to be subtracted from the nominator
         uint64_t *div = new uint64_t[size]; // resulting division

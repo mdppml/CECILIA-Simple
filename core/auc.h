@@ -313,14 +313,14 @@ uint64_t RocNoTie(Party *proxy, client_data *c_data, uint32_t size) {
         uint64_t denominator = Multiply(proxy, FN, TN);
         uint64_t num[1] = {numerator};
         uint64_t den[1] = {denominator};
-        uint64_t *auc = Normalize(proxy, num, den, 1);
+        uint64_t *auc = Normalise(proxy, num, den, 1);
         delete[] labels;
         return auc[0];
     }
     else if(proxy->GetPRole() == helper) {
         Multiply(proxy, 0, 0, size);
         Multiply(proxy, 0, 0);
-        Normalize(proxy, 0, 0, 1);
+        Normalise(proxy, 0, 0, 1);
     }
     return -1;
 }
@@ -390,7 +390,7 @@ uint64_t RocWithTie(Party *proxy, client_data *c_data, int size) {
         numerator = 2 * numerator + numerator2;
         uint64_t a[1] = {numerator};
         uint64_t b[1] = {denominator};
-        uint64_t auc = Normalize(proxy, a, b, 1)[0];
+        uint64_t auc = Normalise(proxy, a, b, 1)[0];
 
         delete[] labels;
 
@@ -405,7 +405,7 @@ uint64_t RocWithTie(Party *proxy, client_data *c_data, int size) {
             Multiplex(proxy, 0, 0, 0, 2);
         }
         Multiply(proxy, 0, 0);
-        Normalize(proxy, 0, 0, 1);
+        Normalise(proxy, 0, 0, 1);
     }
     return -1;
 }
@@ -454,7 +454,7 @@ uint64_t PrCurve(Party *proxy, client_data *c_data, int size) {
         uint64_t prec;
         uint64_t reca;
         uint64_t *parts;
-        precs = Normalize(proxy, recas, precs, size);
+        precs = Normalise(proxy, recas, precs, size);
         for (int i = 0; i < size; i++) {
             prec = precs[i];
             reca = recas[i];
@@ -479,7 +479,7 @@ uint64_t PrCurve(Party *proxy, client_data *c_data, int size) {
         uint64_t denominator = 2 * TP;
         uint64_t a[1] = {numerator};
         uint64_t b[1] = {denominator};
-        uint64_t prc = Normalize(proxy, a, b, 1)[0];
+        uint64_t prc = Normalise(proxy, a, b, 1)[0];
         delete [] precs;
         delete [] recas;
         delete[] labels;
@@ -488,13 +488,13 @@ uint64_t PrCurve(Party *proxy, client_data *c_data, int size) {
     }
     else if (proxy->GetPRole() == helper) {
         Round(proxy, 0, size);
-        Normalize(proxy, 0, 0, size);
+        Normalise(proxy, 0, 0, size);
         for (int i = 0; i < size; i++) {
             Multiply(proxy, 0, 0, 2);
             Multiply(proxy, 0, 0, 2);
             Multiplex(proxy, 0, 0, 0, 2);
         }
-        Normalize(proxy, 0, 0, 1);
+        Normalise(proxy, 0, 0, 1);
     }
     return -1;
 }
