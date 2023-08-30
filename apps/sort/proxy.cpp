@@ -37,7 +37,7 @@ void VSortTest(Party *proxy){
     uint32_t params[2];
     params[0] = size;
     params[1] = cols;
-    proxy->SendBytes(CORE_VSORT, params, 2);
+    proxy->SendBytes(coreVSort, params, 2);
     cout << "Calling VSORT..\n";
     auto start = chrono::high_resolution_clock::now();
     uint64_t** s = Sort(proxy, a, size, cols, 0);

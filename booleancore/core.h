@@ -16,7 +16,7 @@
  * Sorting protocol will no use it directly
  * */
 
-uint64_t *RECB(Party* proxy, uint64_t *a, uint32_t sz) {
+uint64_t *ReconstructBoolean(Party* proxy, uint64_t *a, uint32_t sz) {
 
     uint64_t *b = new uint64_t[sz];
     if ( proxy->GetPRole() == proxy1 ) {
@@ -57,7 +57,7 @@ uint64_t *RECB(Party* proxy, uint64_t *a, uint32_t sz) {
     return b;
 }
 
-uint8_t *RECB(Party* proxy, uint8_t *a, uint32_t sz) {
+uint8_t *ReconstructBoolean(Party* proxy, uint8_t *a, uint32_t sz) {
     uint8_t *b = new uint8_t[sz];
 
     if ( proxy->GetPRole() == proxy1 ) {
@@ -104,7 +104,7 @@ uint8_t *RECB(Party* proxy, uint8_t *a, uint32_t sz) {
 }
 
 
-uint8_t *RECB2(Party* proxy, uint8_t *a, uint32_t sz) {
+uint8_t *ReconstructBoolean2(Party* proxy, uint8_t *a, uint32_t sz) {
     uint8_t *b = new uint8_t[sz];
 
     if ( proxy->GetPRole() == proxy1 ) {
@@ -228,7 +228,7 @@ uint8_t *And(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
                 concat_e_f[i + size] = b[i] ^ mt[1][i];
             }
         }
-        uint8_t *e_f = RECB(proxy, concat_e_f, size * 2);
+        uint8_t *e_f = ReconstructBoolean(proxy, concat_e_f, size * 2);
         uint8_t *e = e_f;
         uint8_t *f = &e_f[size];
         uint8_t *z = new uint8_t[size];
@@ -244,7 +244,7 @@ uint8_t *And(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
     return nullptr;
 }
 
-uint8_t *AND2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
+uint8_t *And2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
     if (proxy->GetPRole() == helper) {
         uint8_t *c1 = new uint8_t[size];
         GenerateBoolMultiplicationTriple(proxy, c1, size);
@@ -286,7 +286,7 @@ uint8_t *AND2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
                 concat_e_f[i + size] = b[i] ^ mt[1][i];
             }
         }
-        uint8_t *e_f = RECB2(proxy, concat_e_f, size * 2);
+        uint8_t *e_f = ReconstructBoolean2(proxy, concat_e_f, size * 2);
         uint8_t *e = e_f;
         uint8_t *f = &e_f[size];
         uint8_t *z = new uint8_t[size];
@@ -304,7 +304,7 @@ uint8_t *AND2(Party* proxy, uint8_t *a, uint8_t *b, uint32_t size) {
 }
 
 
-uint64_t *BooleanSubstract(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) {
+uint64_t *BooleanSubtract(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) {
     if (proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
         uint64_t *result = new uint64_t[sz];
         for (int i = 0; i < sz; i++) {
@@ -352,11 +352,11 @@ uint64_t *BooleanSubstract(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) 
 }
 
 /**
- * A variation of BooleanSubstract: Data is stored in a more compact way.
+ * A variation of BooleanSubtract: Data is stored in a more compact way.
  * Instead of representing bits as bytes it directly uses bits
  *
  * */
-uint64_t *BooleanSubstract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) {
+uint64_t *BooleanSubtract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz) {
     if (proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
         uint64_t *result = new uint64_t[sz];
         uint8_t *c = new uint8_t[sz];
@@ -384,7 +384,7 @@ uint64_t *BooleanSubstract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz)
                 AddBitToCharArray(a_inverse_bit ^ c[i], &ptr1, &bit_index1);
                 AddBitToCharArray(b_bit[i] ^ c[i], &ptr2, &bit_index2);
             }
-            uint8_t * ainvNbxc = AND2(proxy, ainvxc, bxc, sz2);
+            uint8_t * ainvNbxc = And2(proxy, ainvxc, bxc, sz2);
 
             ptr1 = &ainvNbxc[0];
             bit_index1 =7;
@@ -403,7 +403,7 @@ uint64_t *BooleanSubstract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz)
     }
     else if ( proxy->GetPRole() == helper){
         for (int j = 0; j<64; j++){
-            AND2(proxy, 0,0, sz/8+1);
+            And2(proxy, 0, 0, sz / 8 + 1);
         }
     }
     return nullptr;
@@ -413,7 +413,7 @@ uint64_t *BooleanSubstract2(Party* proxy, uint64_t *a, uint64_t *b, uint32_t sz)
  * @param a Arithmetic share
  * @param sz number of elements in the share
  * */
-uint64_t *Arithmetic2XOR(Party *const proxy, const uint64_t *const a, uint32_t sz) {
+uint64_t *ArithmeticToXor(Party *const proxy, const uint64_t *const a, uint32_t sz) {
 
     if ( proxy->GetPRole() == helper ) {
         auto *ar = new uint64_t[sz];
@@ -442,7 +442,7 @@ uint64_t *Arithmetic2XOR(Party *const proxy, const uint64_t *const a, uint32_t s
         thr2 = thread( Send, proxy->GetSocketP2(), proxy->GetBuffer2(), sz * 8);
         thr1.join();
         thr2.join();
-        BooleanSubstract2(proxy, 0, 0, sz);
+        BooleanSubtract2(proxy, 0, 0, sz);
         return nullptr;
     }
     else { //P0 or proxy1
@@ -470,7 +470,7 @@ uint64_t *Arithmetic2XOR(Party *const proxy, const uint64_t *const a, uint32_t s
             ar[i] = ConvertToLong(&ptr);
         }
 
-        auto result = BooleanSubstract2(proxy, ar, r_i_xor, sz);
+        auto result = BooleanSubtract2(proxy, ar, r_i_xor, sz);
 
         delete [] r;
         delete [] r_i;
@@ -481,18 +481,18 @@ uint64_t *Arithmetic2XOR(Party *const proxy, const uint64_t *const a, uint32_t s
 
 
 /**Protocol for converting XOR shares of 64bit values to Arithmetic shares
- * Simply the inverse of Arithmetic2XOR function
+ * Simply the inverse of ArithmeticToXor function
  * @param a XOR share
  * @param sz number of elements in the share
  * */
-uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
+uint64_t *XorToArithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
 
     if ( proxy->GetPRole() == helper ) {
         auto *ar = new uint64_t[sz];
         unsigned char *ptr1 = proxy->GetBuffer1();
         unsigned char *ptr2 = proxy->GetBuffer2();
 
-        BooleanSubstract2(proxy, 0, 0, sz);
+        BooleanSubtract2(proxy, 0, 0, sz);
 
         thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), sz * 8);
         thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), sz * 8);
@@ -534,7 +534,7 @@ uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
                 r_i_xor[i] = 4;//proxy->createXORShare(r[i]);
             }
         }
-        auto ar = BooleanSubstract2(proxy, a, r_i_xor, sz);
+        auto ar = BooleanSubtract2(proxy, a, r_i_xor, sz);
 
         ptr = proxy->GetBuffer1();
         for (int i = 0; i < sz; i++) {
@@ -560,7 +560,7 @@ uint64_t *XOR2Arithmetic(Party* proxy, uint64_t *a, uint32_t sz) {
  * @param a XOR share
  * @param sz number of elements in the share
  * */
-uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
+uint64_t *XorToArithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
     uint32_t bsz = sz/8 +1;
     if ( proxy->GetPRole() == helper ) {
         auto *a1 = new uint8_t[sz];
@@ -669,7 +669,7 @@ uint64_t *XOR2Arithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
  * @param a XOR share
  * @param sz number of elements in the share
  * */
-uint64_t *XOR2Arithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
+uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
     uint32_t mask = 0xfffff;
     uint32_t bsz = sz/8 +1;
     if ( proxy->GetPRole() == helper ) {

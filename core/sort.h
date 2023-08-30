@@ -167,10 +167,6 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
     long long x;   //pointer lazım mı?
     uint64_t  n =  0x1fffffffffffffff;
 
-//    using namespace std::chrono;
-//    auto microseconds_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-//    cout << microseconds_since_epoch << endl;
-
     if (proxy->GetPRole() ==proxy1) {
         x = proxy->GenerateCommonRandom() & n;
         for (int i = 0; i < size; i++) {
@@ -195,7 +191,7 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
         thr2.join();
         ptr = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pv_inv[i] = ConvertToLong(&ptr);   //they got the pvinv shares butproxy1 needs to eliminate the effect of r
+            pv_inv[i] = ConvertToLong(&ptr);   //they got the pvinv shares but proxy1 needs to eliminate the effect of r
         }
     } else if (proxy->GetPRole() == proxy2) {
         x = proxy->GenerateCommonRandom() & n;
@@ -214,7 +210,7 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
         thr2.join();
         ptr = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pv_inv[i] = ConvertToLong(&ptr);   //they got the pvinv shares butproxy1 needs to eliminate the effect of r
+            pv_inv[i] = ConvertToLong(&ptr);   //they got the pvinv shares but proxy1 needs to eliminate the effect of r
             pr_inv[i] = ConvertToLong(&ptr);
         }
         long long xinv = GetModularInverseN(x, n);
@@ -289,8 +285,6 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
      uint32_t size,
      uint64_t ringbits
  ) {
-    //   double tt1, tt2, tt3, tt4, tt5=0;
-
     auto bsz = ceil((ringbits+1)/8.0);
     auto mask = (1<< (ringbits+1))-1; //ringbits+1 because number to be permuted 24 bit not 23
     auto mask2 = (1<< (ringbits))-1;
@@ -303,10 +297,6 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
     auto* pr_inv = new uint64_t[size];
     long long x;   //pointer lazım mı?
     uint64_t  n =  0x7FFFF; //(2^19)-1 mersenne prime
-
-//    using namespace std::chrono;
-//    auto microseconds_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-//    cout << microseconds_since_epoch << endl;
 
     if (proxy->GetPRole() ==proxy1) {
         x = proxy->GenerateCommonRandom() & n;
@@ -334,7 +324,7 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
         thr2.join();
         ptr = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pv_inv[i] = ConvertToLong(&ptr, bsz);   //they got the pvinv shares butproxy1 needs to eliminate the effect of r
+            pv_inv[i] = ConvertToLong(&ptr, bsz);   //they got the pvinv shares but proxy1 needs to eliminate the effect of r
         }
     } else if (proxy->GetPRole() == proxy2) {
         x = proxy->GenerateCommonRandom() & n;
@@ -354,7 +344,7 @@ uint64_t *ApplyPermutation(Party *proxy, const uint64_t *const p, uint64_t *cons
         thr2.join();
         ptr = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pv_inv[i] = ConvertToLong(&ptr, bsz);   //they got the pvinv shares butproxy1 needs to eliminate the effect of r
+            pv_inv[i] = ConvertToLong(&ptr, bsz);   //they got the pvinv shares but proxy1 needs to eliminate the effect of r
             pr_inv[i] = ConvertToLong(&ptr, bsz);
         }
         long long xinv = GetModularInverseN(x, n);
@@ -457,7 +447,7 @@ uint8_t *ApplyPermutationNarrow2(
         Receive(proxy->GetSocketHelper(), proxy->GetBuffer2(),size); //receives a share from pv_inv
         ptr = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pr_inv[i] = ConvertToUint8(&ptr);   //they got the pvinv shares butproxy1 needs to eliminate the effect of r
+            pr_inv[i] = ConvertToUint8(&ptr);   //they got the pvinv shares but proxy1 needs to eliminate the effect of r
         }
         delete []r;
     } else if (proxy->GetPRole() == proxy2) {
@@ -528,7 +518,6 @@ uint64_t *ComposePermutations(
 ) {
     auto bsz = ceil((ringbits)/8.0);
     auto mask = (1<< (ringbits))-1;
-
     if (proxy->GetPRole() ==proxy1 || proxy->GetPRole() == proxy2){
         uint64_t *randoms = new uint64_t[size];
         uint64_t *pip = new uint64_t[size];
@@ -598,8 +587,6 @@ uint64_t *ComposePermutations(
  * @param size number of elements in data
  * */
 [[maybe_unused]] uint64_t *ApplyPermutationBoolean(Party *const proxy, const uint64_t *const p, uint64_t *const v, const uint64_t *const pi, uint32_t size) {
-    //   double tt1, tt2, tt3, tt4, tt5=0;
-
     auto* r = new uint64_t[size];
     auto* pip = new uint64_t[size];
     auto* piv = new uint64_t[size];
@@ -608,10 +595,6 @@ uint64_t *ComposePermutations(
     auto* pr_inv = new uint64_t[size];
     long long x;   //pointer lazım mı?
     uint64_t  n =  0x1fffffffffffffff;
-
-//    using namespace std::chrono;
-//    auto microseconds_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
-//    cout << microseconds_since_epoch << endl;
     if (proxy->GetPRole() ==proxy1) {
         for (int i = 0; i < size; i++) {
             r[i] = proxy->GenerateRandom() & n;   //need to be smaller than n
@@ -733,7 +716,7 @@ uint64_t *ComposePermutations(
     return pv_inv;
 }
 
-uint64_t **ApplyPermutationVectorized(
+uint64_t **ApplyPermutationVectorised(
     Party *const proxy,
     const uint64_t *const p,
     uint64_t *const *const v,
@@ -741,7 +724,6 @@ uint64_t **ApplyPermutationVectorized(
     uint32_t size,
     uint32_t categories
 ) {
-
     auto** r = new uint64_t*[categories];
     auto* pip = new uint64_t[size];
     auto** piv = new uint64_t*[categories];
@@ -995,12 +977,12 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
     int LT= 64;
     int bsz = ceil(size/8.0);
     if (proxy->GetPRole() == helper) {
-        Arithmetic2XOR(proxy, nullptr, size);
-        XOR2Arithmetic3(proxy, nullptr, size);
+        ArithmeticToXor(proxy, nullptr, size);
+        XorToArithmetic3(proxy, nullptr, size);
         GeneratePermutation(proxy, nullptr, size, ringbits);
         for(int i = 1; i < LT ; ++i) {
             ApplyPermutationNarrow2(proxy, nullptr, nullptr, nullptr, size, ringbits);
-            XOR2Arithmetic3(proxy, nullptr, size);
+            XorToArithmetic3(proxy, nullptr, size);
             GeneratePermutation(proxy, nullptr, size, ringbits);
             ComposePermutations(proxy, nullptr, nullptr, size, ringbits);
         }
@@ -1014,7 +996,7 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
         auto tmp = new uint8_t[size];
 
         auto start = chrono::high_resolution_clock::now();
-        auto a_xor = Arithmetic2XOR(proxy, a, size);
+        auto a_xor = ArithmeticToXor(proxy, a, size);
         auto end = chrono::high_resolution_clock::now();
         a2x_time +=
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -1025,7 +1007,7 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
         for (int j = 0; j < size; j++) {
             AddBitToCharArray(((a_xor[j]) & 0x1), &ptr, &bit_index);
         }
-        auto dca = XOR2Arithmetic3(proxy, dc, size);
+        auto dca = XorToArithmetic3(proxy, dc, size);
         auto permG = GeneratePermutation(proxy, dca, size, ringbits);
         for(int i = 1; i < LT; ++i) {
             for (int j = 0; j < size; ++j) {
@@ -1054,7 +1036,7 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
                 AddBitToCharArray((tmp2[j]) & 0x1, &ptr, &bit_index);
             }
             start = chrono::high_resolution_clock::now();
-            dca = XOR2Arithmetic3(proxy, dc, size);
+            dca = XorToArithmetic3(proxy, dc, size);
             end = chrono::high_resolution_clock::now();
             x2a_time +=
                     chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -1087,7 +1069,7 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
     return nullptr;
 }
 
-/**  Vectorized Sorting Algorithm
+/**  Vectorised Sorting Algorithm
  *   It gets a vector of vectors as input. Calculates the sorting permutation based on only one of the vectors.
  *   Then applies the sorting permutation on all vectors.
  *   Just like sorting a table based on column
@@ -1109,7 +1091,7 @@ uint64_t **Sort(
         for(int i = 0; i < LT; ++i) {
             MostSignificantBit(proxy, nullptr, size);
             GeneratePermutation(proxy, nullptr, size);
-            ApplyPermutationVectorized(proxy, nullptr, nullptr, nullptr, size, categories);
+            ApplyPermutationVectorised(proxy, nullptr, nullptr, nullptr, size, categories);
         }
         return nullptr;
     }
@@ -1118,7 +1100,6 @@ uint64_t **Sort(
         auto *randoms = new uint64_t[size];
         auto** res = new uint64_t*[categories];
         auto* to_shift = new uint64_t[size];
-        //Get the
 
         for (int i = 0; i < categories; ++i) {
             res[i] = new uint64_t[size];
@@ -1144,7 +1125,7 @@ uint64_t **Sort(
 
             uint64_t* pi = GetRandomPermutation(randoms, size);
 
-            res = ApplyPermutationVectorized(proxy, perm, res, pi, size, categories);  //apply the permutation to the current array
+            res = ApplyPermutationVectorised(proxy, perm, res, pi, size, categories);  //apply the permutation to the current array
             for (int j = 0; j < size; ++j) {
                 to_shift[j] = res[index][j];
             }

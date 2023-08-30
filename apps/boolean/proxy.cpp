@@ -37,7 +37,7 @@ void AND_test(Party *proxy){
     cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(BCORE_AND, params, 1);
+    proxy->SendBytes(boolAnd, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
     uint8_t* s = And(proxy, x, y, size);
@@ -47,9 +47,9 @@ void AND_test(Party *proxy){
     cout<<totaltime<<endl;
 
     cout << "Callng Reconstruct..\n";
-    uint8_t* anded = RECB(proxy,s,size);
-    uint8_t* x_rec = RECB(proxy,x,size);
-    uint8_t* y_rec = RECB(proxy,y,size);
+    uint8_t* anded = ReconstructBoolean(proxy, s, size);
+    uint8_t* x_rec = ReconstructBoolean(proxy, x, size);
+    uint8_t* y_rec = ReconstructBoolean(proxy, y, size);
     int numCorrect = sz;
     for(int i = 0;i<size;i++) {
         auto z_correct = x_rec[i] & y_rec[i];
@@ -91,8 +91,8 @@ void SUB_test(Party *proxy){
 //        }
     }
 
-    auto x_rec = RECB(proxy, x, size);
-    auto y_rec = RECB(proxy, y, size);
+    auto x_rec = ReconstructBoolean(proxy, x, size);
+    auto y_rec = ReconstructBoolean(proxy, y, size);
 
     std::uint64_t * z_correct =new std::uint64_t [size];
     for (int i = 0; i < size; ++i) {
@@ -102,17 +102,17 @@ void SUB_test(Party *proxy){
     cout << "Calling SendBytes..\n";
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(BCORE_SUB, params, 1);
+    proxy->SendBytes(boolSubtract, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = BooleanSubstract(proxy, x, y, size);
+    uint64_t* s = BooleanSubtract(proxy, x, y, size);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
     cout << "Callng Reconstruct..\n";
-    auto sub = RECB(proxy, s, size);
+    auto sub = ReconstructBoolean(proxy, s, size);
     int numCorrect = sz;
     for(int i = 0;i<size;i++) {
         if ((uint64_t) sub[i] != (uint64_t) z_correct[i]) {
@@ -136,15 +136,15 @@ void Conversion_test(Party *proxy){
 
     uint32_t params[1];
     params[0] = size;
-    proxy->SendBytes(BCORE_A2B, params, 1);
+    proxy->SendBytes(boolArithmeticToXor, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = Arithmetic2XOR(proxy, x, size);
+    uint64_t* s = ArithmeticToXor(proxy, x, size);
     auto end = chrono::high_resolution_clock::now();
     double totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    auto s_rec = RECB(proxy, s, size);
+    auto s_rec = ReconstructBoolean(proxy, s, size);
     auto x_rec = Reconstruct(proxy, x, size);
     int  counter = 0;
     for(int i = 0;i<size;i++) {
@@ -159,10 +159,10 @@ void Conversion_test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling XOR (64bit) to Arithmetic Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
     cout << "Calling SendBytes..\n";
     params[0] = size;
-    proxy->SendBytes(BCORE_B2A, params, 1);
+    proxy->SendBytes(boolXorToArithmetic, params, 1);
 
     start = chrono::high_resolution_clock::now();
-    uint64_t* t = XOR2Arithmetic(proxy, s, size);
+    uint64_t* t = XorToArithmetic(proxy, s, size);
     end = chrono::high_resolution_clock::now();
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
@@ -182,7 +182,7 @@ void Conversion_test(Party *proxy){
     cout<<setfill ('*')<<setw(50)<<"Calling XOR (1Bit) to Arithmetic Conversion"<< setfill ('*')<<setw(49)<<"*"<<endl;
     cout << "Calling SendBytes..\n";
     params[0] = size;
-    proxy->SendBytes(BCORE_B2Am, params, 1);
+    proxy->SendBytes(boolXorToArithmetic3, params, 1);
     int sz = size/8 +1;
     auto* b =new uint8_t[sz];
     for (int i = 0; i <sz ; ++i) {
@@ -191,7 +191,7 @@ void Conversion_test(Party *proxy){
     }
 
     start = chrono::high_resolution_clock::now();
-    t = XOR2Arithmetic3(proxy, b, size);
+    t = XorToArithmetic3(proxy, b, size);
     end = chrono::high_resolution_clock::now();
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;

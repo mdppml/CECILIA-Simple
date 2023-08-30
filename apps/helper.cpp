@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 Multiply(proxy, nullptr, nullptr, sz);
                 break;
-            case CORE_MMUL2:
+            case coreVectorisedMultiply2:
                 sz = proxy->ReadInt();
                 size2 = proxy->ReadInt();
                 MultiplyNarrow(proxy, nullptr, nullptr, sz, size2);
@@ -232,39 +232,39 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 Sort(proxy, 0, sz);
                 break;
-            case CORE_VSORT:
+            case coreVSort:
                 sz = proxy->ReadInt();
                 size1 = proxy->ReadInt();
                 Sort(proxy, 0, sz, size1, 0);
                 break;
-            case CORE_SORT2:
+            case coreSort2:
                 sz = proxy->ReadInt();
                 size1 = proxy->ReadInt();
                 SortNarrow(proxy, 0, sz, size1);
                 break;
-            case BCORE_AND:
+            case boolAnd:
                 sz = proxy->ReadInt();
-                AND2(proxy,0,0, sz);
+                And2(proxy, 0, 0, sz);
                 break;
-            case BCORE_SUB:
+            case boolSubtract:
                 sz = proxy->ReadInt();
-                BooleanSubstract2(proxy,0,0, sz);
+                BooleanSubtract2(proxy, 0, 0, sz);
                 break;
-            case BCORE_A2B:
+            case boolArithmeticToXor:
                 sz = proxy->ReadInt();
-                Arithmetic2XOR(proxy,0, sz);
+                ArithmeticToXor(proxy, 0, sz);
                 break;
-            case BCORE_B2A:
+            case boolXorToArithmetic:
                 sz = proxy->ReadInt();
-                XOR2Arithmetic(proxy,0, sz);
+                XorToArithmetic(proxy, 0, sz);
                 break;
-            case BCORE_B2As:
+            case boolXorToArithmetic2:
                 sz = proxy->ReadInt();
-                XOR2Arithmetic2(proxy,0, sz);
+                XorToArithmetic2(proxy, 0, sz);
                 break;
-            case BCORE_B2Am:
+            case boolXorToArithmetic3:
                 sz = proxy->ReadInt();
-                XOR2Arithmetic3(proxy,0, sz);
+                XorToArithmetic3(proxy, 0, sz);
                 break;
             case coreEnd:
                 keep_looping = false;

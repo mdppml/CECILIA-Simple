@@ -339,7 +339,7 @@ bool MMUL2_Test(Party *proxy){
     uint64_t *r;
     auto start = chrono::high_resolution_clock::now();
     for (int i = 0; i < 2; ++i) {
-        proxy->SendBytes(CORE_MMUL2, params, 2);
+        proxy->SendBytes(coreVectorisedMultiply2, params, 2);
         r = Multiply(proxy, x, y, sz, bsz);
     }
     auto end = chrono::high_resolution_clock::now();

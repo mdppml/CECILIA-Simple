@@ -46,10 +46,10 @@ enum Operation {
     coreVectorisedMultiplex,coreVectorisedModularConversion,coreModularConversion,coreVectorisedCompare,coreCompare,
     coreExp, coreVectorisedExp,coreDotProduct,coreVectorisedDotProduct,coreMatrixMatrixMultiply,
     coreVectorisedMatrixMatrixMultiply,coreMatrixVectorMultiply,coreVectorisedMatrixVectorMultiply, coreDivide,
-    coreVectorisedDivide, coreNormalise,CORE_MMUL2,
-    coreSort, CORE_SORT2, CORE_VSORT,
+    coreVectorisedDivide, coreNormalise,coreVectorisedMultiply2,
+    coreSort, coreSort2, coreVSort,
     //BOOLEAN CORE
-    BCORE_AND, BCORE_SUB, BCORE_A2B, BCORE_B2A, BCORE_B2As,BCORE_B2Am,
+    boolAnd, boolSubtract, boolArithmeticToXor, boolXorToArithmetic, boolXorToArithmetic2,boolXorToArithmetic3,
     // AUC
     aucMostSignificantBit,aucDivide,aucVectorisedRound,aucVectorisedDivide,aucRocNoTie,aucRocWithTie,aucPrCurve,
     // CNN
