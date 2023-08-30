@@ -288,7 +288,7 @@ bool MMUL_Test(Party *proxy, double &exe_time, bool only_timing = false){
         x[i] = proxy->CreateShare(xd);
         y[i] = proxy->CreateShare(yd);
     }
-    proxy->SendBytes(CORE_MUL);
+    proxy->SendBytes(coreMultiply);
     auto r = Multiply(proxy, x[0], y[0]);
 
     bool flag = true;
@@ -296,9 +296,9 @@ bool MMUL_Test(Party *proxy, double &exe_time, bool only_timing = false){
     uint64_t rec_x = Reconstruct(proxy, x[0]);
     uint64_t rec_y = Reconstruct(proxy, y[0]);
     uint64_t rec_r = Reconstruct(proxy, r);
-    double xd = convert2double(rec_x);
-    double yd = convert2double(rec_y);
-    double rd = convert2double(rec_r);
+    double xd = ConvertToDouble(rec_x);
+    double yd = ConvertToDouble(rec_y);
+    double rd = ConvertToDouble(rec_r);
     double rcd = (xd * yd);
     if ((int) (rd - rcd) != 0) {
         flag = false;

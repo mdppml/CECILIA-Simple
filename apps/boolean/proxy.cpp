@@ -25,11 +25,11 @@ void AND_test(Party *proxy){
     auto* y =new uint8_t[size];
 
     for(int i = 0; i < size; i++) {
-        x[i] = proxy->generateRandomByte()&0x1;
+        x[i] = proxy->GenerateRandomByte()&0x1;
     }
 
     for(int i = 0; i < size; i++) {
-        y[i] = proxy->generateRandomByte()&0x1;
+        y[i] = proxy->GenerateRandomByte()&0x1;
     }
 
 
@@ -186,7 +186,7 @@ void Conversion_test(Party *proxy){
     int sz = size/8 +1;
     auto* b =new uint8_t[sz];
     for (int i = 0; i <sz ; ++i) {
-        if(proxy->getPRole()==P1) b[i] = 5;
+        if(proxy->GetPRole()==proxy1) b[i] = 5;
         else b[i] = 0;
     }
 
@@ -217,16 +217,16 @@ int main(int argc, char* argv[]) {
 
     Party *proxy;
     if (role == 0)
-        proxy = new Party(P1, hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2, hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
     Conversion_test(proxy);
 //    SUB_test(proxy);
 //    AND_test(proxy);
 
-    proxy->SendBytes(CORE_END);
-    proxy->PrintBytes();
+    proxy->SendBytes(coreEnd);
+    PrintBytes();
 
     return 0;
 }
