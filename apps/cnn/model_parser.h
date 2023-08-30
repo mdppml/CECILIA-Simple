@@ -356,7 +356,7 @@ double**** getCellCnnParameters(const string& model_file_dir, uint32_t number_of
 
     // convolutional layer:
     weights[0] = parseAllKernelFiles(model_file_dir, self_trained_conv_name0, number_of_kernel, 1, 35);
-    print2DArray("cl weights", weights[0][0], 1,35,true);
+    Print2dArray("cl weights", weights[0][0], 1, 35, true);
 
     // fully connected layer:
     string file_path = model_file_dir + "fc0_weight" + file_ending;

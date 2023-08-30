@@ -4,8 +4,6 @@
 #include <iostream>
 #include "../../core/core.h"
 #include "../../core/cnn.h"
-#include "model_parser.h"
-#include "../../core/auc.h"
 
 const string MODEL_DIR = "../../apps/cnn/model_files/"; // FIXME this is outdated
 const string MINIONN_MODEL_FILE = "MiniONN.txt";
@@ -127,7 +125,7 @@ int main(int argc, char* argv[]) {
     uint16_t port = strtol(argv[2], nullptr, 10);
     uint32_t nn_mode = atoi(argv[3]);
 
-    auto *helper = new Party(HELPER,port,address);
+    auto *proxy = new Party(helper, port, address);
 
     // parse model parameters
     initParams(nn_mode);
@@ -140,32 +138,32 @@ int main(int argc, char* argv[]) {
             case 0: {
                 cout << "call CL for CHAMELEON" << endl;
                 k_number = 5;
-                ConvolutionalLayer(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
+                ConvolutionalLayer(proxy, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                           nullptr, true);
                 updateParamsAfterCL();
                 updateParamsForFCL(100, true);
                 // FULLY CONNECTED LAYER
-                FullyConnectedLayer(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-                ReLU(helper, nullptr, nodes_out);
+                FullyConnectedLayer(proxy, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                Relu(proxy, nullptr, nodes_out);
                 updateParamsForFCL(10, false);
                 break;
             }
             case 1: {
                 k_number = 20;
                 cout << "call CL for LeNet" << endl;
-                ConvolutionalLayer(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
+                ConvolutionalLayer(proxy, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                    nullptr, false);
                 updateParamsAfterCL();
 
                 k_number = 50;
-                ConvolutionalLayer(helper, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
+                ConvolutionalLayer(proxy, nullptr, i_channel, i_height, i_width, nullptr, k_dim, k_number, stride, max_win_height, max_win_width,
                    nullptr, true);
                 updateParamsAfterCL();
 
                 // fully connected layer:
                 updateParamsForFCL(500, true);
-                FullyConnectedLayer(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-                ReLU(helper, nullptr, nodes_out);
+                FullyConnectedLayer(proxy, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+                Relu(proxy, nullptr, nodes_out);
 
                 updateParamsForFCL(10, false);
                 break;
@@ -173,7 +171,7 @@ int main(int argc, char* argv[]) {
             case 2:{
                 k_number = 8;
                 for (int k = 0; k < k_number; ++k) {
-                    MatrixVectorMultiply(helper, nullptr, nullptr, 0, i_height*i_width, 0);
+                    MatrixVectorMultiply(proxy, nullptr, nullptr, 0, i_height*i_width, 0);
                 }
                 updateParamsAfterCL();
                 updateParamsForFCL(2, true);
@@ -185,9 +183,8 @@ int main(int argc, char* argv[]) {
             }
         }
         // FULLY CONNECTED LAYER
-        FullyConnectedLayer(helper, nullptr, nodes_in, nullptr, nodes_out, nullptr);
-        ArgMax(helper, nullptr, nodes_out);
+        FullyConnectedLayer(proxy, nullptr, nodes_in, nullptr, nodes_out, nullptr);
+        ArgMax(proxy, nullptr, nodes_out);
     }
-    helper->PrintBytes();
     return 0;
 }

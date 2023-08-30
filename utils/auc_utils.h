@@ -26,7 +26,7 @@ bool IsPathExist(const std::string &s)
     return (stat (s.c_str(), &buf) == 0);
 }
 
-void read_directory(const std::string& name, vector<string>& v)
+void ReadDirectory(const std::string& name, vector<string>& v)
 {
     DIR* dirp = opendir(name.c_str());
     struct dirent * dp;
@@ -45,25 +45,25 @@ void read_directory(const std::string& name, vector<string>& v)
  * @param sample_size
  * @param flag: generate duplicate samples if it is true
  */
-void random_data(Party *proxy, client_data *&c_data, int nstation, uint64_t *sample_size, bool flag = false) {
+void RandomData(Party *proxy, client_data *&c_data, int nstation, uint64_t *sample_size, bool flag = false) {
     srand(100);
     c_data = new client_data[nstation];
     for (int i = 0; i < nstation; i++) {
-        uint64_t tmp[MAXSAMPLESIZE];
+        uint64_t tmp[MAX_SAMPLE_SIZE];
         for (int j = 0; j < sample_size[i]; j++) {
 //            tmp[j] = (rand() % 10000) + 1;
             if(j % 2 == 1 && flag)
                 tmp[j] = tmp[j - 1];
             else
-                tmp[j] = proxy->generateCommonRandom() & MAXSCALAR;
+                tmp[j] = proxy->GenerateCommonRandom() & MAX_SCALAR;
         }
 
-        sort_values(tmp, sample_size[i]);
+        SortValues(tmp, sample_size[i]);
         for (int j = 0; j < sample_size[i]; j++) {
-            uint64_t l = proxy->createShare(convert2uint64(rand() % 2));
-            c_data[i].push_back({proxy->createShare(tmp[j]), l});
+            uint64_t l = proxy->CreateShare(ConvertToUint64(rand() % 2));
+            c_data[i].push_back({proxy->CreateShare(tmp[j]), l});
 
-//            if (role == 0)
+//            if (Role == 0)
 //                c_data[i].push_back({(uint64_t) rand(), (uint64_t) rand()});
 //            else
 //                c_data[i].push_back({tmp[j] - rand(), l - rand(),});
@@ -73,9 +73,9 @@ void random_data(Party *proxy, client_data *&c_data, int nstation, uint64_t *sam
 
 }
 
-void file_data(string path, client_data *&c_data, int nstation, uint64_t sample_size[]){
+void FileData(string path, client_data *&c_data, int nstation, uint64_t sample_size[]){
     vector<string> f_list;
-    read_directory(path,f_list);
+    ReadDirectory(path, f_list);
     c_data = new client_data[f_list.size()];
     int f_index = 0;
     for(string file : f_list) {
@@ -116,18 +116,19 @@ void file_data(string path, client_data *&c_data, int nstation, uint64_t sample_
  * @param data
  * @param transfer_friendly: print transfer friendly version to Python numpy array if it is true
  */
-void print_data(Party *proxy, int nstation, uint64_t *sample_size, client_data *data, bool transfer_friendly = false) {
+void PrintData(Party *proxy, int nstation, uint64_t *sample_size, client_data *data, bool transfer_friendly = false) {
     for (int i = 0; i < nstation; i++) {
         cout << "Station : " << i << endl;
         if(!transfer_friendly) {
             for (prediction n: data[i]) {
-                cout << convert2double(Reconstruct(proxy, n.val)) << "\t" << convert2double(Reconstruct(proxy, n.label)) << endl;
+                cout << ConvertToDouble(Reconstruct(proxy, n.val)) << "\t" << ConvertToDouble(
+                        Reconstruct(proxy, n.label)) << endl;
             }
         }
         else {
             cout << "[";
             for (int n = 0; n < data[i].size(); n++) {
-                cout << convert2double(Reconstruct(proxy, data[i][n].val));
+                cout << ConvertToDouble(Reconstruct(proxy, data[i][n].val));
                 if(n != data[i].size() - 1) {
                     cout << ", ";
                 }
@@ -135,7 +136,7 @@ void print_data(Party *proxy, int nstation, uint64_t *sample_size, client_data *
             cout << "]" << endl;
             cout << "[";
             for (int n = 0; n < data[i].size(); n++) {
-                cout << convert2double(Reconstruct(proxy, data[i][n].label));
+                cout << ConvertToDouble(Reconstruct(proxy, data[i][n].label));
                 if(n != data[i].size() - 1) {
                     cout << ", ";
                 }

@@ -21,11 +21,11 @@ struct node {
     struct node* right_child;
 };
 
-struct node *newNode(Party *proxy, int index) {
+struct node *NewNode(Party *proxy, int index) {
     struct node *n = (struct node *)malloc(sizeof(struct node));
 
     n->index = index;
-    n->multiplier = proxy->getPRole();
+    n->multiplier = proxy->GetPRole();
     n->parent = NULL;
     n->left_child = NULL;
     n->right_child = NULL;
@@ -74,7 +74,7 @@ uint64_t*** Transpose(const uint64_t *const *const *const matrix, uint32_t n_mat
 }
 
 /**
- * Resort (ReSort) the given matrix so that elements of one window are found as a sequence of w_rows*w_cols.
+ * Resort (Resort) the given matrix so that elements of one window are found as a sequence of w_rows*w_cols.
  * Elements of a window can be found in matrix starting from index
  * i up to i + w_cols and
  * i + m_cols * win_row up to i + m_cols * win_row for each row of window  win_row.
@@ -102,7 +102,7 @@ uint64_t*** Transpose(const uint64_t *const *const *const matrix, uint32_t n_mat
  *
  * CAUTION: only matrices up to a size of 9000 x 9000 can be granted to be processed.
  */
-void ReSort(const uint64_t *const matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
+void Resort(const uint64_t *const matrix, uint32_t m_cols, uint32_t m_rows, uint32_t w_cols, uint32_t w_rows, uint64_t* resortedMatrix){
     uint32_t winSize = w_cols * w_rows;
     uint32_t numberOfWins = (m_cols * m_rows) / winSize;
     uint32_t winsPerRow = m_cols / w_cols;
@@ -136,14 +136,14 @@ uint64_t ArgMax(Party *const proxy, const uint64_t *const mShare, uint32_t matri
     uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, Multiplex.
     bool isResidueStored = false;
     bool isSecondHalfFilled = false;
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t *maxElements = new uint64_t [2*matrix_size];
         // generate matrix with indices
-        uint64_t * tmp = convert2uint64(random_1D_data(proxy, matrix_size), matrix_size);
+        uint64_t * tmp = ConvertToUint64(Random1dData(proxy, matrix_size), matrix_size);
         for (int i = 0; i < matrix_size; ++i) {
             maxElements[i] = mShare[i];
-            if(proxy->getPRole() == P1){
-                maxElements[i + matrix_size] = convert2uint64(i) - tmp[i];
+            if(proxy->GetPRole() == proxy1){
+                maxElements[i + matrix_size] = ConvertToUint64(i) - tmp[i];
             }
             else{
                 maxElements[i + matrix_size] = tmp[i];
@@ -204,7 +204,7 @@ uint64_t ArgMax(Party *const proxy, const uint64_t *const mShare, uint32_t matri
         delete [] maxElements;
         return argmax;
     }
-    else if ( proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
         If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
         while (cmpVectorSize > 1) {
@@ -253,7 +253,7 @@ uint64_t Max(Party *const proxy, const uint64_t *const mShare, uint32_t matrix_s
     uint32_t cmpVectorSize = matrix_size; //size of resulting vector after cmp, Multiplex.
     bool isResidueStored = false;
     bool isSecondHalfFilled = false;
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t *maxElements = new uint64_t[matrix_size];
         std::memcpy(maxElements, mShare, matrix_size*8);
         auto maxHalfSizes = static_cast<uint32_t>(ceil(matrix_size / 2)); // ceil because residue might be added.
@@ -300,7 +300,7 @@ uint64_t Max(Party *const proxy, const uint64_t *const mShare, uint32_t matrix_s
         delete [] maxElements;
         return max;
     }
-    else if ( proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
         If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
         while (cmpVectorSize > 1) {
@@ -355,9 +355,9 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
     struct node** current_nodes;
     struct node** previous_nodes;
     struct node** residue_nodes;
-    if ( proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         auto *resorted = new uint64_t [matrix_size];                // RESORT matrix to have all values of a window subsequently
-        ReSort(matrix, m_cols, m_rows, win_cols, win_rows, resorted);
+        Resort(matrix, m_cols, m_rows, win_cols, win_rows, resorted);
         numberOfWins = matrix_size / window_length;
 
         // for backpropagation - initialize the required variables
@@ -369,15 +369,17 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
             for(int i = 0; i < log2(window_length); i++) {
                 dmax[i] = new uint64_t[matrix_size];
                 for(int j = 0; j < matrix_size; j++) {
-                    dmax[i][j] = convert2uint64(proxy->getPRole());
-                    if(i == 0 && j == 0) { cout << "Role:" << proxy->getPRole() << endl;}
+                    dmax[i][j] = ConvertToUint64(proxy->GetPRole());
+                    if(i == 0 && j == 0) { cout << "Role:" << proxy->GetPRole() << endl;}
                 }
             }
             int tmp_depth = ceil(log2(window_length));
-            print2DArray("dmax - init", convert2double(Reconstruct(proxy, dmax, tmp_depth, matrix_size), tmp_depth, window_length), tmp_depth, matrix_size);
+            Print2dArray("dmax - init",
+                         ConvertToDouble(Reconstruct(proxy, dmax, tmp_depth, matrix_size), tmp_depth, window_length),
+                         tmp_depth, matrix_size);
 
-            print1DArray("dmax - init", convert2double(
-                    Reconstruct(proxy, straighten2DArray(dmax, tmp_depth, matrix_size),
+            Print1dArray("dmax - init", ConvertToDouble(
+                    Reconstruct(proxy, Straighten2dArray(dmax, tmp_depth, matrix_size),
                                 matrix_size * tmp_depth), matrix_size * tmp_depth), matrix_size * tmp_depth);
             cout << "check 2" << endl;
 
@@ -385,7 +387,7 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
             leaves = new struct node*[matrix_size];
             for(int w = 0; w < numberOfWins; w++) {
                 for(int i = 0; i < window_length; i++) {
-                    leaves[w * window_length + i] = newNode(proxy, i);
+                    leaves[w * window_length + i] = NewNode(proxy, i);
                 }
             }
             cout << "check 3" << endl;
@@ -419,7 +421,7 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                         current_nodes = new struct node*[comparisons + numberOfWins];
                         step_size++;
                         for(int i = 0; i < numberOfWins; i++) {
-                            current_nodes[step_size * (i + 1) - 1] = newNode(proxy, step_size - 1); // how to index these nodes? individually or thinking them as a whole
+                            current_nodes[step_size * (i + 1) - 1] = NewNode(proxy, step_size - 1); // how to index these nodes? individually or thinking them as a whole
                             current_nodes[step_size * (i + 1) - 1]->left_child = previous_nodes[cmpWindowVectorSize * (i + 1) - 1];
                             previous_nodes[cmpWindowVectorSize * (i + 1) - 1]->parent = current_nodes[step_size * (i + 1) - 1];
                             current_nodes[step_size * (i + 1) - 1]->right_child = residue_nodes[i];
@@ -441,7 +443,7 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                 cout << "check 7" << endl;
                 for(int j = 0; j < numberOfWins; j++) {
                      for(int i = 0; i < coreHalfSize; i++) {
-                         current_nodes[i + step_size * j] = newNode(proxy, i);
+                         current_nodes[i + step_size * j] = NewNode(proxy, i);
                          current_nodes[i + step_size * j]->left_child = previous_nodes[i + cmpWindowVectorSize * j];
                          previous_nodes[i + cmpWindowVectorSize * j]->parent = current_nodes[i + step_size * j];
                          current_nodes[i + step_size * j]->right_child = previous_nodes[i + coreHalfSize + cmpWindowVectorSize * j];
@@ -493,7 +495,7 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                         cout << "check 9." << i << ".1" << endl;
                         current_nodes[i]->left_child->multiplier = d[i];
                         cout << "check 9." << i << ".2" << endl;
-                        current_nodes[i]->right_child->multiplier = convert2uint64(proxy->getPRole()) - d[i];
+                        current_nodes[i]->right_child->multiplier = ConvertToUint64(proxy->GetPRole()) - d[i];
                     }
                     cout << "check 10" << endl;
                     previous_nodes = current_nodes; // update the previous_nodes to current_nodes
@@ -517,13 +519,13 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                 cout << "check 11" << endl;
                 for(int i = 0; i < comparisons; i++) {
                     cout << "check 11." << i << endl;
-                    struct node* tmp_node = newNode(proxy, 0);
+                    struct node* tmp_node = NewNode(proxy, 0);
                     tmp_node->left_child = current_nodes[i];
                     current_nodes[i]->parent = tmp_node;
                     tmp_node->left_child->multiplier = d[i];
                     tmp_node->right_child = residue_nodes[i];
                     residue_nodes[i]->parent = tmp_node;
-                    tmp_node->right_child->multiplier = convert2uint64(proxy->getPRole()) - d[i];
+                    tmp_node->right_child->multiplier = ConvertToUint64(proxy->GetPRole()) - d[i];
                 }
                 cout << "check 12" << endl;
             }
@@ -538,9 +540,10 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
         // derivative of maxpool
         if(backprop) {
             cout << "check 13" << endl;
-            print1DArray("dmax - initial", convert2double(
-                    Reconstruct(proxy, straighten2DArray(dmax, ceil(log2(window_length)), matrix_size),
-                                matrix_size * ceil(log2(window_length))), matrix_size * ceil(log2(window_length))), matrix_size * ceil(log2(window_length)));
+            Print1dArray("dmax - initial", ConvertToDouble(
+                                 Reconstruct(proxy, Straighten2dArray(dmax, ceil(log2(window_length)), matrix_size),
+                                             matrix_size * ceil(log2(window_length))), matrix_size * ceil(log2(window_length))),
+                         matrix_size * ceil(log2(window_length)));
             for(int i = 0; i < matrix_size; i++) {
                 cout << "check 13." << i << endl;
                 int ind = 0;
@@ -564,13 +567,14 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
             uint64_t *res = new uint64_t[matrix_size];
             uint64_t *v1;
             uint64_t *v2;
-            uint64_t *cur_dmax = straighten2DArray(dmax, n_depth, matrix_size);
+            uint64_t *cur_dmax = Straighten2dArray(dmax, n_depth, matrix_size);
             cout << "check 15" << endl;
             for(int i = 0; i < ceil(log2(ceil(log2(window_length)))); i++) {
-//                double *rec_cur_dmax = convert2double(Reconstruct(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth);
-//                print1DMatrixByWindows("computed max values (test): ", rec_cur_dmax, n_depth, matrix_size, 3, 3);
-                print1DArray("dmax - Step " + to_string(i), convert2double(
-                        Reconstruct(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth), matrix_size * n_depth);
+//                double *rec_cur_dmax = ConvertToDouble(Reconstruct(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth);
+//                Print1dMatrixByWindows("computed max values (test): ", rec_cur_dmax, n_depth, matrix_size, 3, 3);
+                Print1dArray("dmax - Step " + to_string(i), ConvertToDouble(
+                                     Reconstruct(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth),
+                             matrix_size * n_depth);
                 size = n_depth / 2;
                 cout << "check 16." << i << endl;
                 if(n_depth % 2 == 1) {
@@ -599,8 +603,9 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                 }
                 cout << "check 17." << i << endl;
                 cout << "n_depth: " << n_depth << endl;
-                print1DArray("dmax - Step " + to_string(i) + " before copy", convert2double(
-                        Reconstruct(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth), matrix_size * n_depth);
+                Print1dArray("dmax - Step " + to_string(i) + " before copy", ConvertToDouble(
+                                     Reconstruct(proxy, cur_dmax, matrix_size * n_depth), matrix_size * n_depth),
+                             matrix_size * n_depth);
                 for(int j = 0; j < n_depth / 2; j++) {
                     cout << "check 17." << i << " - 2." << j << endl;
                     memcpy(&v1[j * matrix_size], &cur_dmax[j * matrix_size], matrix_size * 8);
@@ -608,8 +613,10 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                     memcpy(&v2[j * matrix_size], &cur_dmax[(j + (n_depth / 2)) * matrix_size], matrix_size * 8);
                 }
                 cout << "check 18." << i << " - mul size: " << size * matrix_size << endl;
-                print1DArray("v1", convert2double(Reconstruct(proxy, v1, size * matrix_size), size * matrix_size), size * matrix_size);
-                print1DArray("v2", convert2double(Reconstruct(proxy, v2, size * matrix_size), size * matrix_size), size * matrix_size);
+                Print1dArray("v1", ConvertToDouble(Reconstruct(proxy, v1, size * matrix_size), size * matrix_size),
+                             size * matrix_size);
+                Print1dArray("v2", ConvertToDouble(Reconstruct(proxy, v2, size * matrix_size), size * matrix_size),
+                             size * matrix_size);
                 delete [] cur_dmax;
                 cur_dmax = Multiply(proxy, v1, v2, size * matrix_size);
                 n_depth = size;
@@ -621,14 +628,16 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
                 cout << "check 19" << endl;
                 cur_dmax = Multiply(proxy, cur_dmax, res, matrix_size); // return this if backprop is true
             }
-            print1DMatrixByWindows("cur_dmax: ", convert2double(Reconstruct(proxy, cur_dmax, matrix_size), matrix_size), numberOfWins, window_length, 1, window_length);
-//            print1DArray("dmax", convert2double(Reconstruct(proxy, cur_dmax, matrix_size), matrix_size), matrix_size);
+            Print1dMatrixByWindows("cur_dmax: ",
+                                   ConvertToDouble(Reconstruct(proxy, cur_dmax, matrix_size), matrix_size),
+                                   numberOfWins, window_length, 1, window_length);
+//            Print1dArray("dmax", ConvertToDouble(Reconstruct(proxy, cur_dmax, matrix_size), matrix_size), matrix_size);
         }
 
         delete [] resorted;
         return maxElements;
     }
-    else if ( proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         numberOfWins = matrix_size / window_length;
         /**Compares values in a given window by splitting the window in two halves and comparing each value to its counterpart at the same position in the other half.
         If size of the given windowVector is odd, there will be a residue, which is stored in residue. */
@@ -691,29 +700,29 @@ uint64_t* Max(Party *const proxy, const uint64_t *const matrix, uint32_t m_rows,
 }
 
 /**
- * Method for private computation of the ReLU function.
+ * Method for private computation of the Relu function.
  * @param proxy
- * @param x - secret share of variable x for which to compute ReLU(x)
+ * @param x - secret share of variable x for which to compute Relu(x)
  * @return
  */
 uint64_t ReLU(Party *const proxy, uint64_t x){
-    uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
+    uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
 
-    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t commonValues[2];
         for (uint64_t & commonValue : commonValues) {
-            commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
+            commonValue = proxy->GenerateCommonRandom() | 0x1; // common values must be odd
         }
         // create even random shares
-        uint64_t e[] = {proxy->generateRandom() & EVEN_MASK, proxy->generateRandom() & EVEN_MASK};
+        uint64_t e[] = {proxy->GenerateRandom() & EVEN_MASK, proxy->GenerateRandom() & EVEN_MASK};
 
         // init
-        int f = proxy->generateCommonRandom() & 0x1;
-        int g = proxy->generateCommonRandom() & 0x1;
-        int h = proxy->generateCommonRandom() & 0x1;
+        int f = proxy->GenerateCommonRandom() & 0x1;
+        int g = proxy->GenerateCommonRandom() & 0x1;
+        int h = proxy->GenerateCommonRandom() & 0x1;
 
         // make the shares more random by adding i to e_i for S_i:
-        e[f] += proxy->getPRole();
+        e[f] += proxy->GetPRole();
 
         uint64_t t = x & K; // get first L-1 bit of the share
 
@@ -722,58 +731,58 @@ uint64_t ReLU(Party *const proxy, uint64_t x){
 
         // compute parts of a, b and c:
         uint64_t values[5];
-        values[0] = proxy->getPRole() * f * (K+1) - z;                  // a_0
-        values[1] = proxy->getPRole() * (1 - f) * (K+1) - z;            // a_1
+        values[0] = proxy->GetPRole() * f * (K + 1) - z;                  // a_0
+        values[1] = proxy->GetPRole() * (1 - f) * (K + 1) - z;            // a_1
         values[2] = (x + e[g]);                                         // b
         values[3] = (e[h]) * commonValues[0];                           // c_0
         values[4] = (e[1 - h]) * commonValues[1];                       // c_1
 
-        // proxy sends a,b and c to HELPER:
-        unsigned char *ptr_out = proxy->getBuffer1();
-        addVal2CharArray(values, &ptr_out, 5);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 5 * 8);
+        // proxy sends a,b and c to helper:
+        unsigned char *ptr_out = proxy->GetBuffer1();
+        AddValueToCharArray(values, &ptr_out, 5);
+        Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), 5 * 8);
 
         // receive fresh share from helper
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(),
+        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(),
                 6 * 8); // order is ab[0], ab[1], ac[0], ac[1], ac[2], ac[3]
 
-        ptr_out = proxy->getBuffer1();
+        ptr_out = proxy->GetBuffer1();
         uint64_t ab[2];
         uint64_t ac[4];
-        convert2Array(&ptr_out, &ab[0], 2);
-        convert2Array(&ptr_out, &ac[0], 4);
+        ConvertToArray(&ptr_out, &ab[0], 2);
+        ConvertToArray(&ptr_out, &ac[0], 4);
 
         uint64_t em;
         if (g == h){
-            uint64_t r0_inverse = getModularInverse(commonValues[0]);
+            uint64_t r0_inverse = GetModularInverse(commonValues[0]);
             em = ac[2*f] * r0_inverse;
         }else{
-            uint64_t r1_inverse = getModularInverse(commonValues[1]);
+            uint64_t r1_inverse = GetModularInverse(commonValues[1]);
             em = ac[2*f+1] * r1_inverse;
         }
 
-        //uint64_t r0_inverse = getModularInverse(commonValues[0]);
+        //uint64_t r0_inverse = GetModularInverse(commonValues[0]);
         uint64_t xm = ab[f] - em;
         z = x - xm;
         return z;
     }
-    else if (proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         ModularConversion(proxy, 0);
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 5 * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 5 * 8);
-        unsigned char *ptr = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
+        Receive(proxy->GetSocketP1(), proxy->GetBuffer1(), 5 * 8);
+        Receive(proxy->GetSocketP2(), proxy->GetBuffer2(), 5 * 8);
+        unsigned char *ptr = proxy->GetBuffer1();
+        unsigned char *ptr2 = proxy->GetBuffer2();
 
         uint64_t reconstructedVals[5];
         for (uint i = 0; i < 5; i++) {
-            reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
+            reconstructedVals[i] = (ConvertToLong(&ptr) + ConvertToLong(&ptr2));
             // 6 values expected per party --> first two (a values) are reconstructed and divided by K
             if (i < 2){
                 reconstructedVals[i] /= (K+1);
             }
         }
-        // reconstruct values a, b and c obtained from proxy 1 and 2
+        // BenchmarkReconstruct values a, b and c obtained from proxy 1 and 2
         uint64_t ab [2];
         uint64_t ac [4];
         ab[0] = reconstructedVals[0] * reconstructedVals[2]; // a_0 * b
@@ -789,26 +798,26 @@ uint64_t ReLU(Party *const proxy, uint64_t x){
         uint64_t share1 [6];
         uint64_t share2 [6];
 
-        uint64_t tmp = proxy->generateRandom();
+        uint64_t tmp = proxy->GenerateRandom();
         share1[0] = tmp;
         share2[0] = ab[0] - tmp;
-        tmp = proxy->generateRandom();
+        tmp = proxy->GenerateRandom();
         share1[1] = tmp;
         share2[1] = ab[1] - tmp;
         for (uint i = 0; i < 4; i++) {
-            tmp = proxy->generateRandom();
+            tmp = proxy->GenerateRandom();
             share1[i+2] = tmp;
             share2[i+2] = ac[i] - tmp;
         }
 
         // send shares to proxy 1 and 2
-        unsigned char *ptr_back = proxy->getBuffer1();
-        unsigned char *ptr_back2 = proxy->getBuffer2();
-        addVal2CharArray(share1, &ptr_back, 6);
-        addVal2CharArray(share2, &ptr_back2, 6);
+        unsigned char *ptr_back = proxy->GetBuffer1();
+        unsigned char *ptr_back2 = proxy->GetBuffer2();
+        AddValueToCharArray(share1, &ptr_back, 6);
+        AddValueToCharArray(share2, &ptr_back2, 6);
 
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 6 * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 6 * 8);
+        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), 6 * 8);
+        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), 6 * 8);
 
         thr1.join();
         thr2.join();
@@ -818,18 +827,18 @@ uint64_t ReLU(Party *const proxy, uint64_t x){
 }
 
 /**
- * Method for private computation of the ReLU function.
+ * Method for private computation of the Relu function.
  * @param proxy
- * @param x - vector of variables for which to compute ReLU
+ * @param x - vector of variables for which to compute Relu
  * @param size - size of vector x
  * @return vector of resulting values for each position in x, must be deleted if not needed anymore.
  */
-uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
-    uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
-    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+uint64_t* Relu(Party *const proxy, const uint64_t *const x, uint64_t size){
+    uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t commonValues[2*size];
         for (uint64_t & commonValue : commonValues) {
-            commonValue = proxy->generateCommonRandom() | 0x1; // common values must be odd
+            commonValue = proxy->GenerateCommonRandom() | 0x1; // common values must be odd
         }
         auto* e = new uint64_t [2*size]; // 2 shares per value to compute Relu for
         auto* f = new int[size];
@@ -838,17 +847,17 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
         auto* t = new uint64_t [size];
         for (uint64_t i = 0; i < size; i++){
             // create even random shares: store first all 'e_0', then all 'e_1'
-            e[i] = proxy->generateRandom() & EVEN_MASK;
-            e[i+size] = proxy->generateRandom() & EVEN_MASK;
+            e[i] = proxy->GenerateRandom() & EVEN_MASK;
+            e[i+size] = proxy->GenerateRandom() & EVEN_MASK;
 
             // init f, g, and h per value in x
-            f[i] = proxy->generateCommonRandom() & 0x1;
-            g[i] = proxy->generateCommonRandom() & 0x1;
-            h[i] = proxy->generateCommonRandom() & 0x1;
+            f[i] = proxy->GenerateCommonRandom() & 0x1;
+            g[i] = proxy->GenerateCommonRandom() & 0x1;
+            h[i] = proxy->GenerateCommonRandom() & 0x1;
 
             // make the shares more random by adding i to e_i for S_i:
             // is 0*size or 1*size --> add pRole to either according e_0 or e_1
-            e[i + f[i]*size] += proxy->getPRole();
+            e[i + f[i]*size] += proxy->GetPRole();
 
             t[i] = x[i] & K; // get first L-1 bit of the share
         }
@@ -861,8 +870,8 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
             z[j] = x[j] - d[j];
 
             // compute parts of a, b and c:
-            values[j*5] = proxy->getPRole() * f[j] * (K+1) - z[j];                  // a_0
-            values[j*5 + 1] = proxy->getPRole() * (1 - f[j]) * (K+1) - z[j];        // a_1
+            values[j*5] = proxy->GetPRole() * f[j] * (K + 1) - z[j];                  // a_0
+            values[j*5 + 1] = proxy->GetPRole() * (1 - f[j]) * (K + 1) - z[j];        // a_1
             values[j*5 + 2] = x[j] + e[j + g[j]*size];                              // b
             values[j*5 + 3] = (e[j + h[j]*size]) * commonValues[j*2];               // c_0
             values[j*5 + 4] = (e[j + (1-h[j])*size]) * commonValues[j*2+1];         // c_1
@@ -870,32 +879,32 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
         delete[] e;
         delete[] d;
 
-        // proxy sends a,b and c to HELPER:
-        unsigned char *ptr_out = proxy->getBuffer1();
-        addVal2CharArray(values, &ptr_out, 5*size);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), 5 * size * 8);
+        // proxy sends a,b and c to helper:
+        unsigned char *ptr_out = proxy->GetBuffer1();
+        AddValueToCharArray(values, &ptr_out, 5 * size);
+        Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), 5 * size * 8);
 
         // receive fresh share from helper
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(),
+        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(),
                 6 * size * 8); // order is (ab[0], ab[1], then all (ac[0], ac[1], ac[2], ac[3])
 
-        ptr_out = proxy->getBuffer1();
+        ptr_out = proxy->GetBuffer1();
         uint64_t ab[2*size];
         uint64_t ac[4*size];
-        convert2Array(&ptr_out, &ab[0], 2*size);
-        convert2Array(&ptr_out, &ac[0], 4*size);
+        ConvertToArray(&ptr_out, &ab[0], 2 * size);
+        ConvertToArray(&ptr_out, &ac[0], 4 * size);
 
         for(uint64_t i = 0; i<size; i++) {
             uint64_t em;
             if (g[i] == h[i]) {
-                uint64_t r0_inverse = getModularInverse(commonValues[i*2]);
+                uint64_t r0_inverse = GetModularInverse(commonValues[i * 2]);
                 em = ac[i*4 + 2 * f[i]] * r0_inverse;
             } else {
-                uint64_t r1_inverse = getModularInverse(commonValues[i*2 + 1]);
+                uint64_t r1_inverse = GetModularInverse(commonValues[i * 2 + 1]);
                 em = ac[i*4 + 2 * f[i] + 1] * r1_inverse;
             }
 
-            //uint64_t r0_inverse = getModularInverse(commonValues[i*3]);
+            //uint64_t r0_inverse = GetModularInverse(commonValues[i*3]);
             uint64_t xm = ab[i*2 + f[i]] - em;
             z[i] = x[i] - xm;
         }
@@ -904,22 +913,22 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
         delete [] h;
         return z;
     }
-    else if (proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         ModularConversion(proxy, nullptr, size);
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), 5 * size * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), 5 * size * 8);
-        unsigned char *ptr = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
+        Receive(proxy->GetSocketP1(), proxy->GetBuffer1(), 5 * size * 8);
+        Receive(proxy->GetSocketP2(), proxy->GetBuffer2(), 5 * size * 8);
+        unsigned char *ptr = proxy->GetBuffer1();
+        unsigned char *ptr2 = proxy->GetBuffer2();
 
         uint64_t reconstructedVals[5*size];
         for (uint i = 0; i < 5*size; i++) {
-            reconstructedVals[i] = (convert2Long(&ptr) + convert2Long(&ptr2));
+            reconstructedVals[i] = (ConvertToLong(&ptr) + ConvertToLong(&ptr2));
             if ((i % 5) < 2){
                 reconstructedVals[i] /= (K+1);
             }
         }
-        // reconstruct values a, b and c obtained from proxy 1 and 2
+        // BenchmarkReconstruct values a, b and c obtained from proxy 1 and 2
         uint64_t ab [2*size];
         uint64_t ac [4*size];
         for (uint i = 0; i < size; i++) {
@@ -934,7 +943,7 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
         // create fresh shares
         uint64_t share1 [6*size];
         uint64_t share2 [6*size];
-        uint64_t* tmp = convert2uint64(random_1D_data(proxy, 6*size), 6*size);
+        uint64_t* tmp = ConvertToUint64(Random1dData(proxy, 6 * size), 6 * size);
         for (uint i = 0; i < 2*size; i++) {
             share1[i] = tmp[i];
             share2[i] = ab[i] - tmp[i];
@@ -947,13 +956,13 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
         }
 
         // send shares to proxy 1 and 2
-        unsigned char *ptr_back = proxy->getBuffer1();
-        unsigned char *ptr_back2 = proxy->getBuffer2();
-        addVal2CharArray(share1, &ptr_back, 6*size);
-        addVal2CharArray(share2, &ptr_back2, 6*size);
+        unsigned char *ptr_back = proxy->GetBuffer1();
+        unsigned char *ptr_back2 = proxy->GetBuffer2();
+        AddValueToCharArray(share1, &ptr_back, 6 * size);
+        AddValueToCharArray(share2, &ptr_back2, 6 * size);
 
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), 6 * size * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), 6 * size * 8);
+        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), 6 * size * 8);
+        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), 6 * size * 8);
 
         thr1.join();
         thr2.join();
@@ -965,18 +974,18 @@ uint64_t* ReLU(Party *const proxy, const uint64_t *const x, uint64_t size){
 
 
 /**
- * Method for private computation of the derivative of the ReLU function.
+ * Method for private computation of the derivative of the Relu function.
  * @param proxy
- * @param x - variable x for which to compute ReLU'(x), the derivative of the ReLU function.
+ * @param x - variable x for which to compute ReLU'(x), the derivative of the Relu function.
  * @return
  */
-uint64_t DerivativeReLU(Party *const proxy, uint64_t x){
-    uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
+uint64_t DerivativeRelu(Party *const proxy, uint64_t x){
+    uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint8_t exchangingBit = 2;
-    if (proxy->getPRole() == P1 ||  proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         // init
-        uint64_t f = proxy->generateCommonRandom() & 0x1; // generate common random bit
+        uint64_t f = proxy->GenerateCommonRandom() & 0x1; // generate common random bit
 
         uint64_t t = x & K; // get first L-1 bit of the share
         K += 1; // increase K by 1 K is 2^63
@@ -985,50 +994,50 @@ uint64_t DerivativeReLU(Party *const proxy, uint64_t x){
 
         // compute parts of a:
         uint64_t values[exchangingBit];
-        values[0] = proxy->getPRole() * f * K - z;       // a_0
-        values[1] = proxy->getPRole() * (1 - f) * K - z; // a_1
+        values[0] = proxy->GetPRole() * f * K - z;       // a_0
+        values[1] = proxy->GetPRole() * (1 - f) * K - z; // a_1
 
-        // proxy sends a to HELPER:
-        unsigned char *ptr = proxy->getBuffer1();
-        addVal2CharArray(values, &ptr, exchangingBit);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8);
+        // proxy sends a to helper:
+        unsigned char *ptr = proxy->GetBuffer1();
+        AddValueToCharArray(values, &ptr, exchangingBit);
+        Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), exchangingBit * 8);
 
         // receive fresh share from helper
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8); // order is share of a[0], a[1]
-        ptr = proxy->getBuffer1();
+        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), exchangingBit * 8); // order is share of a[0], a[1]
+        ptr = proxy->GetBuffer1();
 
-        z = proxy->getPRole() - convert2Long(&ptr);
+        z = proxy->GetPRole() - ConvertToLong(&ptr);
         if (f) { // if f is 1  we get the next long value in the buffer.
-            z = proxy->getPRole() - convert2Long(&ptr);
+            z = proxy->GetPRole() - ConvertToLong(&ptr);
         }
         return z;
     }
-    else if (proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         K += 1;
         ModularConversion(proxy, 0);
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
-        unsigned char *ptr1 = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
+        Receive(proxy->GetSocketP1(), proxy->GetBuffer1(), exchangingBit * 8);
+        Receive(proxy->GetSocketP2(), proxy->GetBuffer2(), exchangingBit * 8);
+        unsigned char *ptr1 = proxy->GetBuffer1();
+        unsigned char *ptr2 = proxy->GetBuffer2();
 
         uint64_t reconstructedVals[exchangingBit];
-        reconstructedVals[0] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
-        reconstructedVals[1] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
+        reconstructedVals[0] = (ConvertToLong(&ptr1) + ConvertToLong(&ptr2)) / K;
+        reconstructedVals[1] = (ConvertToLong(&ptr1) + ConvertToLong(&ptr2)) / K;
 
         //reassign buffer because ptr1 and ptr2 were incremented by convert2Long calls.
-        ptr1 = proxy->getBuffer1();
-        ptr2 = proxy->getBuffer2();
+        ptr1 = proxy->GetBuffer1();
+        ptr2 = proxy->GetBuffer2();
 
-        uint64_t tmp = proxy->generateRandom();
-        addVal2CharArray(tmp,&ptr1);
-        addVal2CharArray(reconstructedVals[0]-tmp,&ptr2);
-        tmp = proxy->generateRandom();
-        addVal2CharArray(tmp,&ptr1);
-        addVal2CharArray(reconstructedVals[1]-tmp,&ptr2);
+        uint64_t tmp = proxy->GenerateRandom();
+        AddValueToCharArray(tmp, &ptr1);
+        AddValueToCharArray(reconstructedVals[0] - tmp, &ptr2);
+        tmp = proxy->GenerateRandom();
+        AddValueToCharArray(tmp, &ptr1);
+        AddValueToCharArray(reconstructedVals[1] - tmp, &ptr2);
 
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
+        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), exchangingBit * 8);
+        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), exchangingBit * 8);
         thr1.join();
         thr2.join();
 
@@ -1038,22 +1047,22 @@ uint64_t DerivativeReLU(Party *const proxy, uint64_t x){
 }
 
 /**
- * Method for private computation of the derivative of the ReLU function.
+ * Method for private computation of the derivative of the Relu function.
  * @param proxy
- * @param x - vector of variables for which to compute ReLU' (the derivative of the ReLU function).
+ * @param x - vector of variables for which to compute Relu' (the derivative of the ReLU function).
  * @param size - size of vector x
- * @return vector containing the resulting DerivativeReLU(x), must be deleted if not needed anymore.
+ * @return vector containing the resulting DerivativeRelu(x), must be deleted if not needed anymore.
  */
-uint64_t* DerivativeReLU(Party *const proxy, const uint64_t *const x, uint32_t size){
-    uint64_t K = (RING_N>>1); // N is the ring size - 1 = 2^64 -1
+uint64_t* DerivativeRelu(Party *const proxy, const uint64_t *const x, uint32_t size){
+    uint64_t K = (RING_SIZE >> 1); // N is the ring size - 1 = 2^64 -1
     // K is 2^63 - 1
     uint32_t exchangingBit = 2 * size;
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         // init
         auto* f = new uint64_t [size];
         auto* t = new uint64_t [size];
         for (uint32_t i = 0; i < size; i++){
-            f[i] = proxy->generateCommonRandom() & 0x1;
+            f[i] = proxy->GenerateCommonRandom() & 0x1;
             t[i] = x[i] & K; // get first L-1 bit of the share
         }
         K += 1;
@@ -1065,23 +1074,23 @@ uint64_t* DerivativeReLU(Party *const proxy, const uint64_t *const x, uint32_t s
         // compute parts of a:
         uint64_t values[exchangingBit];
         for (uint32_t i = 0; i < size; i++){
-            values[i * 2] = proxy->getPRole() * f[i] * K - z[i];         // a_0 of the i-th variable
-            values[i * 2 + 1] = proxy->getPRole() * (1 - f[i]) * K - z[i];   // a_1
+            values[i * 2] = proxy->GetPRole() * f[i] * K - z[i];         // a_0 of the i-th variable
+            values[i * 2 + 1] = proxy->GetPRole() * (1 - f[i]) * K - z[i];   // a_1
         }
 
-        // proxy sends a to HELPER:
-        unsigned char *ptr = proxy->getBuffer1();
-        addVal2CharArray(values, &ptr, exchangingBit);
-        Send(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8);
+        // proxy sends a to helper:
+        unsigned char *ptr = proxy->GetBuffer1();
+        AddValueToCharArray(values, &ptr, exchangingBit);
+        Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), exchangingBit * 8);
 
         // receive fresh share from helper
-        Receive(proxy->getSocketHelper(), proxy->getBuffer1(), exchangingBit * 8); // order is share of a[0], a[1]
-        ptr = proxy->getBuffer1();
+        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), exchangingBit * 8); // order is share of a[0], a[1]
+        ptr = proxy->GetBuffer1();
 
         for (uint64_t c = 0; c < size; c++){
-            z[c] = proxy->getPRole() - convert2Long(&ptr);
+            z[c] = proxy->GetPRole() - ConvertToLong(&ptr);
             if (f[c]) {  // if f is 1  we get a1.
-                z[c] = proxy->getPRole() - convert2Long(&ptr);
+                z[c] = proxy->GetPRole() - ConvertToLong(&ptr);
             }
             else{// increase ptr so that in next iteration not a1 is read:
                 (*ptr)+=7;
@@ -1090,30 +1099,30 @@ uint64_t* DerivativeReLU(Party *const proxy, const uint64_t *const x, uint32_t s
         delete[] f;
         return z;
     }
-    else if (proxy->getPRole() == HELPER) {
+    else if (proxy->GetPRole() == helper) {
         K += 1;
         ModularConversion(proxy, nullptr, size);
 
-        Receive(proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
-        Receive(proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
-        unsigned char *ptr1 = proxy->getBuffer1();
-        unsigned char *ptr2 = proxy->getBuffer2();
+        Receive(proxy->GetSocketP1(), proxy->GetBuffer1(), exchangingBit * 8);
+        Receive(proxy->GetSocketP2(), proxy->GetBuffer2(), exchangingBit * 8);
+        unsigned char *ptr1 = proxy->GetBuffer1();
+        unsigned char *ptr2 = proxy->GetBuffer2();
 
         uint64_t reconstructedVals[exchangingBit];
         for (uint64_t v = 0; v < exchangingBit; v++) {
-            reconstructedVals[v] = (convert2Long(&ptr1) + convert2Long(&ptr2)) / K;
+            reconstructedVals[v] = (ConvertToLong(&ptr1) + ConvertToLong(&ptr2)) / K;
         }
         //reassign buffer because ptr1 and ptr2 were incremented
-        ptr1 = proxy->getBuffer1();
-        ptr2 = proxy->getBuffer2();
+        ptr1 = proxy->GetBuffer1();
+        ptr2 = proxy->GetBuffer2();
 
-        uint64_t* tmp = convert2uint64(random_1D_data(proxy, exchangingBit), exchangingBit);  // values for P1
-        addVal2CharArray(tmp, &ptr1, exchangingBit);
+        uint64_t* tmp = ConvertToUint64(Random1dData(proxy, exchangingBit), exchangingBit);  // values for proxy1
+        AddValueToCharArray(tmp, &ptr1, exchangingBit);
         uint64_t * share = Subtract(reconstructedVals, tmp, exchangingBit);
-        addVal2CharArray(share, &ptr2, exchangingBit);
+        AddValueToCharArray(share, &ptr2, exchangingBit);
 
-        thread thr1 = thread(Send, proxy->getSocketP1(), proxy->getBuffer1(), exchangingBit * 8);
-        thread thr2 = thread(Send, proxy->getSocketP2(), proxy->getBuffer2(), exchangingBit * 8);
+        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), exchangingBit * 8);
+        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), exchangingBit * 8);
         thr1.join();
         thr2.join();
         delete [] share;
@@ -1123,7 +1132,7 @@ uint64_t* DerivativeReLU(Party *const proxy, const uint64_t *const x, uint32_t s
     return nullptr;
 }
 
-// LAYER HELPER FUNCTIONS:
+// LAYER helper FUNCTIONS:
 
 /**
  *
@@ -1232,7 +1241,7 @@ uint64_t * Flatten(const uint64_t *const *const *const images, uint32_t i_height
 // LAYER FUNCTIONS:
 
 /**
- * Implements the function of a convolutional layer (ConvolutionalLayer) using ReLU as activation function
+ * Implements the function of a convolutional layer (ConvolutionalLayer) using Relu as activation function
  * and then Maxpool with a 2x2 filter if according parameter is set.
  *
  * @param proxy
@@ -1286,7 +1295,7 @@ uint64_t*** ConvolutionalLayer(
     uint32_t conv_len = conv_width * conv_height;
     bool doMaxpooling = ((max_win_width > 0) && (max_win_height > 0) and (max_win_width + max_win_height) > 2);
 
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t *** stretched_input = Increase(input, i_channel, i_height, i_width, k_dim, stride); // stretched_input is the same for each kernel
         uint64_t *** conv_input = Transpose(stretched_input, i_channel, conv_len, k_size);
         uint64_t ***conv_result = MatrixMatrixMultiply(proxy, kernel, conv_input, i_channel, output_channel, k_size,
@@ -1331,7 +1340,7 @@ uint64_t*** ConvolutionalLayer(
         delete[] conv_result;
 
         // ACTIVATION:
-        uint64_t* conv_activated = ReLU(proxy, conv_reshaped, conv_len * output_channel);
+        uint64_t* conv_activated = Relu(proxy, conv_reshaped, conv_len * output_channel);
         uint32_t out_width = conv_width;
         uint32_t out_height = conv_height;
         uint32_t out_len = out_height*out_width;
@@ -1353,7 +1362,7 @@ uint64_t*** ConvolutionalLayer(
                     conv_layer[0] = new uint64_t*[1];
                     conv_layer[0][0] = new uint64_t[output_channel*out_len];
                 }
-                //conv_layer[0][0] = conv_activated;
+                //BenchmarkConvolutionalLayer[0][0] = conv_activated;
                 for (uint32_t row = 0; row < out_height; row++) {
                     for (uint32_t col = 0; col < out_width; col++) {
                         conv_layer[0][0][k*out_len + row*out_width + col] = conv_activated[k*out_len + row * out_width + col];
@@ -1375,11 +1384,11 @@ uint64_t*** ConvolutionalLayer(
         delete[] conv_activated;
         return conv_layer;
     }
-    else if (proxy->getPRole() == HELPER){
+    else if (proxy->GetPRole() == helper){
         // convolution:
         MatrixMatrixMultiply(proxy, nullptr, nullptr, 0, i_channel * output_channel * k_size * conv_len, 0, 0);
         // ACTIVATION:
-        ReLU(proxy, nullptr, conv_len * output_channel);
+        Relu(proxy, nullptr, conv_len * output_channel);
         if (doMaxpooling){
             // Maxpool:
             Max(proxy, nullptr, output_channel * conv_height, conv_width, max_win_height, max_win_width);
@@ -1409,18 +1418,18 @@ uint64_t* FullyConnectedLayer(
     int node_number,
     uint64_t* bias
 ){
-    if (proxy->getPRole() == P1 || proxy->getPRole() == P2){
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2){
         uint64_t *output = MatrixVectorMultiply(proxy, weights, input, node_number, in_size);
         uint64_t *added_bias = Add(proxy, output, bias, node_number);
         delete[] output;
         return added_bias;
     }
-    else if (proxy->getPRole() == HELPER){
+    else if (proxy->GetPRole() == helper){
         MatrixVectorMultiply(proxy, nullptr, nullptr, node_number * in_size, 0);
         return nullptr;
     }
     else{
-        cout << "Error: unknown proxy role for fully connected layer." << endl;
+        cout << "Error: unknown proxy Role for fully connected layer." << endl;
         return nullptr;
     }
 }

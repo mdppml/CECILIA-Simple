@@ -2,16 +2,16 @@
 // Created by noah on 21/06/22.
 //
 #include <iostream>
-#include "Party_BM.h"
+#include "PartyBm.h"
 
 static const int REQUIRED_ARGS_COUNT = 12;
 
-static void print_error() {
+static void PrintError() {
     clog
         << "Required arguments not provided. These are the required (and optional) arguments:\n"
-        << "1: role (P1, P2 or HELPER)\n"
+        << "1: Role (proxy1, proxy2 or helper)\n"
         << "2 & 3: helper's port and IP\n"
-        << "4 & 5: P1's port and IP\n"
+        << "4 & 5: proxy1's port and IP\n"
         << "6: vector length (for operations on vectors)\n"
         << "7 & 8: matrix size (x, y) (gram matrix has size x*x)\n"
         << "9: window size (used in MAXPOOL)\n"
@@ -22,7 +22,7 @@ static void print_error() {
     exit(EXIT_FAILURE);
 }
 
-int suppress_stdout() {
+int SuppressStdOut() {
     fflush(stdout);
 
     int stdout_file_descriptor = dup(1);
@@ -34,7 +34,7 @@ int suppress_stdout() {
     return stdout_file_descriptor;
 }
 
-void resume_stdout(int file_descriptor) {
+void ResumeStdOut(int file_descriptor) {
     fflush(stdout);
     dup2(file_descriptor, 1);
     close(file_descriptor);
@@ -43,19 +43,19 @@ void resume_stdout(int file_descriptor) {
 
 int main(int argc, char* argv[]) {
     if (argc < REQUIRED_ARGS_COUNT) {
-        print_error();
+        PrintError();
     }
     //parse arguments:
     string role_string(argv[1]);
-    role proxy_role;
-    if (role_string == "P1") {
-        proxy_role = P1;
-    } else if (role_string == "P2") {
-        proxy_role = P2;
-    } else if (role_string == "HELPER") {
-        proxy_role = HELPER;
+    Role proxy_role;
+    if (role_string == "proxy1") {
+        proxy_role = proxy1;
+    } else if (role_string == "proxy2") {
+        proxy_role = proxy2;
+    } else if (role_string == "helper") {
+        proxy_role = helper;
     } else {
-        print_error();
+        PrintError();
     }
     uint16_t helper_port = strtol(argv[2], nullptr, 10);
     string helper_ip(argv[3]);
@@ -72,30 +72,30 @@ int main(int argc, char* argv[]) {
     int delay;
     string padding;
     switch(proxy_role) {
-        case HELPER:
+        case helper:
             delay = 2;
             padding = "";
             break;
-        case P1:
+        case proxy1:
             delay = 0;
             padding = "    ";
             break;
-        case P2:
+        case proxy2:
             delay = 1;
             padding = "    ";
             break;
     }
     // initialise proxy:
-    int file_descriptor = suppress_stdout();
-    Party_BM* proxy = (proxy_role == HELPER) ?
-            new Party_BM(helper_port, helper_ip, vector_length, matrix_x, matrix_y, window_size, kernel_size, kernel_count, repeats) :
-            new Party_BM(proxy_role, helper_port, helper_ip, p1_port, p1_ip, vector_length, matrix_x, matrix_y, window_size, kernel_size, kernel_count, repeats);
-    resume_stdout(file_descriptor);
+    int file_descriptor = SuppressStdOut();
+    PartyBm* proxy = (proxy_role == helper) ?
+                     new PartyBm(helper_port, helper_ip, vector_length, matrix_x, matrix_y, window_size, kernel_size, kernel_count, repeats) :
+                     new PartyBm(proxy_role, helper_port, helper_ip, p1_port, p1_ip, vector_length, matrix_x, matrix_y, window_size, kernel_size, kernel_count, repeats);
+    ResumeStdOut(file_descriptor);
     // parse/obtain function names to run:
     string* functions;
     int function_count = argc-REQUIRED_ARGS_COUNT-1;
     if (function_count == 0) {
-        tie(function_count, functions) = proxy->get_all_function_names();
+        tie(function_count, functions) = proxy->GetAllFunctionNames();
     } else {
         functions = new string[function_count];
         for (int i = 0; i < function_count; i++) {
@@ -105,22 +105,22 @@ int main(int argc, char* argv[]) {
     // run benchmark:
     double cpu_time, real_time;
     for (int i = 0; i < function_count; i++) {
-        bytesSend = 0;
-        bytesReceived = 0;
-        file_descriptor = suppress_stdout();
-        tie(cpu_time, real_time) = proxy->benchmark(functions[i]);
-        resume_stdout(file_descriptor);
+        bytes_sent = 0;
+        bytes_received = 0;
+        file_descriptor = SuppressStdOut();
+        tie(cpu_time, real_time) = proxy->Benchmark(functions[i]);
+        ResumeStdOut(file_descriptor);
         if (cpu_time != -1) {
-            if (proxy_role == P1) {
+            if (proxy_role == proxy1) {
                 cout << "\n" << functions[i] << "\nReal time:       " << real_time << " ms" << endl;
             }
-            if (proxy_role == HELPER && (functions[i] == "Reconstruct" || functions[i] == "createShare")) {
+            if (proxy_role == helper && (functions[i] == "Reconstruct" || functions[i] == "CreateShare")) {
                 // skips helper print for functions that don't use it
                 continue;
             }
             sleep(delay);
             cout << role_string << " CPU time: " << padding << cpu_time << " ms" << endl;
-            cout << role_string << " bytes:    " << padding << (bytesSend + bytesReceived) / repeats << endl;
+            cout << role_string << " bytes:    " << padding << (bytes_sent + bytes_received) / repeats << endl;
             sleep(3-delay);
         }
     }

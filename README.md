@@ -60,8 +60,8 @@ c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h uti
 
 ```bash
 ./helper_auroc <ip of helper> <port of helper>
-./proxy_auroc role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <delta> <input>
-./proxy_auroc role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <delta> <input>
+./proxy_auroc Role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <delta> <input>
+./proxy_auroc Role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <delta> <input>
 ```
 
 - input = #input parties,#samples of the first input party,#samples of the second input party,...,#samples of the last input party
@@ -77,8 +77,8 @@ c++ -std=gnu++17 -pthread -W -O3 apps/helper.cpp core/Party.cpp core/Party.h uti
 ## CNN
 ```bash
 ./helper_cnn <ip of helper> <port of helper> <model>
-./proxy_cnn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <model> 
-./proxy_cnn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <model> 
+./proxy_cnn Role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <model> 
+./proxy_cnn Role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <model> 
 ```
 - model = model to be used: [0, 1, 2] with 0 - Chameleon, 1 - MiniONN (MiniONNs model parameter are not consistent), 2 - LeNet5, other value or none - a 4-layer CNN with random weights
 
@@ -94,8 +94,8 @@ Privacy preserving inference on a pre-trained RKN
 
 ```bash
 ./helper <ip of helper> <port of helper>
-./proxy_rkn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <random flag> <number of anchor points> <length of kmers> <lambda> <sigma> 
-./proxy_rkn role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <random flag> <number of anchor points> <length of kmers> <lambda> <sigma> 
+./proxy_rkn Role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <random flag> <number of anchor points> <length of kmers> <lambda> <sigma> 
+./proxy_rkn Role <port of proxy 1> <ip of proxy 1> <port of helper> <ip of helper> <random flag> <number of anchor points> <length of kmers> <lambda> <sigma> 
 ```
 
 

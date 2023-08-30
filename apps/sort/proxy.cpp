@@ -15,7 +15,7 @@ constexpr int sz = 100;
 constexpr int cols = 2;
 constexpr int ringbits = 20;
 
-void VSORT_test(Party *proxy){
+void VSortTest(Party *proxy){
     ofstream txt;
     cout<<setfill ('*')<<setw(50)<<"Calling SORT_test";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -25,7 +25,7 @@ void VSORT_test(Party *proxy){
     for(int i = 0; i<cols; i++) {
         a[i] =new uint64_t[sz];
         for (int j = 0; j < sz; ++j) {
-            if (proxy->getPRole() == P1){
+            if (proxy->GetPRole() == proxy1){
                 a[i][j] = size-j-1;
             }else{
                 a[i][j] = 0;
@@ -58,7 +58,7 @@ void VSORT_test(Party *proxy){
     delete []a;
 }
 
-void SORT_test(Party *proxy){
+void SortTest(Party *proxy){
     ofstream txt;
     cout<<setfill ('*')<<setw(50)<<"Calling SORT_test";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
@@ -67,7 +67,7 @@ void SORT_test(Party *proxy){
     auto* a =new uint64_t[size];
     for(int i = 0; i<size; i++) {
         //a[i] = proxy->generateCommonRandom();
-        if (proxy->getPRole() == P1){
+        if (proxy->GetPRole() == proxy1){
             a[i] = size-i-1;
         }else{
             a[i] = 0;
@@ -78,8 +78,7 @@ void SORT_test(Party *proxy){
     uint32_t params[2];
     params[0] = size;
     params[1] = ringbits;
-    proxy->SendBytes(CORE_SORT, params, 1);
-    //proxy->SendBytes(CORE_SORT2, params, 2);
+    proxy->SendBytes(coreSort, params, 1);
     cout << "Calling Sort..\n";
     auto start = chrono::high_resolution_clock::now();
     uint64_t* s = Sort(proxy, a, size);
@@ -122,14 +121,14 @@ int main(int argc, char* argv[]) {
 
     Party *proxy;
     if (role == 0)
-        proxy = new Party(P1, hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2, hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
 
 
     auto start = chrono::high_resolution_clock::now();
-    VSORT_test(proxy);
+    VSortTest(proxy);
     //SORT_test(proxy);
     auto end = chrono::high_resolution_clock::now();
     double time_taken =
@@ -138,8 +137,7 @@ int main(int argc, char* argv[]) {
     cout<<time_taken<<endl;
 
 
-    proxy->SendBytes(CORE_END);
-    //proxy->PrintBytes();
+    proxy->SendBytes(coreEnd);
 
     return 0;
 }

@@ -8,13 +8,13 @@
 #define L_BIT 64
 #define LP 67
 #define SP 7
-#define FRAC 0
-#define RING_N 0xffffffffffffffff  // ring size
+#define FRACTIONAL_BITS 0
+#define RING_SIZE 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
 #define EVEN_MASK 0xfffffffffffffff7
 
-#define MAXMUL 16384
+#define MAX_MULTIPLY 16384
 
 #define PRECISION 100
 #define MAX_SAMPLE 0xfffff
@@ -27,33 +27,37 @@
 
 
 // constants for InverseSqrt
-#define ORTHMASK 0x3e000
+#define ORTHOGONAL_MASK 0x3e000
 #define MAX_DELTA 100
 #define MIN_DELTA 100
-#define MAXSCALAR 0xfffff
-#define MAXA 0x3fffff
+#define MAX_SCALAR 0xfffff
+#define MAX_A 0x3fffff
 
 // constants for sockets
-#define SCKNUM 6
+#define SOCKET_NUMBER 8
 
-enum role {
-    P1, P2, HELPER
+enum Role {
+    proxy1, proxy2, helper
 };
 
-enum op {
+enum Operation {
     // Core
-    CORE_MMSB,CORE_END,CORE_MUL,CORE_MMUL,CORE_MUX,CORE_MMUX,CORE_MMC,CORE_MC,CORE_MCMP,CORE_CMP,CORE_MSB,
-    CORE_EXP, CORE_MEXP,CORE_DP,CORE_MDP,CORE_MATMATMUL,CORE_MMATMATMUL,CORE_MATVECMUL,CORE_MMATVECMUL, CORE_DIV,
-    CORE_MDIV, CORE_MNORM, CORE_MMUL2,
-    CORE_SORT, CORE_SORT2, CORE_VSORT,
+    coreVectorisedMostSignificantBit,coreMostSignificantBit,coreEnd,coreMultiply,coreVectorisedMultiply,coreMultiplex,
+    coreVectorisedMultiplex,coreVectorisedModularConversion,coreModularConversion,coreVectorisedCompare,coreCompare,
+    coreExp, coreVectorisedExp,coreDotProduct,coreVectorisedDotProduct,coreMatrixMatrixMultiply,
+    coreVectorisedMatrixMatrixMultiply,coreMatrixVectorMultiply,coreVectorisedMatrixVectorMultiply, coreDivide,
+    coreVectorisedDivide, coreNormalise,CORE_MMUL2,
+    coreSort, CORE_SORT2, CORE_VSORT,
     //BOOLEAN CORE
     BCORE_AND, BCORE_SUB, BCORE_A2B, BCORE_B2A, BCORE_B2As,BCORE_B2Am,
     // AUC
-    AUC_MSB,AUC_TDIV,AUC_MROU,AUC_MDIV,AUC_ROCNOTIE,AUC_ROCWITHTIE,AUC_PR,
+    aucMostSignificantBit,aucDivide,aucVectorisedRound,aucVectorisedDivide,aucRocNoTie,aucRocWithTie,aucPrCurve,
     // CNN
-    CNN_MAX, CNN_MMAX, CNN_ARGMAX, CNN_RELU, CNN_MRELU, CNN_DRLU, CNN_MDRLU, CNN_CL, CNN_FCL,
+    cnnMax, cnnVectorisedMax, cnnArgMax, cnnRelu, cnnVectorisedRelu, cnnDerivativeRelu, cnnVectorisedDerivativeRelu,
+    cnnConvolutionalLayer, cnnFullyConnectedLayer,
     // RKN
-    RKN_EIG, RKN_MEIG, RKN_GM2KM, RKN_INVSQRT, RKN_MINVSQRT, RKN_ITER
+    rknEigenDecomposition, rknVectorisedEigenDecomposition, rknGaussianKernel, rknInverseSqrt, rknVectorisedInverseSqrt,
+    rknIteration
 };
 
 

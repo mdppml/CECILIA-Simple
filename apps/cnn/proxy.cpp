@@ -174,7 +174,7 @@ void delete_model_weights(double ****model_weights, uint32_t i_layer, uint32_t i
 int main(int argc, char *argv[]) {
     if (argc < 6) {
         cout
-                << "Calling proxy without specifying role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible."
+                << "Calling proxy without specifying Role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible."
                 << endl;
         cout << "Specify the Network Mode with the 6th parameter: 0 = CHAMELEON, 1 = LeNet5, 2 = Cell_CNN" << endl;
         return 1;
@@ -264,11 +264,11 @@ int main(int argc, char *argv[]) {
         }
     } else {
         //TODO read multi cell data
-        /*double* random_label = random_1D_data(proxy, i_number, 10.0);
+        /*double* random_label = Random1dData(proxy, i_number, 10.0);
         for (int i = 0; i < i_number; ++i) {
             test_label.push_back(random_label[i]);
         }
-        double** random_values = random_2D_data(proxy, i_number, i_height*i_width, -10.0, 10.0);
+        double** random_values = Random2dData(proxy, i_number, i_height*i_width, -10.0, 10.0);
         for (int i = 0; i < i_number; ++i) {
             vector<unsigned char> values;
             for (int j = 0; j < i_height*i_width; ++j) {
@@ -290,9 +290,9 @@ int main(int argc, char *argv[]) {
     Party *proxy;
     cout << "Creating Proxy..." << endl;
     if (role == 0)
-        proxy = new Party(P1, hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2, hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
     cout << "Creating secret shares: " << endl;
     // secret shares: data
@@ -305,11 +305,11 @@ int main(int argc, char *argv[]) {
                 input[i][j][r] = new uint64_t[i_width];
                 for (uint32_t c = 0; c < i_width; ++c) {
                     double pixelValue = test_set.at(i).at(r * i_width + c)/PIXEL_MAX;
-                    input[i][j][r][c] = proxy->createShare(pixelValue); // store directly as secret shares
+                    input[i][j][r][c] = proxy->CreateShare(pixelValue); // store directly as secret shares
                 }
             }
             if (padding > 0) {
-                uint64_t padding_value = proxy->createShare(0.0);
+                uint64_t padding_value = proxy->CreateShare(0.0);
                 input[i][j] = Pad(input[i][j], i_height, i_width, padding_value, padding);
             }
         }
@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
     // secret shares: bias
     auto **bias = new uint64_t *[layer_number];
     for (int layer = 0; layer < layer_number; ++layer) {
-        bias[layer] = proxy->createShare(model_weights[layer + layer_number][0][0], bias_dimensions[layer]);
+        bias[layer] = proxy->CreateShare(model_weights[layer + layer_number][0][0], bias_dimensions[layer]);
         delete_model_weights(model_weights, layer + layer_number, i_channel, bias_dimensions[layer]);
     }
 
@@ -340,7 +340,7 @@ int main(int argc, char *argv[]) {
         uint64_t **weights;
         //must be set for each inference iteration because kernel is set for each layer.
         for (int i = 0; i < i_channel; ++i) {
-            kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_size);
+            kernel[i] = proxy->CreateShare(model_weights[curr_layer][i], k_number, k_size);
         }
         if (image == i_number - 1) {
             delete_model_weights(model_weights, curr_layer, i_channel, bias_dimensions[curr_layer]);
@@ -355,12 +355,12 @@ int main(int argc, char *argv[]) {
 
                 updateParamsForFCL(bias_dimensions, true);
                 // FULLY CONNECTED LAYER
-                weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
+                weights = proxy->CreateShare(model_weights[curr_layer][0], nodes_out, nodes_in);
                 if (image == i_number - 1) {
                     delete_model_weights(model_weights, curr_layer, 0, nodes_out);
                 }
                 prev_layer_res = FullyConnectedLayer(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
-                prev_layer_res = ReLU(proxy, prev_layer_res, nodes_out);
+                prev_layer_res = Relu(proxy, prev_layer_res, nodes_out);
                 updateParamsForFCL(bias_dimensions, false);
                 break;
             }
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
                 k_number = bias_dimensions[curr_layer];
                 kernel = new uint64_t **[i_channel];
                 for (uint32_t i = 0; i < i_channel; i++) {
-                    kernel[i] = proxy->createShare(model_weights[curr_layer][i], k_number, k_dim * k_dim);
+                    kernel[i] = proxy->CreateShare(model_weights[curr_layer][i], k_number, k_dim * k_dim);
                 }
                 if (image == i_number - 1) {
                     delete_model_weights(model_weights, curr_layer, i_channel, bias_dimensions[curr_layer]);
@@ -385,12 +385,12 @@ int main(int argc, char *argv[]) {
 
                 // fully connected layer:
                 updateParamsForFCL(bias_dimensions, true);
-                weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
+                weights = proxy->CreateShare(model_weights[curr_layer][0], nodes_out, nodes_in);
                 if (image == i_number - 1) {
                     delete_model_weights(model_weights, curr_layer, 0, nodes_out);
                 }
                 prev_layer_res = FullyConnectedLayer(proxy, conv[0][0], nodes_in, weights, nodes_out, bias[curr_layer]);
-                prev_layer_res = ReLU(proxy, prev_layer_res, nodes_out);
+                prev_layer_res = Relu(proxy, prev_layer_res, nodes_out);
                 updateParamsForFCL(bias_dimensions, false);
                 break;
             }
@@ -409,14 +409,14 @@ int main(int argc, char *argv[]) {
             }
         }
         // last FULLY CONNECTED LAYER
-        weights = proxy->createShare(model_weights[curr_layer][0], nodes_out, nodes_in);
+        weights = proxy->CreateShare(model_weights[curr_layer][0], nodes_out, nodes_in);
         if (image == i_number - 1) {
             delete_model_weights(model_weights, curr_layer, 0, nodes_out);
         }
 
         uint64_t *output = FullyConnectedLayer(proxy, prev_layer_res, nodes_in, weights, nodes_out, bias[curr_layer]);
-        prediction[image] = convert2double(Reconstruct(proxy, ArgMax(proxy, output, nodes_out)));
-        //print1DArray("Input to ARGMAX:", convert2double(REC(proxy, output, nodes_out), nodes_out), nodes_out);
+        prediction[image] = ConvertToDouble(Reconstruct(proxy, ArgMax(proxy, output, nodes_out)));
+        //Print1dArray("Input to ARGMAX:", ConvertToDouble(REC(proxy, output, nodes_out), nodes_out), nodes_out);
         cout << "predicted " << prediction[image] << ", correct is " << int(test_label[image]) << endl;
 
         if (prediction[image] == int(test_label[image])) {
@@ -424,8 +424,8 @@ int main(int argc, char *argv[]) {
         } else {
             incorrect++;
         }
-        double *inference_res = convert2double(Reconstruct(proxy, output, nodes_out), nodes_out);
-        if (trained_for_MNIST and eval_correctness and proxy->getPRole() == P1) {
+        double *inference_res = ConvertToDouble(Reconstruct(proxy, output, nodes_out), nodes_out);
+        if (trained_for_MNIST and eval_correctness and proxy->GetPRole() == proxy1) {
             ofstream image_file;
             string path;
             switch (nn_mode) {
@@ -464,13 +464,13 @@ int main(int argc, char *argv[]) {
     }
     delete[] bias;
     delete[] model_weights;
-    proxy->PrintBytes();
+    PrintBytes();
 
-    print1DArray("Prediction: ", prediction, i_number);
+    Print1dArray("Prediction: ", prediction, i_number);
     double* ground_truth = new double [i_number];
     for (int i = 0; i < i_number; ++i)
         ground_truth[i] = test_label[i];
-    print1DArray("Ground Truth: ", ground_truth, i_number);
+    Print1dArray("Ground Truth: ", ground_truth, i_number);
 
     cout << "Accuracy: " << printf("%.1f", correct / i_number) << " (" << printf("%.1f", correct) << "/" << i_number << ")" << endl;
     return 0;

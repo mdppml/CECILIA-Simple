@@ -18,99 +18,99 @@ int main(int argc, char* argv[]) {
     string address(argv[1]);
     uint16_t port = strtol(argv[2], nullptr, 10);
 
-    auto *helper = new Party(HELPER,port,address);
+    auto *proxy = new Party(helper, port, address);
     bool keep_looping = true;
     uint32_t sz, n_gms, size1, size2;
     uint64_t params [9];
-    op operation;
+    Operation operation;
     auto start = chrono::high_resolution_clock::now();
     while (keep_looping){
-        operation = static_cast<op>(helper->ReadByte());
+        operation = static_cast<Operation>(proxy->ReadByte());
         switch(operation) {
-            case CORE_MMSB:
-                sz = helper->ReadInt();
-                MostSignificantBit(helper, nullptr, sz);
+            case coreVectorisedMostSignificantBit:
+                sz = proxy->ReadInt();
+                MostSignificantBit(proxy, nullptr, sz);
                 break;
-            case CORE_MSB:
-                MostSignificantBit(helper, 0);
+            case coreMostSignificantBit:
+                MostSignificantBit(proxy, 0);
                 break;
-            case CORE_MC:
-                ModularConversion(helper, 0);
+            case coreModularConversion:
+                ModularConversion(proxy, 0);
                 break;
-            case CORE_MMC:
-                sz = helper->ReadInt();
-                ModularConversion(helper, nullptr, sz);
+            case coreVectorisedModularConversion:
+                sz = proxy->ReadInt();
+                ModularConversion(proxy, nullptr, sz);
                 break;
-            case CORE_CMP:
-                Compare(helper, 0, 0);
+            case coreCompare:
+                Compare(proxy, 0, 0);
                 break;
-            case CORE_MCMP:
-                sz = helper->ReadInt();
-                Compare(helper, nullptr, nullptr, sz);
+            case coreVectorisedCompare:
+                sz = proxy->ReadInt();
+                Compare(proxy, nullptr, nullptr, sz);
                 break;
-            case CORE_MUX:
-                Multiplex(helper, 0, 0, 0);
+            case coreMultiplex:
+                Multiplex(proxy, 0, 0, 0);
                 break;
-            case CORE_MMUX:
-                sz = helper->ReadInt();
-                Multiplex(helper, nullptr, nullptr, nullptr, sz);
+            case coreVectorisedMultiplex:
+                sz = proxy->ReadInt();
+                Multiplex(proxy, nullptr, nullptr, nullptr, sz);
                 break;
-            case CORE_MUL:
-                Multiply(helper, 0, 0);
+            case coreMultiply:
+                Multiply(proxy, 0, 0);
                 break;
-            case CORE_MMUL:
-                sz = helper->ReadInt();
-                Multiply(helper, nullptr, nullptr, sz);
+            case coreVectorisedMultiply:
+                sz = proxy->ReadInt();
+                Multiply(proxy, nullptr, nullptr, sz);
                 break;
             case CORE_MMUL2:
-                sz = helper->ReadInt();
-                size2 = helper->ReadInt();
-                MultiplyNarrow(helper, nullptr, nullptr, sz, size2);
+                sz = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MultiplyNarrow(proxy, nullptr, nullptr, sz, size2);
                 break;
-            case CORE_DP:
-                sz = helper->ReadInt();
-                DotProduct(helper, nullptr, nullptr, sz);
+            case coreDotProduct:
+                sz = proxy->ReadInt();
+                DotProduct(proxy, nullptr, nullptr, sz);
                 break;
-            case CORE_MDP:
-                sz = helper->ReadInt();
-                DotProduct(helper, nullptr, nullptr, sz, 0);
+            case coreVectorisedDotProduct:
+                sz = proxy->ReadInt();
+                DotProduct(proxy, nullptr, nullptr, sz, 0);
                 break;
-            case CORE_EXP:
-                Exp(helper, 0);
+            case coreExp:
+                Exp(proxy, 0);
                 break;
-            case CORE_MEXP:
-                sz = helper->ReadInt();
-                Exp(helper, nullptr, sz);
+            case coreVectorisedExp:
+                sz = proxy->ReadInt();
+                Exp(proxy, nullptr, sz);
                 break;
-            case CORE_MATMATMUL:
-                sz = helper->ReadInt();
+            case coreMatrixMatrixMultiply:
+                sz = proxy->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-                MatrixMatrixMultiply(helper, nullptr, nullptr, sz, 0, 0);
+                MatrixMatrixMultiply(proxy, nullptr, nullptr, sz, 0, 0);
                 break;
-            case CORE_MMATMATMUL:
-                sz = helper->ReadInt();
+            case coreVectorisedMatrixMatrixMultiply:
+                sz = proxy->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-                MatrixMatrixMultiply(helper, nullptr, nullptr, 0, sz, 0, 0);
+                MatrixMatrixMultiply(proxy, nullptr, nullptr, 0, sz, 0, 0);
                 break;
-            case CORE_MATVECMUL:
-                sz = helper->ReadInt();
+            case coreMatrixVectorMultiply:
+                sz = proxy->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-                MatrixVectorMultiply(helper, nullptr, nullptr, sz, 0);
+                MatrixVectorMultiply(proxy, nullptr, nullptr, sz, 0);
                 break;
-            case CORE_MMATVECMUL:
-                sz = helper->ReadInt();
+            case coreVectorisedMatrixVectorMultiply:
+                sz = proxy->ReadInt();
                 // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-                MatrixVectorMultiply(helper, nullptr, nullptr, 0, sz, 0);
+                MatrixVectorMultiply(proxy, nullptr, nullptr, 0, sz, 0);
                 break;
-            case CNN_MAX:
-                sz = helper->ReadInt();
-                Max(helper, nullptr, sz);
+            case cnnMax:
+                sz = proxy->ReadInt();
+                Max(proxy, nullptr, sz);
                 break;
-            case CNN_MMAX:
-                params[0] = helper->ReadInt();
-                params[1] = helper->ReadInt();
-                params[2] = helper->ReadInt();
-                params[3] = helper->ReadInt();
+            case cnnVectorisedMax:
+                params[0] = proxy->ReadInt();
+                params[1] = proxy->ReadInt();
+                params[2] = proxy->ReadInt();
+                params[3] = proxy->ReadInt();
                 if (
                         params[0] > 0
                         and params[1] > 0
@@ -118,165 +118,165 @@ int main(int argc, char* argv[]) {
                         and params[2] <= params[0]
                         and params[3] <= params[1]
                     ){
-                    Max(helper, nullptr, params[0], params[1], params[2], params[3], true);
+                    Max(proxy, nullptr, params[0], params[1], params[2], params[3], true);
                 }
                 else{
                     cout << "ERROR: received mmax parameters were not in valid range..." << endl;
                 }
                 break;
-            case CNN_ARGMAX:
-                sz = helper->ReadInt();
-                ArgMax(helper, nullptr, sz);
+            case cnnArgMax:
+                sz = proxy->ReadInt();
+                ArgMax(proxy, nullptr, sz);
                 break;
-            case CNN_RELU:
-                ReLU(helper, 0);
+            case cnnRelu:
+                ReLU(proxy, 0);
                 break;
-            case CNN_MRELU:
-                sz = helper->ReadInt();
-                ReLU(helper, nullptr, sz);
+            case cnnVectorisedRelu:
+                sz = proxy->ReadInt();
+                Relu(proxy, nullptr, sz);
                 break;
-            case CNN_DRLU:
-                DerivativeReLU(helper, 0);
+            case cnnDerivativeRelu:
+                DerivativeRelu(proxy, 0);
                 break;
-            case CNN_MDRLU:
-                sz = helper->ReadInt();
-                DerivativeReLU(helper, nullptr, sz);
+            case cnnVectorisedDerivativeRelu:
+                sz = proxy->ReadInt();
+                DerivativeRelu(proxy, nullptr, sz);
                 break;
-            case CNN_CL:
-                params[0] = helper->ReadInt();
-                params[1] = helper->ReadInt();
-                params[2] = helper->ReadInt();
-                params[3] = helper->ReadInt();
-                params[4] = helper->ReadInt();
-                params[5] = helper->ReadInt();
-                params[6] = helper->ReadInt();
-                params[7] = helper->ReadInt();
-                params[8] = helper->ReadInt();
-                ConvolutionalLayer(helper, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4],
+            case cnnConvolutionalLayer:
+                params[0] = proxy->ReadInt();
+                params[1] = proxy->ReadInt();
+                params[2] = proxy->ReadInt();
+                params[3] = proxy->ReadInt();
+                params[4] = proxy->ReadInt();
+                params[5] = proxy->ReadInt();
+                params[6] = proxy->ReadInt();
+                params[7] = proxy->ReadInt();
+                params[8] = proxy->ReadInt();
+                ConvolutionalLayer(proxy, nullptr, params[0], params[1], params[2], nullptr, params[3], params[4],
                                    params[5], params[6],
                                    params[7], nullptr, params[8]);
                 break;
-            case CNN_FCL:
-                params[0] = helper->ReadInt();
-                params[1] = helper->ReadInt();
-                FullyConnectedLayer(helper, nullptr, params[0], nullptr, params[1], nullptr);
+            case cnnFullyConnectedLayer:
+                params[0] = proxy->ReadInt();
+                params[1] = proxy->ReadInt();
+                FullyConnectedLayer(proxy, nullptr, params[0], nullptr, params[1], nullptr);
                 break;
-            case RKN_GM2KM:
-                n_gms = helper->ReadInt();
-                sz = helper->ReadInt();
-                GaussianKernel(helper, nullptr, 0, n_gms, sz);
+            case rknGaussianKernel:
+                n_gms = proxy->ReadInt();
+                sz = proxy->ReadInt();
+                GaussianKernel(proxy, nullptr, 0, n_gms, sz);
                 break;
-            case RKN_INVSQRT:
-                sz = helper->ReadInt();
-                InverseSqrt(helper, nullptr, sz);
+            case rknInverseSqrt:
+                sz = proxy->ReadInt();
+                InverseSqrt(proxy, nullptr, sz);
                 break;
-            case RKN_MINVSQRT:
-                n_gms = helper->ReadInt();
-                sz = helper->ReadInt();
-                InverseSqrt(helper, nullptr, n_gms, sz);
+            case rknVectorisedInverseSqrt:
+                n_gms = proxy->ReadInt();
+                sz = proxy->ReadInt();
+                InverseSqrt(proxy, nullptr, n_gms, sz);
                 break;
-            case RKN_ITER:
-                size1 = helper->ReadInt();
-                size2 = helper->ReadInt();
-                RknIteration(helper, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
+            case rknIteration:
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                RknIteration(proxy, nullptr, nullptr, nullptr, size1, size2, 0, 0, 0);
                 break;
-            case CORE_DIV:
-                Divide(helper, 0, 0);
+            case coreDivide:
+                Divide(proxy, 0, 0);
                 break;
-            case CORE_MDIV:
-                size1 = helper->ReadInt();
-                Divide(helper, 0, 0, size1);
+            case coreVectorisedDivide:
+                size1 = proxy->ReadInt();
+                Divide(proxy, 0, 0, size1);
                 break;
-            case CORE_MNORM:
-                size1 = helper->ReadInt();
-                Normalize(helper, 0, 0, size1);
+            case coreNormalise:
+                size1 = proxy->ReadInt();
+                Normalise(proxy, 0, 0, size1);
                 break;
-            case AUC_MSB:
-                sz = helper->ReadInt();
-                AUCMSB(helper,nullptr,sz);
+            case aucMostSignificantBit:
+                sz = proxy->ReadInt();
+                AucMostSignificantBit(proxy, nullptr, sz);
                 break;
-            case AUC_TDIV:
-                DIVISION(helper,0,0);
+            case aucDivide:
+                AucDivide(proxy, 0, 0);
                 break;
-            case AUC_MROU:
-                sz = helper->ReadInt();
-                MRound(helper,nullptr,sz);
+            case aucVectorisedRound:
+                sz = proxy->ReadInt();
+                Round(proxy, nullptr, sz);
                 break;
-            case AUC_MDIV:
-                sz = helper->ReadInt();
-                MDIVISION(helper,nullptr,nullptr,sz);
+            case aucVectorisedDivide:
+                sz = proxy->ReadInt();
+                AucDivide(proxy, nullptr, nullptr, sz);
                 break;
-            case AUC_ROCNOTIE:
-                sz = helper->ReadInt();
+            case aucRocNoTie:
+                sz = proxy->ReadInt();
                 cout << "Sz: " << sz << endl;
-                ROCNOTIE(helper, 0, sz);
+                RocNoTie(proxy, 0, sz);
                 break;
-            case AUC_ROCWITHTIE:
-                sz = helper->ReadInt();
-                ROCWITHTIE(helper, 0, sz);
+            case aucRocWithTie:
+                sz = proxy->ReadInt();
+                RocWithTie(proxy, 0, sz);
                 break;
-            case AUC_PR:
-                sz = helper->ReadInt();
-                PRCURVE(helper, 0, sz);
+            case aucPrCurve:
+                sz = proxy->ReadInt();
+                PrCurve(proxy, 0, sz);
                 break;
-            case RKN_EIG:
-                sz = helper->ReadInt();
-                EigenDecomposition(helper, sz);
+            case rknEigenDecomposition:
+                sz = proxy->ReadInt();
+                EigenDecomposition(proxy, sz);
                 break;
-            case RKN_MEIG:
-                n_gms = helper->ReadInt();
-                sz = helper->ReadInt();
-                EigenDecomposition(helper, n_gms, sz);
+            case rknVectorisedEigenDecomposition:
+                n_gms = proxy->ReadInt();
+                sz = proxy->ReadInt();
+                EigenDecomposition(proxy, n_gms, sz);
                 break;
-            case CORE_SORT:
-                sz = helper->ReadInt();
-                Sort(helper, 0, sz);
+            case coreSort:
+                sz = proxy->ReadInt();
+                Sort(proxy, 0, sz);
                 break;
             case CORE_VSORT:
-                sz = helper->ReadInt();
-                size1 = helper->ReadInt();
-                Sort(helper, 0, sz, size1, 0);
+                sz = proxy->ReadInt();
+                size1 = proxy->ReadInt();
+                Sort(proxy, 0, sz, size1, 0);
                 break;
             case CORE_SORT2:
-                sz = helper->ReadInt();
-                size1 = helper->ReadInt();
-                SortNarrow(helper, 0, sz, size1);
+                sz = proxy->ReadInt();
+                size1 = proxy->ReadInt();
+                SortNarrow(proxy, 0, sz, size1);
                 break;
             case BCORE_AND:
-                sz = helper->ReadInt();
-                AND2(helper,0,0, sz);
+                sz = proxy->ReadInt();
+                AND2(proxy,0,0, sz);
                 break;
             case BCORE_SUB:
-                sz = helper->ReadInt();
-                BooleanSubstract2(helper,0,0, sz);
+                sz = proxy->ReadInt();
+                BooleanSubstract2(proxy,0,0, sz);
                 break;
             case BCORE_A2B:
-                sz = helper->ReadInt();
-                Arithmetic2XOR(helper,0, sz);
+                sz = proxy->ReadInt();
+                Arithmetic2XOR(proxy,0, sz);
                 break;
             case BCORE_B2A:
-                sz = helper->ReadInt();
-                XOR2Arithmetic(helper,0, sz);
+                sz = proxy->ReadInt();
+                XOR2Arithmetic(proxy,0, sz);
                 break;
             case BCORE_B2As:
-                sz = helper->ReadInt();
-                XOR2Arithmetic2(helper,0, sz);
+                sz = proxy->ReadInt();
+                XOR2Arithmetic2(proxy,0, sz);
                 break;
             case BCORE_B2Am:
-                sz = helper->ReadInt();
-                XOR2Arithmetic3(helper,0, sz);
+                sz = proxy->ReadInt();
+                XOR2Arithmetic3(proxy,0, sz);
                 break;
-            case CORE_END:
+            case coreEnd:
                 keep_looping = false;
                 break;
         }
     }
     auto end = chrono::high_resolution_clock::now();
-    helper->PrintBytes();
+    PrintBytes();
 
     double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
-    helper->PrintPaperFriendly(time_taken);
-    delete helper;
+    proxy->PrintPaperFriendly(time_taken);
+    delete proxy;
     return 0;
 }

@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
      * Test the whole prediction process of RKN including the inverse square root of Gram matrix
      */
     if (argc != 14){
-        cout << "Calling proxy without specifying role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible." << endl;
+        cout << "Calling proxy without specifying Role (1), port (2), address (3), helpers port (4) and helpers adress (5) is not possible." << endl;
         return 1;
     }
     // setup of the proxy and the communication
@@ -93,9 +93,9 @@ int main(int argc, char* argv[]) {
     Party *proxy;
     cout << "Creating Proxy..." << endl;
     if (role==0)
-        proxy = new Party(P1,hport, haddress, cport, caddress);
+        proxy = new Party(proxy1, hport, haddress, cport, caddress);
     else
-        proxy = new Party(P2,hport, haddress, cport, caddress);
+        proxy = new Party(proxy2, hport, haddress, cport, caddress);
 
 
     // setup of the rest of the parameters -- these generally stay the same for the experiments, that's why
@@ -124,13 +124,13 @@ int main(int argc, char* argv[]) {
         all_x = new uint64_t*[length];
         cout << "Generating data..." << endl;
         for(int s = 0; s < length; s++) {
-            all_x[s] = proxy->createShare(random_1D_data(proxy, (size_t) n_dim, 1.0, (bool) false), n_dim);
+            all_x[s] = proxy->CreateShare(Random1dData(proxy, (size_t) n_dim, 1.0, false), n_dim);
         }
 
         // generate a random anchor points
         cout << "Generating anchor points..." << endl;
         for(int i = 0; i < k_mer; i++) {
-            anchor_points[i] = proxy->createShare(random_2D_data(proxy, n_anc, n_dim, 1, false), n_anc, n_dim);
+            anchor_points[i] = proxy->CreateShare(Random2dData(proxy, n_anc, n_dim, 1, false), n_anc, n_dim);
 
             tr_anchor_points[i] = new uint64_t*[n_dim];
             for(int r = 0; r < n_dim; r++) {
@@ -139,12 +139,10 @@ int main(int argc, char* argv[]) {
                     tr_anchor_points[i][r][c] = anchor_points[i][c][r];
                 }
             }
-//            print2DArray("Anchor points " + to_string(i), convert2double(REC(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim), n_anc, n_dim);
         }
 
         // linear layer for the classification
-        weights = proxy->createShare(random_1D_data(proxy, n_anc + 1, 0.0, 1.0), n_anc + 1);
-//        print1DArray("Weights", convert2double(REC(proxy, weights, n_anc), n_anc), n_anc);
+        weights = proxy->CreateShare(Random1dData(proxy, n_anc + 1, 0.0, 1.0), n_anc + 1);
         bias = weights[n_anc];
     }
     else { // real values
@@ -162,24 +160,23 @@ int main(int argc, char* argv[]) {
         // sequence
         string folder_name = to_string(n_layer) + "_[" + to_string(n_anc) + "]_[" + to_string(k_mer) + "]_[" +
                              str_lmb + "]_[" + str_sigma + "]_" + str_reg;
-//        string base_fn = "/Users/aliburak/Projects/CECILIA/rkn_results/" +  pooling + "/" + enc + "/" + folder_name + "/" + tfid; // original experiments
         string base_fn = "/Users/aliburak/Projects/RKN/results/" +  pooling + "/" + enc + "/" + folder_name + "/" + tfid; // new experiments to validate the correctness
         cout << "Base folder name: " << base_fn << endl;
-        string seq = recover_seq(base_fn + "/test_samples.csv", s_ind); // original experiments
-//        string seq = recover_seq(base_fn + "/test_samples_batch_1.csv", s_ind); // new experiments to validate the correctness
+        string seq = RecoverSequence(base_fn + "/test_samples.csv", s_ind); // original experiments
         length = seq.length(); // length of the sequence
         cout << "Sequence with length " << length << " :" << endl;
-        for(int i = 0; i < seq.length(); i++) {
-            cout << seq[i];
+        for(char i : seq) {
+            cout << i;
         }
         cout << endl;
 
-        all_x = encode_sequence(proxy, seq);
+        all_x = EncodeSequence(proxy, seq);
 
         cout << "Reading anchor points..." << endl;
         for(int i = 0; i < k_mer; i++) {
-            anchor_points[i] = read_2D_array(proxy, base_fn + "/layer" + to_string(i) + "_k" + to_string(k_mer) +
-                                    "_anc" + to_string(n_anc) + "_dim" + to_string(n_dim), n_anc, n_dim, k_mer);
+            anchor_points[i] = Read2dArray(proxy, base_fn + "/layer" + to_string(i) + "_k" + to_string(k_mer) +
+                                                  "_anc" + to_string(n_anc) + "_dim" + to_string(n_dim), n_anc, n_dim,
+                                           k_mer);
 
             tr_anchor_points[i] = new uint64_t*[n_dim];
             for(int r = 0; r < n_dim; r++) {
@@ -191,11 +188,10 @@ int main(int argc, char* argv[]) {
         }
 
         // linear layer for the classification
-        weights = read_1D_array(proxy, base_fn + "/linear_layer_k" + to_string(k_mer) + "_anc" + to_string(n_anc) +
-                                "_dim" + to_string(n_dim), n_anc + 1);
+        weights = Read1dArray(proxy, base_fn + "/linear_layer_k" + to_string(k_mer) + "_anc" + to_string(n_anc) +
+                                     "_dim" + to_string(n_dim), n_anc + 1);
         cout << "Weights are read" << endl;
         bias = weights[n_anc];
-//        print1DArray("Weights", convert2double(REC(proxy, weights, n_anc + 1), n_anc + 1), n_anc + 1);
     }
 
     cout << "Preparation is done!" << endl;
@@ -203,15 +199,11 @@ int main(int argc, char* argv[]) {
     int size = k_mer * n_anc * n_dim;
     int size2 = k_mer * n_anc;
 
-//    proxy->SendBytes(RKN_PRE);
-//    print2DArray("Data", convert2double(REC(proxy, all_x, length, n_dim), length, n_dim), length, n_dim);
-
     // generate a random data to represent the output of the previous time point at the same layer
-//    cout << "Generate ct1..." << endl;
-    uint64_t* ct = zero_1D_data(proxy, size2 + n_anc);
-    uint64_t* initial_ct = zero_1D_data(proxy, size2 + n_anc);
+    uint64_t* ct = Zero1dData(proxy, size2 + n_anc);
+    uint64_t* initial_ct = Zero1dData(proxy, size2 + n_anc);
     for(int i = 0; i < n_anc; i++) {
-        ct[i] = proxy->getPRole() * ((uint64_t) 1 << FRAC);
+        ct[i] = proxy->GetPRole() * ((uint64_t) 1 << FRACTIONAL_BITS);
         initial_ct[i] = ct[i];
     }
 
@@ -225,7 +217,6 @@ int main(int argc, char* argv[]) {
         for(int i = 0; i < k_mer; i++) {
             for(int j = 0; j < n_anc; j++) {
                 for(int k = 0; k < n_dim; k++) {
-//                    cout << "check i: " << i << "\tj: " << j << "\tk: " << k << endl;
                     str_z[(i * n_anc * n_dim) + (j * n_dim) + k] = anchor_points[i][j][k];
                 }
             }
@@ -233,16 +224,9 @@ int main(int argc, char* argv[]) {
         cout << "iteration " << s << endl;
         params[0] = size;
         params[1] = size2;
-        proxy->SendBytes(RKN_ITER, params, 2);
-//        print1DArray("all_x[s]", convert2double(REC(proxy, all_x[s], n_dim), n_dim), n_dim);
-//        print1DArray("before ct", convert2double(REC(proxy, ct, size2), size2), size2);
+        proxy->SendBytes(rknIteration, params, 2);
         uint64_t* tmp_ct = RknIteration(proxy, all_x[s], str_z, ct, n_dim, n_anc, k_mer, lambda, alpha);
-//        cout << "pre check" << endl;
         copy(tmp_ct, tmp_ct + size2, ct + n_anc);
-//        cout << "check" << endl;
-//        print1DArray("after ct", convert2double(REC(proxy, ct, size2), size2), size2);
-//        print1DArray("tmp_ct after char " + to_string(s), convert2double(REC(proxy, tmp_ct, size2), size2), size2);
-
         uint64_t** mat_ct = new uint64_t *[k_mer];
         for(int i = 0; i < k_mer; i++) {
             mat_ct[i] = new uint64_t[n_anc];
@@ -250,18 +234,10 @@ int main(int argc, char* argv[]) {
                 mat_ct[i][j] = ct[n_anc + (i * n_anc) + j];
             }
         }
-//        print2DArray("Mappings at " + to_string(s), convert2double(REC(proxy, mat_ct, k_mer, n_anc), k_mer, n_anc),
-//                     k_mer, n_anc, false);
-
         delete [] str_z;
     }
 
     auto end_initial_mapping = chrono::high_resolution_clock::now();
-//    cout << "Initial mapping is done!" << endl;
-
-//    print1DArray("Initial mapping", convert2double(REC(proxy, ct, size2 + n_anc), size2 + n_anc), size2 + n_anc);
-//    proxy->print1DArray("c[t]", proxy->Mconvert2double(proxy->MReconstruct(ct, size2 + n_anc), size2 + n_anc), size2 + n_anc);
-
     // convert c[t] to matrix
     uint64_t** mat_ct = new uint64_t *[k_mer];
     for(int i = 0; i < k_mer; i++) {
@@ -273,40 +249,29 @@ int main(int argc, char* argv[]) {
 
     // Gram matrices of the anchor points
     params[0] = k_mer * n_anc * n_dim * n_anc;
-    proxy->SendBytes(CORE_MMATMATMUL, params, 1);
+    proxy->SendBytes(coreVectorisedMatrixMatrixMultiply, params, 1);
     uint64_t*** gms = MatrixMatrixMultiply(proxy, anchor_points, tr_anchor_points, k_mer, n_anc, n_dim, n_anc);
-//    print2DArray("Last Gram matrix", convert2double(REC(proxy, gms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
-
-    //
     params[0] = k_mer;
     params[1] = n_anc;
-    proxy->SendBytes(RKN_GM2KM, params, 2);
-    uint64_t*** kmer_kms = GaussianKernel(proxy, gms, convert2uint64(alpha), k_mer, n_anc);
-//    print2DArray("Last kernel matrix", convert2double(REC(proxy, kmer_kms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
-
+    proxy->SendBytes(rknGaussianKernel, params, 2);
+    uint64_t*** kmer_kms = GaussianKernel(proxy, gms, ConvertToUint64(alpha), k_mer, n_anc);
     // inverse square root of the Gram matrices
     params[0] = k_mer;
     params[1] = n_anc;
-    proxy->SendBytes(RKN_MINVSQRT, params, 2);
+    proxy->SendBytes(rknVectorisedInverseSqrt, params, 2);
     uint64_t*** invsqrt_gms = InverseSqrt(proxy, kmer_kms, k_mer, n_anc, epsilon);
-//    print2DArray("INVSQRT of the last kernel matrix", convert2double(REC(proxy, invsqrt_gms[k_mer - 1], n_anc, n_anc), n_anc, n_anc), n_anc, n_anc);
-
     auto end_invsqrt = chrono::high_resolution_clock::now();
 
     // final mapping of the sequence
     params[0] = k_mer * n_anc * n_anc;
-    proxy->SendBytes(CORE_MMATVECMUL, params, 1);
+    proxy->SendBytes(coreVectorisedMatrixVectorMultiply, params, 1);
     uint64_t** x_mapping = MatrixVectorMultiply(proxy, invsqrt_gms, mat_ct, k_mer, n_anc, n_anc);
-//    print1DArray("Final mapping", convert2double(REC(proxy, x_mapping[k_mer - 1], n_anc), n_anc), n_anc);
-
     // linear classifier layer
     params[0] = n_anc;
-    proxy->SendBytes(CORE_DP, params, 1);
+    proxy->SendBytes(coreDotProduct, params, 1);
     uint64_t prediction = DotProduct(proxy, weights, x_mapping[k_mer - 1], n_anc) + bias;
 
-//    print1DArray("Linear classifier weights", convert2double(REC(proxy, weights, n_anc), n_anc), n_anc);
-
-    proxy->SendBytes(CORE_END);
+    proxy->SendBytes(coreEnd);
     auto end = chrono::high_resolution_clock::now();
     double time_taken;
     double exe_times[5];
@@ -331,19 +296,19 @@ int main(int argc, char* argv[]) {
     cout<<"Linear_Classifier_Time: " << fixed << time_taken << setprecision(9) << " sec" << endl;
     exe_times[4] = time_taken;
 
-    double d_prediction = convert2double(Reconstruct(proxy, prediction));
-    printValue("Prediction", d_prediction);
+    double d_prediction = ConvertToDouble(Reconstruct(proxy, prediction));
+    PrintValue("Prediction", d_prediction);
 
     // writing the execution time results into a file
     string result_fn;
     if(random_flag) {
         result_fn = "/Users/aliburak/Projects/CECILIA/exp_runners/rkn_experiments/pprkn_inference_results/synthetic/p" +
-                    to_string(proxy->getPRole()) + "_" + to_string(n_anc) + "_" + to_string(k_mer) + "_" +
+                    to_string(proxy->GetPRole()) + "_" + to_string(n_anc) + "_" + to_string(k_mer) + "_" +
                     to_string(length) + "_" + to_string(run_id) + "_" + network + ".csv";
     }
     else {
         result_fn = "/Users/aliburak/Projects/CECILIA/exp_runners/rkn_experiments/pprkn_inference_results/real/p" +
-                    to_string(proxy->getPRole()) + "_" + to_string(n_anc) + "_" + to_string(k_mer) + "_" +
+                    to_string(proxy->GetPRole()) + "_" + to_string(n_anc) + "_" + to_string(k_mer) + "_" +
                     to_string(run_id) + "_" + network + "_" + tfid + "_" + to_string(s_ind) + "_" +
                     to_string(length) + ".csv";
     }
@@ -369,22 +334,15 @@ int main(int argc, char* argv[]) {
 
     for(int i = 0; i < k_mer; i++) {
         delete [] mat_ct[i];
-//        delete [] x_mapping[i];
         for(int j = 0; j < n_anc; j++) {
             delete [] gms[i][j];
-//            if(i != 0)
-//            delete [] kmer_kms[i][j];
             delete [] invsqrt_gms[i][j];
         }
         delete [] gms[i];
-//        if(i != 0)
-//        delete [] kmer_kms[i];
         delete [] invsqrt_gms[i];
     }
     delete [] mat_ct;
-//    delete [] x_mapping;
     delete [] gms;
-//    delete [] kmer_kms;
     delete [] invsqrt_gms;
 
 
@@ -397,11 +355,11 @@ int main(int argc, char* argv[]) {
         cout << "Ground truth computation starts..." << endl;
         double*** rec_anc_points = new double**[k_mer];
         for(int i = 0; i < k_mer; i++) {
-            rec_anc_points[i] = convert2double(Reconstruct(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim);
+            rec_anc_points[i] = ConvertToDouble(Reconstruct(proxy, anchor_points[i], n_anc, n_dim), n_anc, n_dim);
         }
         cout << "check 1" << endl;
-        double** rec_all_x = convert2double(Reconstruct(proxy, all_x, length, n_dim), length, n_dim);
-        double* rec_ct = convert2double(Reconstruct(proxy, initial_ct, size2 + n_anc), size2 + n_anc);
+        double** rec_all_x = ConvertToDouble(Reconstruct(proxy, all_x, length, n_dim), length, n_dim);
+        double* rec_ct = ConvertToDouble(Reconstruct(proxy, initial_ct, size2 + n_anc), size2 + n_anc);
         cout << "check 2" << endl;
         double** gt_dp = new double*[k_mer];
         double** exp_gt_dp = new double*[k_mer];
@@ -466,7 +424,7 @@ int main(int argc, char* argv[]) {
         // ----------------------------------------------------------------------------------------------
         // generate Gram matrices
         double*** gt_gms = new double**[k_mer];
-        gt_gms[0] = inplace_dp(rec_anc_points[0], rec_anc_points[0], n_anc, n_dim);
+        gt_gms[0] = InplaceDotProduct(rec_anc_points[0], rec_anc_points[0], n_anc, n_dim);
         for(int j = 0; j < n_anc; j++) {
             for(int k = j; k < n_anc; k++) {
                 gt_gms[0][j][k] = exp(alpha * (gt_gms[0][j][k] - 1));
@@ -482,9 +440,9 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        //    proxy->print2DArray("GT Gram matrix 0", gt_gms[0], n_anc, n_anc);
+        //    proxy->Print2dArray("GT Gram matrix 0", gt_gms[0], n_anc, n_anc);
         for(int i = 1; i < k_mer; i++) {
-            double** tmp_gt_gms = inplace_dp(rec_anc_points[i], rec_anc_points[i], n_anc, n_dim);
+            double** tmp_gt_gms = InplaceDotProduct(rec_anc_points[i], rec_anc_points[i], n_anc, n_dim);
             for(int j = 0; j < n_anc; j++) {
                 for(int k = j; k < n_anc; k++) {
                     gt_gms[i][j][k] = exp(alpha * (tmp_gt_gms[j][k] - 1)) * gt_gms[i - 1][j][k];
@@ -507,7 +465,7 @@ int main(int argc, char* argv[]) {
 
         double*** rec_kmer_kms = new double**[k_mer];
         for(int g = 0; g < k_mer; g++) {
-            rec_kmer_kms[g] = convert2double(Reconstruct(proxy, kmer_kms[g], n_anc, n_anc), n_anc, n_anc);
+            rec_kmer_kms[g] = ConvertToDouble(Reconstruct(proxy, kmer_kms[g], n_anc, n_anc), n_anc, n_anc);
         }
 
         cout << "check 5" << endl;
@@ -540,13 +498,7 @@ int main(int argc, char* argv[]) {
             gt_eigvals[g] = new double[n_anc];
             Map<Matrix<double, Dynamic, 1>>(gt_eigvals[g], n_anc) = eig_vals;
 
-            //        cout << "********************************************\nGT eigenvalues of gram matrix " << g << ":\n" << eig_vals << endl;
-
             Matrix<double, Dynamic, Dynamic, RowMajor> vals = eig_vals;
-
-            //        cout << "GT reconstructed inverse square root of the Gram matrix " << g << ":\n" <<
-            //        eig_vecs * vals.cwiseSqrt().cwiseInverse().asDiagonal() * Transpose(eig_vecs) << endl;
-
             double* tmp_str_invsqrt = new double[n_anc * n_anc];
             Map<Matrix<double, Dynamic, Dynamic, RowMajor>>(tmp_str_invsqrt, n_anc, n_anc) =
                     eig_vecs * (vals.cwiseSqrt().array() + epsilon).matrix().cwiseInverse().asDiagonal() * Transpose(eig_vecs);
@@ -558,7 +510,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            gt_res[g] = multiply_matrice_vector(tmp_invsqrt_gm, &rec_ct[(g + 1) * n_anc], n_anc, n_anc);
+            gt_res[g] = MultiplyMatrixVector(tmp_invsqrt_gm, &rec_ct[(g + 1) * n_anc], n_anc, n_anc);
 
             // deleting dynamically allocated arrays
             delete [] straighten_G;
@@ -570,16 +522,16 @@ int main(int argc, char* argv[]) {
         }
         cout << "check 6" << endl;
 
-        double* rec_weights = convert2double(Reconstruct(proxy, weights, n_anc + 1), n_anc + 1);
+        double* rec_weights = ConvertToDouble(Reconstruct(proxy, weights, n_anc + 1), n_anc + 1);
         double rec_bias = rec_weights[n_anc];
-        double gt_prediction = multiply_vector_vector(gt_res[k_mer - 1], rec_weights, n_anc) + rec_bias;
+        double gt_prediction = MultiplyVectorVector(gt_res[k_mer - 1], rec_weights, n_anc) + rec_bias;
         cout << "check 7" << endl;
         double* total_diff = new double[k_mer];
         for(int i = 0; i < k_mer; i++) {
             total_diff[i] = 0;
         }
         cout << "check 8" << endl;
-        double** rec_x_mapping = convert2double(Reconstruct(proxy, x_mapping, k_mer, n_anc), k_mer, n_anc);
+        double** rec_x_mapping = ConvertToDouble(Reconstruct(proxy, x_mapping, k_mer, n_anc), k_mer, n_anc);
         cout << "rec_x_mapping is done" << endl;
         double **diff = new double*[n_anc];
         for(int i = 0; i < n_anc; i++) {
@@ -591,12 +543,8 @@ int main(int argc, char* argv[]) {
                 total_diff[j] += abs(diff[i][j]);
             }
         }
-
-//        print2DArray("Differences between mappings", diff, n_anc, k_mer, true);
-//        print1DArray("Total differences between mappings", total_diff, k_mer);
-
-        printValue("GT Prediction", gt_prediction);
-        printValue("|Prediction - GT Prediction|", abs(convert2double(Reconstruct(proxy, prediction)) - gt_prediction));
+        PrintValue("GT Prediction", gt_prediction);
+        PrintValue("|Prediction - GT Prediction|", abs(ConvertToDouble(Reconstruct(proxy, prediction)) - gt_prediction));
 
         // delete the dynamically allocated arrays
         for(int i = 0; i < k_mer; i++) {

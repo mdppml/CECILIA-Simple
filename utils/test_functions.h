@@ -13,8 +13,6 @@
 
 #include <sstream>
 
-#endif //CECILIA_TEST_FUNCTIONS_H
-
 // Random matrix generation functions
 /**
  *
@@ -24,7 +22,7 @@
  * @param neg_flag allow negative values as default, set to false if they shall not be allowed
  * @return
  */
-static double* random_1D_data(Party *proxy, size_t size, double max_num=10, bool neg_flag=true) {
+static double* Random1dData(Party *proxy, size_t size, double max_num= 10, bool neg_flag= true) {
     double* mat_data = new double[size];
     for (int i = 0; i < size; i++) {
         mat_data[i] = max_num * (static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
@@ -35,7 +33,7 @@ static double* random_1D_data(Party *proxy, size_t size, double max_num=10, bool
     return mat_data;
 }
 
-static double* random_1D_data(Party *proxy, int size, double min_num, double max_num) {
+static double* Random1dData(Party *proxy, int size, double min_num, double max_num) {
     double* mat_data = new double[size];
     random_device rd; // obtain a random number from hardware
     mt19937 gen(rd()); // seed the generator
@@ -46,7 +44,7 @@ static double* random_1D_data(Party *proxy, int size, double min_num, double max
     return mat_data;
 }
 
-static double** random_2D_data(Party *proxy, size_t n_row, size_t n_col, double min_num, double max_num) {
+static double** Random2dData(Party *proxy, size_t n_row, size_t n_col, double min_num, double max_num) {
     double d_tmp1;
     uint64_t tmp1;
     double** mat_data = new double *[n_row];
@@ -62,10 +60,10 @@ static double** random_2D_data(Party *proxy, size_t n_row, size_t n_col, double 
     return mat_data;
 }
 
-static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
+static uint64_t** RandomGramMatrix(Party *proxy, int n_row, int n_col) {
     double d_tmp1;
     uint64_t tmp1, a;
-    int role = proxy->getPRole();
+    int role = proxy->GetPRole();
 
     // data matrix generation
     double **rand_matrix = new double *[n_row];
@@ -74,22 +72,13 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
 
         double tmp_sum = 0;
         for(int j = 0; j < n_col; j++) {
-            d_tmp1 = 10 * (static_cast <float> (proxy->generateRandom()) / static_cast <float> (RAND_MAX));
+            d_tmp1 = 10 * (static_cast <float> (proxy->GenerateRandom()) / static_cast <float> (RAND_MAX));
             tmp_sum += pow(d_tmp1, 2);
-//            if (rand() % 2 == 0) {
-//                d_tmp1 *= -1;
-//            }
             rand_matrix[i][j] = d_tmp1;
         }
-
-//        tmp_sum = sqrt(tmp_sum);
-//        for( int j = 0; j < n_col; j++) {
-//            rand_matrix[i][j] /= tmp_sum;
-//        }
     }
 
     // gram matrix computation
-//    cout << "\nGram matrix: " << endl;
     double** gram_matrix = new double*[n_row];
     for(int i = 0; i < n_row; i++) {
         gram_matrix[i] = new double[n_row];
@@ -99,34 +88,11 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
                 tmp_sum += rand_matrix[i][k] * rand_matrix[j][k];
             }
             gram_matrix[i][j] = tmp_sum;
-//            cout << gram_matrix[i][j] << "\t";
         }
-//        cout << endl;
     }
-//    cout << endl;
 
     // share generation
-    uint64_t** invsqrt_data = proxy->createShare(gram_matrix, n_row, n_row);
-
-    // share generation
-//    uint64_t** invsqrt_data = new uint64_t*[n_row];
-//    for (int i = 0; i < n_row; i++) {
-//        invsqrt_data[i] = new uint64_t[n_row];
-//        for(int j = 0; j < n_row; j++) {
-//            // generate shares
-//            uint64_t val = 0;
-//            for (int k = 3; k >= 0; k -= 1) {
-//                a = rand() & 0xffff;
-//                val = val ^ (a << (k * 16));
-//            }
-//
-//            if (role == 0) {
-//                invsqrt_data[i][j] = val;
-//            } else {
-//                invsqrt_data[i][j] = convert2uint64(gram_matrix[i][j]) - val;
-//            }
-//        }
-//    }
+    uint64_t** invsqrt_data = proxy->CreateShare(gram_matrix, n_row, n_row);
     delete[] gram_matrix;
     return invsqrt_data;
 }
@@ -151,34 +117,32 @@ static uint64_t** random_gram_matrix(Party *proxy, int n_row, int n_col) {
  *                  window row size
  *         (matrix column size * matrix row size) will be the dimension of the matrix (m_size) and the generated matrix data will contain (m_size * matrix_number) values
  */
-static double* random_window_matrix(Party *proxy, uint8_t matrix_number=2, double max_num=255.99, bool neg_flag=true){
+static double* RandomWindowMatrix(Party *proxy, uint8_t matrix_number= 2, double max_num= 255.99, bool neg_flag= true){
     cout << "Generate matrix with random values... " << endl;
     uint32_t mColSize = 0, mRowSize = 0;
     uint32_t w_dim = 0; // w_rows = 0;
     while (w_dim < 1){
-        w_dim = proxy->generateCommonRandom() % (L_BIT / 4);  // divide by 2 so that a valid mColSize can be found
+        w_dim = proxy->GenerateCommonRandom() % (L_BIT / 4);  // divide by 2 so that a valid mColSize can be found
     }
     //TODO adapt to asymmetric window sizes
     /**
     while (w_rows < 1){
-        w_rows = proxy->generateCommonRandom() % (L/4);
+        w_rows = proxy->GenerateCommonRandom() % (L/4);
     }*/
     while (mColSize <= w_dim || (mColSize % w_dim) != 0){ // matrix contains at least 2 windows, windows fit completely
-        mColSize = proxy->generateCommonRandom() % L_BIT;
+        mColSize = proxy->GenerateCommonRandom() % L_BIT;
     }
     while (mRowSize <= w_dim || (mRowSize % w_dim) != 0){
-        mRowSize = proxy->generateCommonRandom() % L_BIT;
+        mRowSize = proxy->GenerateCommonRandom() % L_BIT;
     }
-
-    //cout << "mR=" << mRowSize << "; mC=" << mColSize << "; window=" << w_dim << " x " << w_dim << endl;
     uint64_t mSize = mRowSize * mColSize;
     //                            for the 4 random parts: matrix A and B, mTmp A and B
     double *randData = new double [mSize*matrix_number + 4]; // +4 for the 4 values specifying matrix + window dimensions
-    randData = random_1D_data(proxy, mSize*matrix_number, max_num, neg_flag);
+    randData = Random1dData(proxy, mSize * matrix_number, max_num, neg_flag);
     randData[-4] = mColSize;
     randData[-3] = mRowSize;
     randData[-2] = w_dim;
-    randData[-1] = 0; //w_rows;
+    randData[-1] = 0;
     return randData;
 }
 
@@ -186,10 +150,10 @@ static double* random_window_matrix(Party *proxy, uint8_t matrix_number=2, doubl
 /*
  * Printing functions for debugging purposes. There are functions to print out secret shared scalar, 1D and
  * 2D arrays either in secret shared form or after reconstruction. There are similar functions for plaintext data as well.
- * Moreoever, for 1D and 2D arrays, there is an option that one can set to print out horizontally or vertically.
+ * Moreover, for 1D and 2D arrays, there is an option that one can set to print out horizontally or vertically.
  */
 // Printing the data of type uint64_t for debugging purposes
-void print2DArray(string const &str1, uint64_t** x, uint32_t n_row, uint32_t n_col, bool horizontal=true) {
+void Print2dArray(string const &str1, uint64_t** x, uint32_t n_row, uint32_t n_col, bool horizontal= true) {
     // horizontal: true if the resulting print-out is desired row-by-col
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
@@ -213,7 +177,7 @@ void print2DArray(string const &str1, uint64_t** x, uint32_t n_row, uint32_t n_c
     cout << "==============================================================" << endl;
 }
 
-void print1DArray(string const &str1, uint64_t* x, uint32_t size, bool horizontal=true) {
+void Print1dArray(string const &str1, uint64_t* x, uint32_t size, bool horizontal= true) {
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for (uint32_t i = 0; i < size; i++) {
@@ -229,67 +193,14 @@ void print1DArray(string const &str1, uint64_t* x, uint32_t size, bool horizonta
     cout << "==============================================================" << endl;
 }
 
-void printValue(string const &str1, uint64_t x) {
+void PrintValue(string const &str1, uint64_t x) {
     cout << "======================= " << str1 << " =======================" << endl;
     cout << x << endl;
     cout << "==============================================================" << endl;
 }
 
-// Printing the data of type uint64_t for debugging purposes after reconstructing and converting
-/*
-void print2DArrayRecAndConv(Party* proxy, string const &str1, uint64_t** x, uint32_t n_row, uint32_t n_col,
-                            bool horizontal=true) {
-    // horizontal: true if the resulting print-out is desired row-by-col
-    double **d_x = convert2double(Reconstruct(proxy, x, n_row, n_col), n_row, n_col);
-    cout << "======================= " << str1 << " =======================" << endl;
-    if (horizontal) {
-        for (uint32_t i = 0; i < n_row; i++) {
-            for (uint32_t j = 0; j < n_col; j++) {
-                cout << d_x[i][j] << "\t";
-            }
-            cout << endl;
-        }
-    }
-    else {
-        for(uint32_t i = 0; i < n_col; i++) {
-            cout << i << ".\t";
-            for(uint32_t j = 0; j < n_row; j++) {
-                cout << d_x[j][i] << "\t";
-            }
-            cout << endl;
-        }
-    }
-    cout << "==============================================================" << endl;
-}
-
-
-void print1DArrayRecAndConv(Party *proxy, string const &str1, uint64_t* x, uint32_t size, bool horizontal=true) {
-    double * d_x = convert2double(Reconstruct( proxy, x, size), size);
-    cout << "======================= " << str1 << " =======================" << endl;
-    if(horizontal) {
-        for(uint32_t i = 0; i < size; i++) {
-            cout << d_x[i] << "\t";
-        }
-        cout << endl;
-    }
-    else {
-        for(uint32_t i = 0; i < size; i++) {
-            cout << i << ". " << d_x[i] << endl;
-        }
-    }
-    cout << "==============================================================" << endl;
-}
-
-void printValueRecAndConv(Party *proxy, string const &str1, uint64_t x) {
-    double d_x = convert2double(Reconstruct(proxy, x));
-    cout << "======================= " << str1 << " =======================" << endl;
-    cout << d_x << endl;
-    cout << "==============================================================" << endl;
-}
-*/
-
 // Printing the data of type double for debugging purposes
-void print2DArray(string const &str1, double** x, uint32_t n_row, uint32_t n_col, bool horizontal=true) {
+void Print2dArray(string const &str1, double** x, uint32_t n_row, uint32_t n_col, bool horizontal= true) {
     // horizontal: true if the resulting print-out is desired row-by-col
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
@@ -313,7 +224,7 @@ void print2DArray(string const &str1, double** x, uint32_t n_row, uint32_t n_col
     cout << "==============================================================" << endl;
 }
 
-void print1DArray(string const &str1, double* x, uint32_t size, bool horizontal=true) {
+void Print1dArray(string const &str1, double* x, uint32_t size, bool horizontal= true) {
     cout << "======================= " << str1 << " =======================" << endl;
     if(horizontal) {
         for(uint32_t i = 0; i < size; i++) {
@@ -329,7 +240,7 @@ void print1DArray(string const &str1, double* x, uint32_t size, bool horizontal=
     cout << "==============================================================" << endl;
 }
 
-void print1DNumpyFriendlyArray(string const &str1, double* x, uint32_t size) {
+void Print1dNumpyFriendlyArray(string const &str1, double* x, uint32_t size) {
     cout << "======================= " << str1 << " =======================" << endl;
     cout << "[";
     for(uint32_t i = 0; i < size - 1; i++) {
@@ -339,14 +250,14 @@ void print1DNumpyFriendlyArray(string const &str1, double* x, uint32_t size) {
     cout << "==============================================================" << endl;
 }
 
-void printValue(string const &str1, double x) {
+void PrintValue(string const &str1, double x) {
     cout << "======================= " << str1 << " =======================" << endl;
     cout << x << endl;
     cout << "==============================================================" << endl;
 }
 
 
-void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, uint32_t m_col, uint32_t w_row,
+void Print1dMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, uint32_t m_col, uint32_t w_row,
                             uint32_t w_col) {
     cout << "======================= " << str1 << " =======================" << endl << endl;
     for(uint32_t i = 0; i < m_row; i++) {
@@ -373,7 +284,7 @@ void print1DMatrixByWindows(string const &str1, double *matrix, uint32_t m_row, 
 }
 
 // Matrix operations
-static double** multiply_matrices(double** m1, double** m2, int m1_row, int m1_col, int m2_col) {
+static double** MultiplyMatrices(double** m1, double** m2, int m1_row, int m1_col, int m2_col) {
     double tmp;
     double** res = new double*[m1_row];
     for( int i = 0; i < m1_row; i++) {
@@ -389,7 +300,7 @@ static double** multiply_matrices(double** m1, double** m2, int m1_row, int m1_c
     return res;
 }
 
-static double* multiply_matrice_vector(double** m1, double* m2, int m1_row, int m1_col) {
+static double* MultiplyMatrixVector(double** m1, double* m2, int m1_row, int m1_col) {
     double tmp;
     double* res = new double[m1_row];
     for( int i = 0; i < m1_row; i++) {
@@ -402,7 +313,7 @@ static double* multiply_matrice_vector(double** m1, double* m2, int m1_row, int 
     return res;
 }
 
-double*** double_MATMATMUL(double ***a, double ***b, uint32_t n_mats, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+double*** DoubleMatrixMatrixMultiply(double ***a, double ***b, uint32_t n_mats, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
     /*
      * Perform several multiplication of double matrices a and b. The function assumes that the number of columns of a equals to
      * the number of rows of b.
@@ -415,7 +326,7 @@ double*** double_MATMATMUL(double ***a, double ***b, uint32_t n_mats, uint32_t a
      * Returns a matrix of size n_mats-by-a_row-by-b_col
      */
     if(DEBUG_FLAG == 1)
-        cout << "************************************************************\ndouble_MATMATMUL is called" << endl;
+        cout << "************************************************************\nDoubleMatrixMatrixMultiply is called" << endl;
     double ***result = new double **[n_mats];
     for(uint32_t g = 0; g < n_mats; g++) {
         result[g] = new double*[a_row];
@@ -432,11 +343,11 @@ double*** double_MATMATMUL(double ***a, double ***b, uint32_t n_mats, uint32_t a
         }
     }
     if(DEBUG_FLAG == 1)
-        cout << "Returning from double_MATMATMUL...\n************************************************************" << endl;
+        cout << "Returning from DoubleMatrixMatrixMultiply...\n************************************************************" << endl;
     return result;
 }
 
-static void bubbleSort(double x[], int n) {
+static void BubbleSort(double x[], int n) {
     bool exchanges;
     do {
         exchanges = false;  // assume no exchanges
@@ -452,7 +363,7 @@ static void bubbleSort(double x[], int n) {
 /* Functions to read data with various sizes
  * They read arrays with different dimensionalities.
  */
-double** read_2D_array_GT(const string& fn, int n_anc, int n_dim, int k_mer) {
+double** Read2dArrayGt(const string& fn, int n_anc, int n_dim, int k_mer) {
     /*  This function reads the anchor points.
      *  Input(s):
      *  fn: file name
@@ -490,7 +401,7 @@ double** read_2D_array_GT(const string& fn, int n_anc, int n_dim, int k_mer) {
     return anchor_points;
 }
 
-double* read_1D_array_GT(const string& fn, int n_anc, bool bias_flag = true) {
+double* Read1dArrayGt(const string& fn, int n_anc, bool bias_flag = true) {
     /*  This function reads the weights in the linear classifier layer as well as the bias in this layer.
      *  Input(s):
      *  fn: file name
@@ -527,7 +438,6 @@ double* read_1D_array_GT(const string& fn, int n_anc, bool bias_flag = true) {
     // read every column data of a row and
     // store it in a string variable, 'word'
     while (getline(s, word, ',')) {
-//        cout << "Index: " << ind << "\tWord: " << word << endl;
         weights[ind] = stof(word);
         ind++;
     }
@@ -535,7 +445,7 @@ double* read_1D_array_GT(const string& fn, int n_anc, bool bias_flag = true) {
     return weights;
 }
 
-uint64_t** read_2D_array(Party* proxy, const string& fn, int n_anc, int n_dim, int k_mer) {
+uint64_t** Read2dArray(Party* proxy, const string& fn, int n_anc, int n_dim, int k_mer) {
     /*  This function reads the anchor points.
      *  Input(s):
      *  proxy: Party instance
@@ -565,11 +475,11 @@ uint64_t** read_2D_array(Party* proxy, const string& fn, int n_anc, int n_dim, i
         anchor_points[anc_ind] = new uint64_t[n_dim];
         while (getline(s, word, ',')) {
             uint64_t tmp;
-            if(proxy->getPRole() == P1) {
-                tmp  = convert2uint64(stof(word)) - proxy->generateCommonRandom();
+            if(proxy->GetPRole() == proxy1) {
+                tmp  = ConvertToUint64(stof(word)) - proxy->GenerateCommonRandom();
             }
             else {
-                tmp = proxy->generateCommonRandom();
+                tmp = proxy->GenerateCommonRandom();
             }
             anchor_points[anc_ind][dim_ind] = tmp;
             dim_ind++;
@@ -582,7 +492,7 @@ uint64_t** read_2D_array(Party* proxy, const string& fn, int n_anc, int n_dim, i
     return anchor_points;
 }
 
-uint64_t* read_1D_array(Party* proxy, const string& fn, int n_anc, bool bias_flag = true) {
+uint64_t* Read1dArray(Party* proxy, const string& fn, int n_anc, bool bias_flag = true) {
     /*  This function reads the weights in the linear classifier layer as well as the bias in this layer.
      *  Input(s):
      *  proxy: Party instance
@@ -621,11 +531,11 @@ uint64_t* read_1D_array(Party* proxy, const string& fn, int n_anc, bool bias_fla
     // store it in a string variable, 'word'
     while (getline(s, word, ',')) {
 //        cout << "Index: " << ind << "\tWord: " << word << endl;
-        if(proxy->getPRole() == P1) {
-            weights[ind] = convert2uint64(stof(word)) - proxy->generateCommonRandom();
+        if(proxy->GetPRole() == proxy1) {
+            weights[ind] = ConvertToUint64(stof(word)) - proxy->GenerateCommonRandom();
         }
         else {
-            weights[ind] = proxy->generateCommonRandom();
+            weights[ind] = proxy->GenerateCommonRandom();
         }
         ind++;
     }
@@ -636,7 +546,7 @@ uint64_t* read_1D_array(Party* proxy, const string& fn, int n_anc, bool bias_fla
 /*
  * Specific matrix/vector generation functions
  */
-static uint64_t* zero_1D_data(Party *proxy, int size) {
+static uint64_t* Zero1dData(Party *proxy, int size) {
     uint64_t* mat_data = new uint64_t[size];
     for (int i = 0; i < size; i++) {
         // generate shares
@@ -646,7 +556,7 @@ static uint64_t* zero_1D_data(Party *proxy, int size) {
             val = val ^ (a << (k * 16));
         }
 
-        if (proxy->getPRole() == 0) {
+        if (proxy->GetPRole() == 0) {
             mat_data[i] = val;
         } else {
             mat_data[i] = 0 - val;
@@ -661,13 +571,13 @@ static uint64_t* zero_1D_data(Party *proxy, int size) {
 string valid_alphabet = "ARNDCQEGHILKMFPSTWYV";
 string invalid_alphabet = "XBZJUO";
 
-static void MbubbleSort(double **x, int r, int c) {
+static void VectorisedBubbleSort(double **x, int r, int c) {
     for(int i = 0; i < r; i++) {
-        bubbleSort(x[i], c);
+        BubbleSort(x[i], c);
     }
 }
 
-static double** inplace_dp(double** m1, double** m2, int n_row, int n_col) {
+static double** InplaceDotProduct(double** m1, double** m2, int n_row, int n_col) {
     double tmp;
     double** res = new double*[n_row];
     for( int i = 0; i < n_row; i++) {
@@ -683,7 +593,7 @@ static double** inplace_dp(double** m1, double** m2, int n_row, int n_col) {
     return res;
 }
 
-static double multiply_vector_vector(double* m1, double* m2, int length) {
+static double MultiplyVectorVector(double* m1, double* m2, int length) {
     double tmp = 0;
     for( int i = 0; i < length; i++) {
         tmp += m1[i] * m2[i];
@@ -691,7 +601,7 @@ static double multiply_vector_vector(double* m1, double* m2, int length) {
     return tmp;
 }
 
-string recover_seq(const string& fn, int index) {
+string RecoverSequence(const string& fn, int index) {
     /*
      * Recover a sequence based on the indices read from the specified file
      */
@@ -720,8 +630,6 @@ string recover_seq(const string& fn, int index) {
     }
     cout << endl;
 
-//    cout << "seq_processing::recover_seq::last_nonzeros: " << last_nonzeros << endl;
-
     // just extract the characters until the last nonzero character
     char* seq = new char[last_nonzeros]();
     for(int i = 0; i < last_nonzeros; i++) {
@@ -733,7 +641,7 @@ string recover_seq(const string& fn, int index) {
     return str;
 }
 
-unordered_map<char, double*> generate_one_hot_mapping() {
+unordered_map<char, double*> GenerateOneHotMapping() {
     /*  This function generates a mapping for the characters that one can encounter in a protein sequence.
      *
      *  Input(s):
@@ -769,7 +677,7 @@ unordered_map<char, double*> generate_one_hot_mapping() {
     return one_hot_mapping;
 }
 
-uint64_t** encode_sequence(Party* proxy, string seq) {
+uint64_t** EncodeSequence(Party* proxy, string seq) {
     /*  This function encodes the sequence via one-hot encoding and returns the secret shared form of the two dimensional
      *  uint64_t array.
      *
@@ -781,10 +689,10 @@ uint64_t** encode_sequence(Party* proxy, string seq) {
      *  Secret shared form of one-hot encoding of the given sequence as the two dimensional uint64_t array
      */
 
-    unordered_map<char, double*> one_hot_mapping = generate_one_hot_mapping();
+    unordered_map<char, double*> one_hot_mapping = GenerateOneHotMapping();
 
     uint64_t** x_share = new uint64_t*[seq.length()];
-//    cout << "seq_processing::encode_sequence::sequence length: " << seq.length() << endl;
+//    cout << "seq_processing::EncodeSequence::sequence length: " << seq.length() << endl;
     for(int i = 0; i < seq.length(); i++) {
         // check if the character in the sequence exists in the mapping
         if(one_hot_mapping.find(seq[i]) == one_hot_mapping.end()) {
@@ -793,8 +701,10 @@ uint64_t** encode_sequence(Party* proxy, string seq) {
         }
 
         double* tmp = one_hot_mapping[seq[i]];
-        x_share[i] = proxy->createShare(tmp, 20);
+        x_share[i] = proxy->CreateShare(tmp, 20);
     }
 
     return x_share;
 }
+
+#endif //CECILIA_TEST_FUNCTIONS_H

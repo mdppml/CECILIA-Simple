@@ -17,7 +17,7 @@ constexpr int sz = 1000000;
 
 void AND_test(Party *proxy){
     ofstream txt;
-    cout<<setfill ('*')<<setw(50)<<"Calling Boolean AND";
+    cout<<setfill ('*')<<setw(50)<<"Calling Boolean And";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
     uint32_t size = sz;
     cout << "size " << sz << endl;
@@ -40,7 +40,7 @@ void AND_test(Party *proxy){
     proxy->SendBytes(BCORE_AND, params, 1);
 
     auto start = chrono::high_resolution_clock::now();
-    uint8_t* s = AND(proxy, x, y, size);
+    uint8_t* s = And(proxy, x, y, size);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
