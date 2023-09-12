@@ -112,6 +112,43 @@ uint64_t *ReconstructNarrow(Party *const proxy, const uint64_t *const a, uint32_
     return b;
 }
 
+
+uint64_t *ReconstructNarrowPermutation(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t ringbits) {
+    auto mask = (1<< ringbits)-1;
+    auto bsz = (uint32_t)ceil(ringbits/8.0);
+    uint64_t *b = new uint64_t[sz];
+    uint64_t *ab = new uint64_t[sz];
+    if ( proxy->getPRole() == P1 ) {
+        unsigned char *ptr = proxy->getBuffer1();
+        write2Buffer(a,ptr,sz,bsz);
+        thread thr1 = thread(Send,proxy->getSocketP2(), proxy->getBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->getSocketP2(), proxy->getBuffer2(), sz*bsz);
+        thr1.join();
+        thr2.join();
+
+        ptr = proxy->getBuffer2();
+        readBuffer(b,ptr,sz,bsz);
+        for (int i = 0; i < sz; i++) {
+            ab[i] = (b[a[i]-1]);
+        }
+
+    } else if ( proxy->getPRole() == P2) {
+        unsigned char *ptr = proxy->getBuffer1();
+        write2Buffer(a,ptr,sz,bsz);
+        thread thr1 = thread(Send,proxy->getSocketP1(), proxy->getBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->getSocketP1(), proxy->getBuffer2(), sz*bsz);
+        thr2.join();
+        thr1.join();
+        ptr = proxy->getBuffer2();
+        readBuffer(b,ptr,sz,bsz);
+        for (int i = 0; i < sz; i++) {
+            ab[i] = (a[b[i]-1]) ;
+        }
+    }
+    delete [] b;
+    return ab;
+}
+
 /**Reconstruct a secret shared 2D array.*/
 uint64_t** Reconstruct(Party *const proxy, const uint64_t *const *const a, uint32_t n_row, uint32_t n_col) {
     uint64_t **b = new uint64_t*[n_row];
