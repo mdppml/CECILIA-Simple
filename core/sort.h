@@ -1564,7 +1564,6 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
         delete[] randoms;
         delete[] tmp;
         delete[] dc;
-        //delete[] dn;
         auto end1 = chrono::high_resolution_clock::now();
         t_time +=
                 chrono::duration_cast<chrono::nanoseconds>(end1 - start1).count()*1e-9;
