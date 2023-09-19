@@ -132,8 +132,8 @@ public:
         return share;
     }
 
-    uint64_t CreateShare(double val){
-        uint64_t v = ConvertToUint64(val);
+    uint64_t CreateShare(double val, size_t shift=FRACTIONAL_BITS){
+        uint64_t v = ConvertToUint64(val, shift);
         uint64_t share;
         if (p_role == proxy1) {
             share = GenerateCommonRandom();
@@ -144,8 +144,8 @@ public:
         return share;
     }
 
-    uint64_t* CreateShare(double *val, uint32_t sz){
-        uint64_t *v = ConvertToUint64(val, sz);
+    uint64_t* CreateShare(double *val, uint32_t sz, size_t shift = FRACTIONAL_BITS){
+        uint64_t *v = ConvertToUint64(val, sz, shift);
         uint64_t *share = new uint64_t[sz];
         for (uint32_t i=0;i<sz;i++){
             if (p_role == proxy1) {
@@ -159,7 +159,7 @@ public:
         return share;
     }
 
-    uint64_t** CreateShare(double **val, uint32_t n_row, uint32_t n_col){
+    uint64_t** CreateShare(double **val, uint32_t n_row, uint32_t n_col, size_t shift = FRACTIONAL_BITS){
         uint64_t **v = ConvertToUint64(val, n_row, n_col);
         uint64_t **share = new uint64_t*[n_row];
         for (uint32_t i = 0; i < n_row; i++){

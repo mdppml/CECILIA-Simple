@@ -529,6 +529,7 @@ void MostSignificantBitSubroutine(
 
 
 // BenchmarkMostSignificantBit has 4 communication round. ModularConversion and PC are hardcoded in MostSignificantBit to reduce the number of communication rounds of MostSignificantBit calls.
+// TODO add shift to this and all calls of it
 uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, bool format = true) {
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint8_t f = proxy->GenerateCommonRandomByte() & 0x1;
@@ -670,6 +671,7 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
     return 0;
 }
 
+
 /** Most significant bit: Returns the first (=left-most) bit of @p x.
  *
  * @param x
@@ -687,6 +689,13 @@ uint64_t MostSignificantBit(Party *const proxy, uint64_t x) {
     }
 }
 
+/** Comparison between two numbers.
+ *
+ * @param proxy
+ * @param x
+ * @param y
+ * @return @p x > @p y
+ */
 uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t sz, int shift = FRACTIONAL_BITS) {
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t* diff = new uint64_t[sz];
