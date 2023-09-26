@@ -386,9 +386,7 @@ uint8_t PrivateCompareBool(Party *const proxy, uint64_t a, const uint8_t *const 
         PrivateCompareBool(proxy, nullptr, nullptr, 1, L1);
         return 0;
     } else {
-        uint64_t a_array[1];
-        a_array[0] = a;
-        auto result_vector = PrivateCompareBool(proxy, a_array, b, 1, L1);
+        auto result_vector = PrivateCompareBool(proxy, &a, b, 1, L1);
         uint64_t result = result_vector[0];
         delete[] result_vector;
         return result;
@@ -460,7 +458,7 @@ uint64_t *ModularConversion(Party *const proxy, const uint64_t *const x, uint32_
         thr1.join();
         thr2.join();
         // proxy1 and proxy2 will call MPrivateCompareBool
-        uint8_t *tmp = PrivateCompareBool(proxy, 0, 0, sz, L_BIT - 1);
+        PrivateCompareBool(proxy, 0, 0, sz, L_BIT - 1);
         return NULL;
     }
     return NULL;
@@ -826,7 +824,6 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
         unsigned char *ptr = proxy->GetBuffer1();
         unsigned char *ptr1 = ptr + (size*8);
         unsigned char *ptr2 = ptr + 2*(size*8);
-        // uint64_t **mt = new uint64_t*[3];
         uint64_t *mt[3];
         mt[0] = new uint64_t[size];
         mt[1] = new uint64_t[size];
@@ -949,7 +946,7 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
                 selected_e_contributions[(i * n_bits) + j] = e_contributions[(i * (n_bits + 1)) + j + 1];
             }
         }
-
+        delete[] e_contributions;
         // arrange all the shifted versions of the input value for MostSignificantBit
         uint64_t *partial_a = new uint64_t[size * n_bits];
         for(uint32_t i = 0; i < size; i++) {
@@ -960,11 +957,12 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
 
         // get secret shared form of the bits of the values that could contribute into the result
         uint64_t *bit_shares = MostSignificantBit(proxy, partial_a, size * n_bits, shift);
-
+        delete[] partial_a;
         // selection of the contribution of the bits of the value
         uint64_t *contributions = Multiplex(proxy, one_contributions, selected_e_contributions, bit_shares,
                                             size * n_bits, shift);
-
+        delete[] one_contributions;
+        delete[] bit_shares;
         // binary-tree-based multiplication of the contributions into the BenchmarkExp
         int cs = n_bits;
         bool flag = false;
@@ -992,8 +990,6 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
                 } else {
                     tmp1 = new uint64_t[size * ((cs + 1) / 2)];
                     tmp2 = new uint64_t[size * ((cs + 1) / 2)];
-
-                    size_t partial_size = cs / 2;
 
                     for(uint32_t i = 0; i < size; i++) {
                         copy(contributions + (i * cs), contributions + (i * cs) + ((cs + 1) / 2), tmp1 + (i * ((cs + 1) / 2)));
@@ -1024,17 +1020,6 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
         }
 
         // deleting dynamically allocated arrays
-        delete [] msb_a;
-        delete [] abs_a;
-        delete [] pec;
-        delete [] nec;
-        delete [] pos_e_contributions;
-        delete [] neg_e_contributions;
-        delete [] one_contributions;
-        delete [] repeated_msb_a;
-        delete [] e_contributions;
-        delete [] partial_a;
-        delete [] bit_shares;
         delete [] remaining;
 
         return contributions;
