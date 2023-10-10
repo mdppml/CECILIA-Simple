@@ -124,6 +124,56 @@ uint64_t** Reconstruct(Party *const proxy, const uint64_t *const *const a, uint3
     return b;
 }
 
+/**Reconstruct a secret shared 3D array.*/
+uint64_t*** Reconstruct(Party *const proxy, const uint64_t *const *const *const a, uint32_t n_matrices, uint32_t n_row, uint32_t n_col) {
+    if(proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+        uint64_t ***b = new uint64_t**[n_matrices];
+        unsigned char *ptr = proxy->GetBuffer1();
+        // add the values of a to the buffer and initialize b
+        for(int n = 0; n < n_matrices; n++) {
+            b[n] = new uint64_t * [n_row];
+            for (int i = 0; i < n_row; i++) {
+                b[n][i] = new uint64_t[n_col];
+                for( int j = 0; j < n_col; j++) {
+                    AddValueToCharArray(a[n][i][j], &ptr);
+                }
+            }
+        }
+        // determine the
+        int *partner_socket;
+        if (proxy->GetPRole() == proxy1) {
+            partner_socket = proxy->GetSocketP2();
+        }
+        else {
+            partner_socket = proxy->GetSocketP1();
+        }
+        thread thr1 = thread(Send, partner_socket, proxy->GetBuffer1(), n_matrices * n_row * n_col * 8);
+        thread thr2 = thread(Receive, partner_socket, proxy->GetBuffer2(), n_matrices * n_row * n_col * 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->GetBuffer2();
+
+        for(int n = 0; n < n_matrices; n++) {
+            for (int i = 0; i < n_row; i++) {
+                for (int j = 0; j < n_col; j++) {
+                    b[n][i][j] = ConvertToLong(&ptr);
+                }
+            }
+        }
+
+        for(int n = 0; n < n_matrices; n++) {
+            for (int i = 0; i < n_row; i++) {
+                for (int j = 0; j < n_col; j++) {
+                    b[n][i][j] += a[n][i][j];
+                }
+            }
+        }
+
+        return b;
+    }
+    return nullptr;
+}
+
 
 uint64_t Add(Party *const proxy, uint64_t a, uint64_t b) {
     return a + b;
@@ -173,6 +223,7 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
 
     srand(time(NULL));
     for (int i = 0; i < size; i++) {
+        cout << "Helper inside GenerateMultiplicationTriple (" << i << ")" << endl;
         uint64_t tmp_a = proxy->GenerateRandom();
         uint64_t tmp_b = proxy->GenerateRandom();
         uint64_t tmp_c = tmp_a * tmp_b; // Mod operation here?
@@ -180,14 +231,17 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
         // a
         mt1[0][i] = proxy->GenerateRandom();
         mt2[0][i] = tmp_a - mt1[0][i];
+        cout << "a - " << i << endl;
 
         // b
         mt1[1][i] = proxy->GenerateRandom();
         mt2[1][i] = tmp_b - mt1[1][i];
+        cout << "b - " << i << endl;
 
         // c
         mt1[2][i] = proxy->GenerateRandom();
         mt2[2][i] = tmp_c - mt1[2][i];
+        cout << "c - " << i << endl;
     }
 }
 
@@ -787,13 +841,16 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
     if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->GetPRole() == helper) {
+        cout << "Helper inside Multiply" << endl;
         uint64_t *mt1[3];
         uint64_t *mt2[3];
         for (int i = 0; i < 3; i++) {
             mt1[i] = new uint64_t[size];
             mt2[i] = new uint64_t[size];
+            cout << "Template initialization for multiplication triples... (" << i << ")" << endl;
         }
         GenerateMultiplicationTriple(proxy, mt1, mt2, size);
+        cout << "Generation of Multiplication Triples are done" << endl;
 
         // send the multiplication triples to proxy1
         unsigned char *ptr_out = proxy->GetBuffer1();
@@ -1167,49 +1224,205 @@ uint64_t*** MatrixMatrixMultiply(
 ) {
     int p_role = proxy->GetPRole();
     if (p_role == proxy1 || p_role == proxy2) {
-        // form a single vector for each matrix such that all required multiplications can be performed in one go
-        uint32_t size = n_matrices * a_row * a_col * b_col;
-        uint32_t size2 = a_row * a_col * b_col;
-        uint64_t *concat_a = new uint64_t[size];
-        uint64_t *concat_b = new uint64_t[size];
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            for (uint32_t i = 0; i < size2; i++) {
-                concat_a[size2 * n + i] = a[n][i / (a_col * b_col)][i % a_col];
-                concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
+        // templates for E and F matrices
+        uint64_t ***E = new uint64_t**[n_matrices];
+        uint64_t ***F = new uint64_t**[n_matrices];
+
+        // receive the shares of A, B and C matrices
+        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(),
+                n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        unsigned char *ptr = proxy->GetBuffer1();
+
+        uint64_t ***mt[3];
+        mt[0] = new uint64_t**[n_matrices];
+        mt[1] = new uint64_t**[n_matrices];
+        mt[2] = new uint64_t**[n_matrices];
+
+        for(int i = 0; i < n_matrices; i++) {
+            ConvertTo2dArray(&ptr, mt[0][i], a_row, a_col);
+            ConvertTo2dArray(&ptr, mt[1][i], a_col, b_col);
+            ConvertTo2dArray(&ptr, mt[2][i], a_row, b_col);
+
+            // <X-A>_1
+            E[i] = new uint64_t *[a_row];
+            for(int j = 0; j < a_row; j++) {
+                E[i][j] = new uint64_t[a_col];
+                for(int k = 0; k < a_col; k++) {
+                    E[i][j][k] = a[i][j][k] - mt[0][i][j][k];
+                }
             }
-        }
-        uint64_t *tmp = Multiply(proxy, concat_a, concat_b, size, shift);
-        // recover the resulting matrix
-        uint64_t ***res = new uint64_t **[n_matrices];
-        uint32_t ind = 0;
-        uint64_t tmp_sum;
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            res[n] = new uint64_t*[a_row];
-            for (uint32_t i = 0; i < a_row; i++) {
-                res[n][i] = new uint64_t[b_col];
-                for (uint32_t j = 0; j < b_col; j++) {
-                    tmp_sum = 0;
-                    for (uint32_t k = ind; k < ind + a_col; k++) {
-                        tmp_sum += tmp[k];
-                    }
-                    ind += a_col;
-                    res[n][i][j] = tmp_sum;
+
+            // <Y-B>_1
+            F[i] = new uint64_t *[a_col];
+            for(int j = 0; j < a_col; j++) {
+                F[i][j] = new uint64_t[b_col];
+                for(int k = 0; k < b_col; k++) {
+                    F[i][j][k] = b[i][j][k] - mt[1][i][j][k];
                 }
             }
         }
-        delete[] concat_a;
-        delete[] concat_b;
-        delete[] tmp;
 
-        return res;
+        // reconstruct E = X-A and F = Y-B
+        uint64_t ***recE = Reconstruct(proxy, E, n_matrices, a_row, a_col);
+        uint64_t ***recF = Reconstruct(proxy, F, n_matrices, a_col, b_col);
+
+        for(int n = 0; n < n_matrices; n++) {
+            for(int r = 0; r < a_row; r++) {
+                delete [] mt[0][n][r];
+                delete [] E[n][r];
+            }
+            delete [] mt[0][n];
+            delete [] E[n];
+
+            for(int r = 0; r < a_col; r++) {
+                delete [] mt[1][n][r];
+                delete [] F[n][r];
+            }
+            delete [] mt[1][n];
+            delete [] F[n];
+        }
+        delete [] mt[0];
+        delete [] mt[1];
+        delete [] E;
+        delete [] F;
+
+        // compute -role * E * F + <X>_role * F + E * <Y>_role + <C>_role
+        uint64_t ***z = new uint64_t**[n_matrices];
+        uint64_t ***tmpEF;
+        uint64_t ***tmpXF;
+        uint64_t ***tmpEY;
+        // the part below takes the majority of the time - it can be addressed for optimization
+        tmpEF = LocalMatrixMatrixMultiply(recE, recF, n_matrices, a_row, a_col, b_col);
+        tmpXF = LocalMatrixMatrixMultiply(a, recF, n_matrices, a_row, a_col, b_col);
+        tmpEY = LocalMatrixMatrixMultiply(recE, b, n_matrices, a_row, a_col, b_col);
+
+        for(int n = 0; n < n_matrices; n++) {
+            z[n] = new uint64_t * [a_row];
+            for(int i = 0; i < a_row; i++) {
+                z[n][i] = new uint64_t[b_col];
+                for(int j = 0; j < b_col; j++) {
+                    z[n][i][j] = (p_role * -1) * tmpEF[n][i][j] + tmpXF[n][i][j] + tmpEY[n][i][j] + mt[2][n][i][j];
+                    z[n][i][j] = Truncate(proxy, z[n][i][j], shift);
+                }
+            }
+        }
+
+        for(int n = 0; n < n_matrices; n++) {
+            for(int r = 0; r < a_row; r++) {
+                delete [] recE[n][r];
+                delete [] tmpEF[n][r];
+                delete [] tmpXF[n][r];
+                delete [] tmpEY[n][r];
+                delete [] mt[2][n][r];
+            }
+            delete [] recE[n];
+            delete [] tmpEF[n];
+            delete [] tmpXF[n];
+            delete [] tmpEY[n];
+            delete [] mt[2][n];
+
+            for(int r = 0; r < a_col; r++) {
+                delete [] recF[n][r];
+            }
+            delete [] recF[n];
+        }
+        delete [] recE;
+        delete [] recF;
+        delete [] tmpEF;
+        delete [] tmpXF;
+        delete [] tmpEY;
+        delete [] mt[2];
+
+        return z;
     }
     else if(p_role == helper) {
         if(a_row <= 0) {
             throw invalid_argument("core::MatrixMatrixMultiply-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
         }
-        // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-        Multiply(proxy, 0, 0, a_row, shift);
-        return NULL;
+        unsigned char *ptr_out = proxy->GetBuffer1();
+        unsigned char *ptr_out2 = proxy->GetBuffer2();
+
+        // temporary matrices to hold the current A, B and C matrices
+        uint64_t **tmpA = new uint64_t*[a_row];
+        uint64_t **tmpB = new uint64_t*[a_col];
+        uint64_t **tmpC;
+
+        for(int i = 0; i < a_row; i++) {
+            tmpA[i] = new uint64_t[a_col];
+        }
+        for(int i = 0; i < a_col; i++) {
+            tmpB[i] = new uint64_t[b_col];
+        }
+
+        uint64_t tmp; // to hold the generated random values
+
+        // matrix generations
+        for(uint32_t n = 0; n < n_matrices; n++) {
+            // generation of A
+            for(uint32_t i = 0; i < a_row; i++) {
+                for(uint32_t j = 0; j < a_col; j++) {
+                    tmpA[i][j] = proxy->GenerateRandom();
+                }
+            }
+            // generation of B
+            for(uint32_t i = 0; i < a_col; i++) {
+                for(uint32_t j = 0; j < b_col; j++) {
+                    tmpB[i][j] = proxy->GenerateRandom();
+                }
+            }
+
+            // calculation of A * B
+            tmpC = LocalMatrixMatrixMultiply(tmpA, tmpB, a_row, a_col, b_col);
+
+            // generation of shares of A
+            for(uint32_t i = 0; i < a_row; i++) {
+                for(uint32_t j = 0; j < a_col; j++) {
+                    tmp = proxy->GenerateRandom();
+                    AddValueToCharArray(tmp, &ptr_out);
+                    AddValueToCharArray(tmpA[i][j] - tmp, &ptr_out2);
+                }
+            }
+            // generation of shares of B
+            for(uint32_t i = 0; i < a_col; i++) {
+                for(uint32_t j = 0; j < b_col; j++) {
+                    tmp = proxy->GenerateRandom();
+                    AddValueToCharArray(tmp, &ptr_out);
+                    AddValueToCharArray(tmpB[i][j] - tmp, &ptr_out2);
+                }
+            }
+            // generation of shares of C
+            for(uint32_t i = 0; i < a_row; i++) {
+                for(uint32_t j = 0; j < b_col; j++) {
+                    tmp = proxy->GenerateRandom();
+                    AddValueToCharArray(tmp, &ptr_out);
+                    AddValueToCharArray(tmpC[i][j] - tmp, &ptr_out2);
+                }
+            }
+
+            for(int i = 0; i < a_row; i++) {
+                delete [] tmpC[i];
+            }
+            delete [] tmpC;
+        }
+
+        for(int i = 0; i < a_row; i++) {
+            delete [] tmpA[i];
+        }
+        delete [] tmpA;
+        for(int i = 0; i < a_col; i++) {
+            delete [] tmpB[i];
+        }
+        delete [] tmpB;
+
+        // send these matrices to proxy1 and proxy2, respectively
+        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(),
+                             n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(),
+                             n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        thr1.join();
+        thr2.join();
+
+        return nullptr;
     }
     else {
         return nullptr;
