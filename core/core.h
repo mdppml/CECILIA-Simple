@@ -223,7 +223,6 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
 
     srand(time(NULL));
     for (int i = 0; i < size; i++) {
-        cout << "Helper inside GenerateMultiplicationTriple (" << i << ")" << endl;
         uint64_t tmp_a = proxy->GenerateRandom();
         uint64_t tmp_b = proxy->GenerateRandom();
         uint64_t tmp_c = tmp_a * tmp_b; // Mod operation here?
@@ -231,17 +230,14 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
         // a
         mt1[0][i] = proxy->GenerateRandom();
         mt2[0][i] = tmp_a - mt1[0][i];
-        cout << "a - " << i << endl;
 
         // b
         mt1[1][i] = proxy->GenerateRandom();
         mt2[1][i] = tmp_b - mt1[1][i];
-        cout << "b - " << i << endl;
 
         // c
         mt1[2][i] = proxy->GenerateRandom();
         mt2[2][i] = tmp_c - mt1[2][i];
-        cout << "c - " << i << endl;
     }
 }
 
@@ -841,16 +837,13 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
     if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->GetPRole() == helper) {
-        cout << "Helper inside Multiply" << endl;
         uint64_t *mt1[3];
         uint64_t *mt2[3];
         for (int i = 0; i < 3; i++) {
             mt1[i] = new uint64_t[size];
             mt2[i] = new uint64_t[size];
-            cout << "Template initialization for multiplication triples... (" << i << ")" << endl;
         }
         GenerateMultiplicationTriple(proxy, mt1, mt2, size);
-        cout << "Generation of Multiplication Triples are done" << endl;
 
         // send the multiplication triples to proxy1
         unsigned char *ptr_out = proxy->GetBuffer1();
