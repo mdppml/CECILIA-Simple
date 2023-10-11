@@ -19,7 +19,8 @@ The benchmark bash script requires [toxiproxy](https://github.com/Shopify/toxipr
 
 ## Compiling
 
-### cmake
+### Building with CMake
+After cloning the repo into directory `CECILIA`, you can build the library `CECILIA` by executing the following commands. 
 ```bash
 mkdir build
 cd build
@@ -32,7 +33,8 @@ cmake -S ../ -G -DCMAKE_BUILD_TYPE=Release
 ```bash
 make
 ```
-### c++
+After the build completes, the output binaries can be found in `CECILIA/build/` directory 
+### Building with C++
 ### AUROC
 
 #### helper
