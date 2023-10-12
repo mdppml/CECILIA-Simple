@@ -18,6 +18,7 @@
  * @return truncated z is returned
  */
 uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
+//    cout << "Truncate - before z: " << bitset<64>(z) << endl;
     switch (proxy->GetPRole()) {
         case proxy1:
             z = ArithmeticShift(z, shift);
@@ -28,6 +29,7 @@ uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
         case helper:
             break;
     }
+//    cout << "Truncate - after z: " << bitset<64>(z) << endl;
     return z;
 }
 
@@ -894,6 +896,7 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
         uint64_t *z = new uint64_t[size];
         for (int i = 0; i < size; i++) {
             z[i] = proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
+//            cout << "z before truncation: " << ConvertToDouble(Reconstruct(proxy, z[i])) / (1 << shift) << endl;
             z[i] = Truncate(proxy, z[i], shift);
         }
         delete [] e_f;
@@ -1285,9 +1288,9 @@ uint64_t*** MatrixMatrixMultiply(
         uint64_t ***tmpXF;
         uint64_t ***tmpEY;
         // the part below takes the majority of the time - it can be addressed for optimization
-        tmpEF = LocalMatrixMatrixMultiply(recE, recF, n_matrices, a_row, a_col, b_col);
-        tmpXF = LocalMatrixMatrixMultiply(a, recF, n_matrices, a_row, a_col, b_col);
-        tmpEY = LocalMatrixMatrixMultiply(recE, b, n_matrices, a_row, a_col, b_col);
+        tmpEF = LocalMatrixMatrixMultiply(recE, recF, n_matrices, a_row, a_col, b_col, 0);
+        tmpXF = LocalMatrixMatrixMultiply(a, recF, n_matrices, a_row, a_col, b_col, 0);
+        tmpEY = LocalMatrixMatrixMultiply(recE, b, n_matrices, a_row, a_col, b_col, 0);
 
         for(int n = 0; n < n_matrices; n++) {
             z[n] = new uint64_t * [a_row];
@@ -1365,7 +1368,7 @@ uint64_t*** MatrixMatrixMultiply(
             }
 
             // calculation of A * B
-            tmpC = LocalMatrixMatrixMultiply(tmpA, tmpB, a_row, a_col, b_col);
+            tmpC = LocalMatrixMatrixMultiply(tmpA, tmpB, a_row, a_col, b_col, 0);
 
             // generation of shares of A
             for(uint32_t i = 0; i < a_row; i++) {
@@ -1473,42 +1476,37 @@ uint64_t** MatrixVectorMultiply(
 ) {
     int p_role = proxy->GetPRole();
     if (p_role == proxy1 || p_role == proxy2) {
-        // form a single vector for each matrix such that all required multiplications can be performed in one go
-        uint32_t size = n_matrices * a_row * a_col;
-        uint32_t size2 = a_row * a_col;
-        uint64_t *concat_a = new uint64_t[size];
-        uint64_t *concat_b = new uint64_t[size];
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            for (uint32_t i = 0; i < size2; i++) {
-                concat_a[size2 * n + i] = a[n][i / a_col][i % a_col];
-                concat_b[size2 * n + i] = b[n][i % a_col];
-            }
-        }
-        uint64_t *tmp = Multiply(proxy, concat_a, concat_b, size, shift);
-        // recover the resulting vector
-        uint64_t **res = new uint64_t*[n_matrices];
-        uint32_t ind = 0;
-        uint64_t tmp_sum;
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            res[n] = new uint64_t[a_row];
-            for (uint32_t i = 0; i < a_row; i++) {
-                tmp_sum = 0;
-                for (uint32_t k = ind; k < ind + a_col; k++) {
-                    tmp_sum += tmp[k];
-                }
-                ind += a_col;
-                res[n][i] = tmp_sum;
+        // reformat the given vectors into matrices, ensuring that one of their dimensions is 1
+        uint64_t ***mat_b = new uint64_t**[n_matrices];
+        for(uint32_t i = 0; i < n_matrices; i++) {
+            mat_b[i] = new uint64_t *[a_col];
+            for(uint32_t j = 0; j < a_col; j++) {
+                mat_b[i][j] = new uint64_t[1];
+                mat_b[i][j][0] = b[i][j];
             }
         }
 
-        delete[] concat_a;
-        delete[] concat_b;
-        delete[] tmp;
-        return res;
+        uint64_t ***result_array = MatrixMatrixMultiply(proxy, a, mat_b, n_matrices, a_row, a_col, 1);
+
+        for(uint32_t i = 0; i < n_matrices; i++) {
+            for(uint32_t j = 0; j < a_col; j++) {
+                delete [] mat_b[i][j];
+            }
+            delete [] mat_b[i];
+        }
+        delete [] mat_b;
+
+        uint64_t **result = new uint64_t *[n_matrices];
+        for(uint64_t i = 0; i < n_matrices; i++) {
+            result[i] = new uint64_t[a_row];
+            for(uint64_t j = 0; j < a_row; j++) {
+                result[i][j] = result_array[i][j][0];
+            }
+        }
+        return result;
     }
     else if(p_role == helper) {
-        // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-        Multiply(proxy, NULL, NULL, a_row, shift);
+        MatrixMatrixMultiply(proxy, NULL, NULL, n_matrices, a_row, a_col, 1, shift);
         return NULL;
     }
     else {

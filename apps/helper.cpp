@@ -80,7 +80,6 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 size1 = proxy->ReadInt();
                 size2 = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
                 MatrixMatrixMultiply(proxy, nullptr, nullptr, sz, size1, size2);
                 break;
             case coreVectorisedMatrixMatrixMultiply:
@@ -88,18 +87,18 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 size1 = proxy->ReadInt();
                 size2 = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
                 MatrixMatrixMultiply(proxy, nullptr, nullptr, n_matrices, sz, size1, size2);
                 break;
             case coreMatrixVectorMultiply:
-                sz = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-                MatrixVectorMultiply(proxy, nullptr, nullptr, sz, 0);
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MatrixVectorMultiply(proxy, nullptr, nullptr, size1, size2);
                 break;
             case coreVectorisedMatrixVectorMultiply:
-                sz = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-                MatrixVectorMultiply(proxy, nullptr, nullptr, 0, sz, 0);
+                n_matrices = proxy->ReadInt();
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MatrixVectorMultiply(proxy, nullptr, nullptr, n_matrices, size1, size2);
                 break;
             case cnnMax:
                 sz = proxy->ReadInt();

@@ -102,9 +102,9 @@ double ConvertToDouble(uint64_t x, int precision= FRACTIONAL_BITS) {
 
 uint64_t ConvertToUint64(double x, int precision = FRACTIONAL_BITS) {
     if (x < 0) {
-        return (uint64_t) 0 - (uint64_t) floor(abs(x * ((uint64_t) 1 << precision)));
+        return (uint64_t) 0 - (uint64_t) floor(abs(x * (((uint64_t) 1) << precision)));
     } else {
-        return (uint64_t) floor(x * ((uint64_t) 1 << precision));
+        return (uint64_t) floor(x * (((uint64_t) 1) << precision));
     }
 }
 
@@ -310,7 +310,9 @@ uint64_t GetModularInverse(uint64_t a){
  * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
  */
 uint64_t ArithmeticShift(uint64_t z, int n_shift = FRACTIONAL_BITS) {
+//    cout << bitset<64>(z) << endl;
     z = static_cast<uint64_t>( static_cast<int64_t>(z) >> n_shift);
+//    cout << bitset<64>(z) << endl;
     return z;
 }
 
@@ -334,11 +336,13 @@ uint64_t LocalMultiply(uint64_t a, uint64_t b, int shift = FRACTIONAL_BITS) {
         z = -1 * ((-1 * z) >> shift);
     }
     // v2
+//    cout << "LocalMultiply - before AS z: " << bitset<64>(z) << endl;
 //    if ((z >> 63) == 0) {
-//        z = AS(z);
+//        z = ArithmeticShift(z, FRACTIONAL_BITS);
 //    } else {
-//        z = -1 * AS(-1 * z);
+//        z = -1 * ArithmeticShift(-1 * z, FRACTIONAL_BITS);
 //    }
+//    cout << "LocalMultiply - after AS z: " << bitset<64>(z) << endl;
     return z;
 }
 
@@ -359,7 +363,7 @@ uint64_t* LocalMultiply(uint64_t *a, uint64_t *b, uint32_t size) {
     return result;
 }
 
-uint64_t** LocalMatrixMatrixMultiply(uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col) {
+uint64_t** LocalMatrixMatrixMultiply(uint64_t **a, uint64_t **b, uint32_t a_row, uint32_t a_col, uint32_t b_col, int shift = FRACTIONAL_BITS) {
     /*
      * Perform multiplication of matrices a and b. The function assumes that the number of columns of a equals to
      * the number of rows of b.
@@ -379,7 +383,7 @@ uint64_t** LocalMatrixMatrixMultiply(uint64_t **a, uint64_t **b, uint32_t a_row,
         }
         for (uint32_t j = 0; j < a_col; j++) {
             for (uint32_t k = 0; k < b_col; k++) {
-                result[i][k] += LocalMultiply(a[i][j], b[j][k]);
+                result[i][k] += LocalMultiply(a[i][j], b[j][k], shift);
             }
         }
     }
@@ -394,7 +398,8 @@ uint64_t*** LocalMatrixMatrixMultiply(
         uint32_t n_mats,
         uint32_t a_row,
         uint32_t a_col,
-        uint32_t b_col
+        uint32_t b_col,
+        int shift = FRACTIONAL_BITS
         ) {
     /*
      * Perform several multiplication of matrices a and b. The function assumes that the number of columns of a equals to
@@ -419,7 +424,7 @@ uint64_t*** LocalMatrixMatrixMultiply(
             }
             for (uint32_t j = 0; j < a_col; j++) {
                 for (uint32_t k = 0; k < b_col; k++) {
-                    result[g][i][k] += LocalMultiply(a[g][i][j], b[g][j][k]);
+                    result[g][i][k] += LocalMultiply(a[g][i][j], b[g][j][k], shift);
                 }
             }
         }
