@@ -21,7 +21,7 @@
 #define MAX_SAMPLE_MASK 0x7ffff
 
 #define MAX_MATRIX_SIZE 20000
-#define BUFFER_SIZE 600000000
+#define BUFFER_SIZE 1200000000
 
 #define DEBUG_FLAG 0
 
@@ -34,7 +34,7 @@
 #define MAX_A 0x3fffff
 
 // constants for sockets
-#define SOCKET_NUMBER 8
+#define SOCKET_NUMBER 4
 
 enum Role {
     proxy1, proxy2, helper

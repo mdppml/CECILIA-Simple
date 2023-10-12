@@ -264,7 +264,8 @@ int main(int argc, char* argv[]) {
                 break;
             case boolXorToArithmetic3:
                 sz = proxy->ReadInt();
-                XorToArithmetic3(proxy, 0, sz);
+                size1 = proxy->ReadInt();
+                XorToArithmetic3(proxy, 0, sz, size1);
                 break;
             case coreEnd:
                 keep_looping = false;

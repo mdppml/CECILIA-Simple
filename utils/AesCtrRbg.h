@@ -78,22 +78,29 @@ public:
     }
 
     CryptoPP::byte GenerateByte() override {
-        Initialise();
-        if (buffer_position == kRandomBufferSize) {
-            ReplenishBuffer();
-        }
+       // Initialise();
+        //if (buffer_position == kRandomBufferSize) {
+        //    ReplenishBuffer();
+        //}
         CryptoPP::byte byte = current_buffer[buffer_position];
         buffer_position += 1;
         return byte;
+        //return *(current_buffer++);
+
     }
 
     uint64_t GenerateUint64() {
-        Initialise();
-        if (buffer_position+8 > kRandomBufferSize) {
-            ReplenishBuffer();
-        }
-        uint64_t random = *(uint64_t *)(current_buffer +buffer_position);
-        buffer_position += 8;
+//        Initialise();
+       // if (buffer_position+8 > kRandomBufferSize) {
+       //     ReplenishBuffer();
+       // }
+        //uint64_t random = *(uint64_t *)(current_buffer +buffer_position);
+       // auto val = 92834;
+//        uint64_t random = (val << 8)|(current_buffer[buffer_position]);
+        //uint64_t random = (*current_buffer<<56)| (*(current_buffer+1)<48)| (*(current_buffer+2)<<40)| (*(current_buffer+3)<<32)| (*(current_buffer+4)<<24)| (*(current_buffer+5)<<16)| (*(current_buffer+6)<<8);//|*(current_buffer+7);
+         uint64_t random = (current_buffer[buffer_position]<<56)| (current_buffer[buffer_position+1]<<48)| (current_buffer[buffer_position+2]<<40)| (current_buffer[buffer_position+3]<<32)| (current_buffer[buffer_position+4]<<24)| (current_buffer[buffer_position+5]<<16)| (current_buffer[buffer_position+6]<<8);// |(current_buffer[buffer_position+7]);
+         buffer_position += 1;
+        //current_buffer++;
         return random;
     }
 

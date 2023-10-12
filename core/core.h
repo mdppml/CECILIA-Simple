@@ -12,6 +12,12 @@
 #include <bitset>
 
 double recn_time = 0;
+double mul_triple_gen = 0;
+double mul_ef_calc = 0;
+double mul_z_calc = 0;
+double rec_calc = 0;
+double rec_transfer = 0;
+double rec_read = 0;
 
 /**
  * Perform the truncation operation which we use to keep the number of fractional bit consistent after Multiply operation
@@ -84,30 +90,54 @@ uint64_t *ReconstructNarrow(Party *const proxy, const uint64_t *const a, uint32_
     uint64_t *b = new uint64_t[sz];
     if ( proxy->GetPRole() == proxy1 ) {
         unsigned char *ptr = proxy->GetBuffer1();
+        //auto start = chrono::high_resolution_clock::now();
         WriteToBuffer(a, ptr, sz, bsz);
         thread thr1 = thread(Send,proxy->GetSocketP2(), proxy->GetBuffer1(), sz*bsz);
         thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), sz*bsz);
         thr1.join();
         thr2.join();
-
+       // auto end = chrono::high_resolution_clock::now();
+       // rec_transfer +=
+       //         chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+       // start = chrono::high_resolution_clock::now();
         ptr = proxy->GetBuffer2();
         ReadBuffer(b, ptr, sz, bsz);
+       // end = chrono::high_resolution_clock::now();
+       // rec_read +=
+       //         chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+       // start = chrono::high_resolution_clock::now();
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < sz; i++) {
             b[i] = (a[i] + b[i]) & mask;
         }
-
+        //end = chrono::high_resolution_clock::now();
+        //rec_calc +=
+        //        chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     } else if ( proxy->GetPRole() == proxy2) {
         unsigned char *ptr = proxy->GetBuffer1();
         WriteToBuffer(a, ptr, sz, bsz);
+        //auto start = chrono::high_resolution_clock::now();
         thread thr1 = thread(Send,proxy->GetSocketP1(), proxy->GetBuffer1(), sz*bsz);
         thread thr2 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer2(), sz*bsz);
         thr2.join();
         thr1.join();
+        //auto end = chrono::high_resolution_clock::now();
+        //rec_transfer +=
+        //               chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        //start = chrono::high_resolution_clock::now();
         ptr = proxy->GetBuffer2();
         ReadBuffer(b, ptr, sz, bsz);
+        //end = chrono::high_resolution_clock::now();
+        //rec_read +=
+        //          chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        //start = chrono::high_resolution_clock::now();
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < sz; i++) {
             b[i] = (a[i] + b[i]) & mask;
         }
+        //end = chrono::high_resolution_clock::now();
+	//rec_calc +=
+        //          chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     }
     return b;
 }
@@ -232,8 +262,8 @@ void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const c1, uint32
         uint64_t b0 = proxy->GenerateCommonRandom()&mask;
         uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
         uint64_t c0=  proxy->GenerateCommonRandom()&mask;
-        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
-    }
+        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; 
+        }
 }
 
 /**
@@ -975,20 +1005,14 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         uint64_t *c1 = new uint64_t[size];
 
         GenerateMultiplicationTriple(proxy, c1, size, mask);
-
         unsigned char *ptr_out2 = proxy->GetBuffer2();
         WriteToBuffer(c1, ptr_out2, size, bsz);
-        /*for (int j = 0; j < size; j++) {
-            AddValueToCharArray(c1[j], &ptr_out2, bsz);
-        }*/
-
         Send( proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
 
         delete[] c1;
         return 0;
 
     } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
-
         //total_mul += size;
         uint64_t *mt[3];
         mt[0] = new uint64_t[size]; //a
@@ -999,25 +1023,46 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         if (proxy->GetPRole() == proxy2) {
             Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz);
             unsigned char *ptr = proxy->GetBuffer1();
+            //auto start = chrono::high_resolution_clock::now();
             for (int i = 0; i < size; ++i) {
                 mt[0][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[1][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[2][i] = ConvertToLong(&ptr, bsz);
+	    }
+        //auto end = chrono::high_resolution_clock::now();
+        //mul_triple_gen +=
+        //       chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        //start = chrono::high_resolution_clock::now();
 
+#pragma omp parallel for num_threads(4)
+            for (int i = 0; i < size; ++i) {
                 concat_e_f[i] = (a[i] - mt[0][i])&mask;
                 concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
             }
+       // end = chrono::high_resolution_clock::now();
+       // mul_ef_calc +=
+       //        chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         }
         else { // P1
+         //   auto start = chrono::high_resolution_clock::now();
             for (int i = 0; i < size; ++i) {
                 mt[0][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[1][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[2][i] = proxy->GenerateCommonRandom2() & mask;
+		}
+           //auto end = chrono::high_resolution_clock::now();
+           //     mul_triple_gen +=
+           //                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+           //     start = chrono::high_resolution_clock::now();
 
-
+#pragma omp parallel for num_threads(4)
+            for (int i = 0; i < size; ++i) {
                 concat_e_f[i] = (a[i] - mt[0][i])&mask;
                 concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
-            }
+             }
+            //end = chrono::high_resolution_clock::now();
+            //mul_ef_calc +=
+            //chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         }
 
         auto start = chrono::high_resolution_clock::now();
@@ -1027,12 +1072,17 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
+	// start = chrono::high_resolution_clock::now();
 
         uint64_t *z = new uint64_t[size];
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < size; i++) {
             z[i] = (proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
-            z[i] = Truncate(proxy, z[i], shift);
+           // z[i] = Truncate(proxy, z[i], shift);
         }
+	 //end = chrono::high_resolution_clock::now();
+        //mul_z_calc +=
+               // chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         delete [] e_f;
         delete [] concat_e_f;
         for (auto &i : mt) {
@@ -1141,9 +1191,11 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         uint64_t *f = &e_f[size];
 
         uint64_t *z = new uint64_t[size];
+        int pRole = proxy->GetPRole();
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < size; i++) {
-            z[i] = (proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
-            z[i] = Truncate(proxy, z[i], shift);
+            z[i] = (pRole * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
+            //z[i] = Truncate(proxy, z[i], shift);
         }
         delete [] e_f;
         delete [] concat_e_f;
