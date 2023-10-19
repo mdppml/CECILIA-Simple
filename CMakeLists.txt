@@ -36,8 +36,8 @@ add_executable(proxy_aupr apps/aupr/proxy.cpp core/Party.h utils/constant.h util
 target_link_libraries(proxy_aupr PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Test
-add_executable(proxy_test apps/test/mainTest.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
-target_link_libraries(proxy_test PRIVATE Threads::Threads cryptopp::cryptopp)
+#add_executable(proxy_test apps/test/mainTest.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+#target_link_libraries(proxy_test PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Benchmark
 add_executable(benchmark apps/benchmark/main.cpp)

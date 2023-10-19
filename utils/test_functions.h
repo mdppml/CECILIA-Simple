@@ -12,8 +12,27 @@
 #include <random>
 
 #include <sstream>
+// Random matrix generation functions
+ /**
+  *
+  * @param proxy
+  * @param size size of the vector to be created
+  * @param max_num highest random number to be contained in the returned data, default is 10
+  * @param neg_flag allow negative values as default, set to false if they shall not be allowed
+  * @return
+  */
+ static double* Random1dData(Party *proxy, size_t size, double max_num= 10, bool neg_flag= true) {
+     double* mat_data = new double[size];
+     for (int i = 0; i < size; i++) {
+         mat_data[i] = max_num * (static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
+         if (neg_flag && rand() % 2 == 0) {
+             mat_data[i] *= -1;
+         }
+     }
+     return mat_data;
+ }
 
-static double* Random1dData(Party *proxy, size_t size, double min_num = -10, double max_num = 10) {
+ static double* Random1dData(Party *proxy, int size, double min_num, double max_num) {
     double* mat_data = new double[size];
     random_device rd; // obtain a random number from hardware
     mt19937 gen(rd()); // seed the generator
