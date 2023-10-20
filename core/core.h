@@ -40,7 +40,6 @@ uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
 }
 
 uint64_t *Reconstruct(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t mask= RING_SIZE) {
-
     uint64_t *b = new uint64_t[sz];
     if (proxy->GetPRole() == proxy1 ) {
         unsigned char *ptr = proxy->GetBuffer1();
@@ -228,6 +227,56 @@ uint64_t** Reconstruct(Party *const proxy, const uint64_t *const *const a, uint3
     return b;
 }
 
+/**Reconstruct a secret shared 3D array.*/
+uint64_t*** Reconstruct(Party *const proxy, const uint64_t *const *const *const a, uint32_t n_matrices, uint32_t n_row, uint32_t n_col) {
+    if(proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+        uint64_t ***b = new uint64_t**[n_matrices];
+        unsigned char *ptr = proxy->GetBuffer1();
+        // add the values of a to the buffer and initialize b
+        for(int n = 0; n < n_matrices; n++) {
+            b[n] = new uint64_t * [n_row];
+            for (int i = 0; i < n_row; i++) {
+                b[n][i] = new uint64_t[n_col];
+                for( int j = 0; j < n_col; j++) {
+                    AddValueToCharArray(a[n][i][j], &ptr);
+                }
+            }
+        }
+        // determine the
+        int *partner_socket;
+        if (proxy->GetPRole() == proxy1) {
+            partner_socket = proxy->GetSocketP2();
+        }
+        else {
+            partner_socket = proxy->GetSocketP1();
+        }
+        thread thr1 = thread(Send, partner_socket, proxy->GetBuffer1(), n_matrices * n_row * n_col * 8);
+        thread thr2 = thread(Receive, partner_socket, proxy->GetBuffer2(), n_matrices * n_row * n_col * 8);
+        thr1.join();
+        thr2.join();
+        ptr = proxy->GetBuffer2();
+
+        for(int n = 0; n < n_matrices; n++) {
+            for (int i = 0; i < n_row; i++) {
+                for (int j = 0; j < n_col; j++) {
+                    b[n][i][j] = ConvertToLong(&ptr);
+                }
+            }
+        }
+
+        for(int n = 0; n < n_matrices; n++) {
+            for (int i = 0; i < n_row; i++) {
+                for (int j = 0; j < n_col; j++) {
+                    b[n][i][j] += a[n][i][j];
+                }
+            }
+        }
+
+        return b;
+    }
+    return nullptr;
+}
+
 
 uint64_t Add(Party *const proxy, uint64_t a, uint64_t b) {
     return a + b;
@@ -262,7 +311,7 @@ void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const c1, uint32
         uint64_t b0 = proxy->GenerateCommonRandom()&mask;
         uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
         uint64_t c0=  proxy->GenerateCommonRandom()&mask;
-        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; 
+        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask;
         }
 }
 
@@ -523,9 +572,7 @@ uint8_t PrivateCompareBool(Party *const proxy, uint64_t a, const uint8_t *const 
         PrivateCompareBool(proxy, nullptr, nullptr, 1, L1);
         return 0;
     } else {
-        uint64_t a_array[1];
-        a_array[0] = a;
-        auto result_vector = PrivateCompareBool(proxy, a_array, b, 1, L1);
+        auto result_vector = PrivateCompareBool(proxy, &a, b, 1, L1);
         uint64_t result = result_vector[0];
         delete[] result_vector;
         return result;
@@ -597,7 +644,7 @@ uint64_t *ModularConversion(Party *const proxy, const uint64_t *const x, uint32_
         thr1.join();
         thr2.join();
         // proxy1 and proxy2 will call MPrivateCompareBool
-        uint8_t *tmp = PrivateCompareBool(proxy, 0, 0, sz, L_BIT - 1);
+        PrivateCompareBool(proxy, 0, 0, sz, L_BIT - 1);
         return NULL;
     }
     return NULL;
@@ -664,9 +711,19 @@ void MostSignificantBitSubroutine(
 }
 
 
-// BenchmarkMostSignificantBit has 4 communication round. ModularConversion and PC are hardcoded in MostSignificantBit to reduce the number of communication rounds of MostSignificantBit calls.
-uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, bool format = true) {
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+/**
+ * @brief Computes the most significant bit.
+ *
+ * MSB has 4 communication round. ModularConversion and PC are hardcoded in MostSignificantBit to reduce the number of
+ * communication rounds of MostSignificantBit calls.
+ * @param proxy p_proxy:
+ * @param x p_x:
+ * @param sz p_sz: The number of elements in x.
+ * @param format p_format: Whether to convert the result to the regular representation. Defaults to true.
+ * @return uint64_t* x < 0
+ */
+uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, int shift = FRACTIONAL_BITS, bool format = true) {
+    if ( proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
         uint8_t f = proxy->GenerateCommonRandomByte() & 0x1;
         uint64_t *z_1 = new uint64_t[sz];
         uint64_t *ya = new uint64_t[sz];
@@ -781,8 +838,8 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
             uint64_t val2 = (ConvertToLong(&ptr) + ConvertToLong(&ptr2)-(w[j]^res)*N1)/N1;
             jk += 16;
             if(format) {
-                val1 = ConvertToUint64((double) val1);
-                val2 = ConvertToUint64((double) val2);
+                val1 = ConvertToUint64((double) val1, shift);
+                val2 = ConvertToUint64((double) val2, shift);
             }
             uint64_t vs_1 = proxy->GenerateRandom();
             uint64_t vs_2 = (val1 - vs_1);
@@ -806,36 +863,43 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
     return 0;
 }
 
+
 /** Most significant bit: Returns the first (=left-most) bit of @p x.
  *
  * @param x
  * @return The first bit of @p x
  */
-uint64_t MostSignificantBit(Party *const proxy, uint64_t x) {
+uint64_t MostSignificantBit(Party *const proxy, uint64_t x, int shift=FRACTIONAL_BITS) {
     if (proxy->GetPRole() == helper) {
-        MostSignificantBit(proxy, nullptr, 1);
+        MostSignificantBit(proxy, nullptr, 1, shift);
         return 0;
     } else {
-        auto result_array = MostSignificantBit(proxy, &x, 1);
+        auto result_array = MostSignificantBit(proxy, &x, 1, shift);
         uint64_t result = result_array[0];
         delete[] result_array;
         return result;
     }
 }
 
+
+/** Comparison between two numbers.
+ *
+ * @param proxy
+ * @param x
+ * @param y
+ * @return @p x > @p y
+ */
 uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t sz, int shift = FRACTIONAL_BITS) {
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+    if ( proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
         uint64_t* diff = new uint64_t[sz];
         for (int i = 0; i < sz; i++) {
-            diff[i] = x[i] - y[i];
+            diff[i] = y[i] - x[i];
         }
-        uint64_t* m = MostSignificantBit(proxy, diff, sz);
-        for (int i = 0; i < sz; i++) {
-            m[i] = (proxy->GetPRole() << shift) - (m[i] << shift);
-        }
+        uint64_t* m = MostSignificantBit(proxy, diff, sz, shift);
+        delete[] diff;
         return m;
-    }else if (proxy->GetPRole() == helper) {
-        uint64_t* m = MostSignificantBit(proxy, 0, sz);
+    }else if ( proxy->GetPRole() == helper) {
+        MostSignificantBit(proxy, nullptr, sz, shift);
         return NULL;
     }
     return NULL;
@@ -846,7 +910,7 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
  * @param proxy
  * @param x
  * @param y
- * @return 0 if @p x < @p y else 1
+ * @return @p x > @p y
  */
 uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIONAL_BITS) {
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
@@ -861,22 +925,29 @@ uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIO
     return -1;
 }
 
+
 uint64_t* Equals(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t size, int shift = FRACTIONAL_BITS) {
-    uint64_t *xy = new uint64_t[size*2];
-    uint64_t *yx = new uint64_t[size*2];
-    std::memcpy(xy, x, size*8);
-    std::memcpy(yx, y, size*8);
-    std::memcpy(xy+size, y, size*8);
-    std::memcpy(yx+size, x, size*8);
-    uint64_t* greater_and_smaller = Compare(proxy, xy, yx, size, shift);
-    delete[] xy;
-    delete[] yx;
-    auto m = new uint64_t[size];
-    for (int i = 0; i < size; i++) {
-        m[i] = 1-greater_and_smaller[i]-greater_and_smaller[i+size];
+    if (proxy->GetPRole() != helper) {
+        uint64_t *xyx = new uint64_t[size*3];
+        std::copy(x, x+size, xyx);
+        std::copy(y, y+size, xyx+size);
+        std::copy(x, x+size, xyx+2*size);
+        uint64_t* greater_and_smaller = Compare(proxy, xyx, xyx+size, size*2, shift);
+        delete[] xyx;
+        auto m = new uint64_t[size];
+        for (int i = 0; i < size; i++) {
+            //if (proxy->getPRole() == P1) {
+             //   m[i] = greater_and_smaller[i]+greater_and_smaller[i+size]-convert2uint64(1.0, shift);
+            //} else {
+                m[i] = ConvertToUint64(0.5, shift) -greater_and_smaller[i] -greater_and_smaller[i+size];
+           // }
+        }
+        delete[] greater_and_smaller;
+        return m;
+    } else {
+        Compare(proxy, nullptr, nullptr, size*2, shift);
+        return nullptr;
     }
-    delete[] greater_and_smaller;
-    return m;
 }
 
 uint64_t Equals(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIONAL_BITS){
@@ -1222,7 +1293,7 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
 
     if (p_role == proxy1 || p_role == proxy2) {
         // compute the absolute of the input value
-        uint64_t* msb_a = MostSignificantBit(proxy, a, size);
+        uint64_t* msb_a = MostSignificantBit(proxy, a, size, shift);
         uint64_t* abs_a = new uint64_t[size];
         for(uint32_t i = 0; i < size; i++) {
             abs_a[i] = ((uint64_t) 0) - a[i];
@@ -1276,7 +1347,7 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
                 selected_e_contributions[(i * n_bits) + j] = e_contributions[(i * (n_bits + 1)) + j + 1];
             }
         }
-
+        delete[] e_contributions;
         // arrange all the shifted versions of the input value for MostSignificantBit
         uint64_t *partial_a = new uint64_t[size * n_bits];
         for(uint32_t i = 0; i < size; i++) {
@@ -1286,12 +1357,13 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
         }
 
         // get secret shared form of the bits of the values that could contribute into the result
-        uint64_t *bit_shares = MostSignificantBit(proxy, partial_a, size * n_bits);
-
+        uint64_t *bit_shares = MostSignificantBit(proxy, partial_a, size * n_bits, shift);
+        delete[] partial_a;
         // selection of the contribution of the bits of the value
         uint64_t *contributions = Multiplex(proxy, one_contributions, selected_e_contributions, bit_shares,
                                             size * n_bits, shift);
-
+        delete[] one_contributions;
+        delete[] bit_shares;
         // binary-tree-based multiplication of the contributions into the BenchmarkExp
         int cs = n_bits;
         bool flag = false;
@@ -1319,8 +1391,6 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
                 } else {
                     tmp1 = new uint64_t[size * ((cs + 1) / 2)];
                     tmp2 = new uint64_t[size * ((cs + 1) / 2)];
-
-                    size_t partial_size = cs / 2;
 
                     for(uint32_t i = 0; i < size; i++) {
                         copy(contributions + (i * cs), contributions + (i * cs) + ((cs + 1) / 2), tmp1 + (i * ((cs + 1) / 2)));
@@ -1351,25 +1421,14 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
         }
 
         // deleting dynamically allocated arrays
-        delete [] msb_a;
-        delete [] abs_a;
-        delete [] pec;
-        delete [] nec;
-        delete [] pos_e_contributions;
-        delete [] neg_e_contributions;
-        delete [] one_contributions;
-        delete [] repeated_msb_a;
-        delete [] e_contributions;
-        delete [] partial_a;
-        delete [] bit_shares;
         delete [] remaining;
 
         return contributions;
     }
-    else if (p_role == helper) {
-        MostSignificantBit(proxy, 0, size);
+    else if ( p_role == helper) {
+        MostSignificantBit(proxy, 0, size, shift);
         Multiplex(proxy, 0, 0, 0, size * (n_bits + 1), shift);
-        MostSignificantBit(proxy, 0, size * n_bits);
+        MostSignificantBit(proxy, 0, size * n_bits, shift);
         Multiplex(proxy, 0, 0, 0, size * n_bits, shift);
 
         int current_size = n_bits;
@@ -1509,49 +1568,205 @@ uint64_t*** MatrixMatrixMultiply(
 ) {
     int p_role = proxy->GetPRole();
     if (p_role == proxy1 || p_role == proxy2) {
-        // form a single vector for each matrix such that all required multiplications can be performed in one go
-        uint32_t size = n_matrices * a_row * a_col * b_col;
-        uint32_t size2 = a_row * a_col * b_col;
-        uint64_t *concat_a = new uint64_t[size];
-        uint64_t *concat_b = new uint64_t[size];
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            for (uint32_t i = 0; i < size2; i++) {
-                concat_a[size2 * n + i] = a[n][i / (a_col * b_col)][i % a_col];
-                concat_b[size2 * n + i] = b[n][i % a_col][(i % (a_col * b_col)) / a_col];
+        // templates for E and F matrices
+        uint64_t ***E = new uint64_t**[n_matrices];
+        uint64_t ***F = new uint64_t**[n_matrices];
+
+        // receive the shares of A, B and C matrices
+        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(),
+                n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        unsigned char *ptr = proxy->GetBuffer1();
+
+        uint64_t ***mt[3];
+        mt[0] = new uint64_t**[n_matrices];
+        mt[1] = new uint64_t**[n_matrices];
+        mt[2] = new uint64_t**[n_matrices];
+
+        for(int i = 0; i < n_matrices; i++) {
+            ConvertTo2dArray(&ptr, mt[0][i], a_row, a_col);
+            ConvertTo2dArray(&ptr, mt[1][i], a_col, b_col);
+            ConvertTo2dArray(&ptr, mt[2][i], a_row, b_col);
+
+            // <X-A>_1
+            E[i] = new uint64_t *[a_row];
+            for(int j = 0; j < a_row; j++) {
+                E[i][j] = new uint64_t[a_col];
+                for(int k = 0; k < a_col; k++) {
+                    E[i][j][k] = a[i][j][k] - mt[0][i][j][k];
+                }
             }
-        }
-        uint64_t *tmp = Multiply(proxy, concat_a, concat_b, size, shift);
-        // recover the resulting matrix
-        uint64_t ***res = new uint64_t **[n_matrices];
-        uint32_t ind = 0;
-        uint64_t tmp_sum;
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            res[n] = new uint64_t*[a_row];
-            for (uint32_t i = 0; i < a_row; i++) {
-                res[n][i] = new uint64_t[b_col];
-                for (uint32_t j = 0; j < b_col; j++) {
-                    tmp_sum = 0;
-                    for (uint32_t k = ind; k < ind + a_col; k++) {
-                        tmp_sum += tmp[k];
-                    }
-                    ind += a_col;
-                    res[n][i][j] = tmp_sum;
+
+            // <Y-B>_1
+            F[i] = new uint64_t *[a_col];
+            for(int j = 0; j < a_col; j++) {
+                F[i][j] = new uint64_t[b_col];
+                for(int k = 0; k < b_col; k++) {
+                    F[i][j][k] = b[i][j][k] - mt[1][i][j][k];
                 }
             }
         }
-        delete[] concat_a;
-        delete[] concat_b;
-        delete[] tmp;
 
-        return res;
+        // reconstruct E = X-A and F = Y-B
+        uint64_t ***recE = Reconstruct(proxy, E, n_matrices, a_row, a_col);
+        uint64_t ***recF = Reconstruct(proxy, F, n_matrices, a_col, b_col);
+
+        for(int n = 0; n < n_matrices; n++) {
+            for(int r = 0; r < a_row; r++) {
+                delete [] mt[0][n][r];
+                delete [] E[n][r];
+            }
+            delete [] mt[0][n];
+            delete [] E[n];
+
+            for(int r = 0; r < a_col; r++) {
+                delete [] mt[1][n][r];
+                delete [] F[n][r];
+            }
+            delete [] mt[1][n];
+            delete [] F[n];
+        }
+        delete [] mt[0];
+        delete [] mt[1];
+        delete [] E;
+        delete [] F;
+
+        // compute -role * E * F + <X>_role * F + E * <Y>_role + <C>_role
+        uint64_t ***z = new uint64_t**[n_matrices];
+        uint64_t ***tmpEF;
+        uint64_t ***tmpXF;
+        uint64_t ***tmpEY;
+        // the part below takes the majority of the time - it can be addressed for optimization
+        tmpEF = LocalMatrixMatrixMultiply(recE, recF, n_matrices, a_row, a_col, b_col, 0);
+        tmpXF = LocalMatrixMatrixMultiply(a, recF, n_matrices, a_row, a_col, b_col, 0);
+        tmpEY = LocalMatrixMatrixMultiply(recE, b, n_matrices, a_row, a_col, b_col, 0);
+
+        for(int n = 0; n < n_matrices; n++) {
+            z[n] = new uint64_t * [a_row];
+            for(int i = 0; i < a_row; i++) {
+                z[n][i] = new uint64_t[b_col];
+                for(int j = 0; j < b_col; j++) {
+                    z[n][i][j] = (p_role * -1) * tmpEF[n][i][j] + tmpXF[n][i][j] + tmpEY[n][i][j] + mt[2][n][i][j];
+                    z[n][i][j] = Truncate(proxy, z[n][i][j], shift);
+                }
+            }
+        }
+
+        for(int n = 0; n < n_matrices; n++) {
+            for(int r = 0; r < a_row; r++) {
+                delete [] recE[n][r];
+                delete [] tmpEF[n][r];
+                delete [] tmpXF[n][r];
+                delete [] tmpEY[n][r];
+                delete [] mt[2][n][r];
+            }
+            delete [] recE[n];
+            delete [] tmpEF[n];
+            delete [] tmpXF[n];
+            delete [] tmpEY[n];
+            delete [] mt[2][n];
+
+            for(int r = 0; r < a_col; r++) {
+                delete [] recF[n][r];
+            }
+            delete [] recF[n];
+        }
+        delete [] recE;
+        delete [] recF;
+        delete [] tmpEF;
+        delete [] tmpXF;
+        delete [] tmpEY;
+        delete [] mt[2];
+
+        return z;
     }
     else if(p_role == helper) {
         if(a_row <= 0) {
             throw invalid_argument("core::MatrixMatrixMultiply-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
         }
-        // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-        Multiply(proxy, 0, 0, a_row, shift);
-        return NULL;
+        unsigned char *ptr_out = proxy->GetBuffer1();
+        unsigned char *ptr_out2 = proxy->GetBuffer2();
+
+        // temporary matrices to hold the current A, B and C matrices
+        uint64_t **tmpA = new uint64_t*[a_row];
+        uint64_t **tmpB = new uint64_t*[a_col];
+        uint64_t **tmpC;
+
+        for(int i = 0; i < a_row; i++) {
+            tmpA[i] = new uint64_t[a_col];
+        }
+        for(int i = 0; i < a_col; i++) {
+            tmpB[i] = new uint64_t[b_col];
+        }
+
+        uint64_t tmp; // to hold the generated random values
+
+        // matrix generations
+        for(uint32_t n = 0; n < n_matrices; n++) {
+            // generation of A
+            for(uint32_t i = 0; i < a_row; i++) {
+                for(uint32_t j = 0; j < a_col; j++) {
+                    tmpA[i][j] = proxy->GenerateRandom();
+                }
+            }
+            // generation of B
+            for(uint32_t i = 0; i < a_col; i++) {
+                for(uint32_t j = 0; j < b_col; j++) {
+                    tmpB[i][j] = proxy->GenerateRandom();
+                }
+            }
+
+            // calculation of A * B
+            tmpC = LocalMatrixMatrixMultiply(tmpA, tmpB, a_row, a_col, b_col, 0);
+
+            // generation of shares of A
+            for(uint32_t i = 0; i < a_row; i++) {
+                for(uint32_t j = 0; j < a_col; j++) {
+                    tmp = proxy->GenerateRandom();
+                    AddValueToCharArray(tmp, &ptr_out);
+                    AddValueToCharArray(tmpA[i][j] - tmp, &ptr_out2);
+                }
+            }
+            // generation of shares of B
+            for(uint32_t i = 0; i < a_col; i++) {
+                for(uint32_t j = 0; j < b_col; j++) {
+                    tmp = proxy->GenerateRandom();
+                    AddValueToCharArray(tmp, &ptr_out);
+                    AddValueToCharArray(tmpB[i][j] - tmp, &ptr_out2);
+                }
+            }
+            // generation of shares of C
+            for(uint32_t i = 0; i < a_row; i++) {
+                for(uint32_t j = 0; j < b_col; j++) {
+                    tmp = proxy->GenerateRandom();
+                    AddValueToCharArray(tmp, &ptr_out);
+                    AddValueToCharArray(tmpC[i][j] - tmp, &ptr_out2);
+                }
+            }
+
+            for(int i = 0; i < a_row; i++) {
+                delete [] tmpC[i];
+            }
+            delete [] tmpC;
+        }
+
+        for(int i = 0; i < a_row; i++) {
+            delete [] tmpA[i];
+        }
+        delete [] tmpA;
+        for(int i = 0; i < a_col; i++) {
+            delete [] tmpB[i];
+        }
+        delete [] tmpB;
+
+        // send these matrices to proxy1 and proxy2, respectively
+        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(),
+                             n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(),
+                             n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        thr1.join();
+        thr2.join();
+
+        return nullptr;
     }
     else {
         return nullptr;
@@ -1609,42 +1824,37 @@ uint64_t** MatrixVectorMultiply(
 ) {
     int p_role = proxy->GetPRole();
     if (p_role == proxy1 || p_role == proxy2) {
-        // form a single vector for each matrix such that all required multiplications can be performed in one go
-        uint32_t size = n_matrices * a_row * a_col;
-        uint32_t size2 = a_row * a_col;
-        uint64_t *concat_a = new uint64_t[size];
-        uint64_t *concat_b = new uint64_t[size];
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            for (uint32_t i = 0; i < size2; i++) {
-                concat_a[size2 * n + i] = a[n][i / a_col][i % a_col];
-                concat_b[size2 * n + i] = b[n][i % a_col];
-            }
-        }
-        uint64_t *tmp = Multiply(proxy, concat_a, concat_b, size, shift);
-        // recover the resulting vector
-        uint64_t **res = new uint64_t*[n_matrices];
-        uint32_t ind = 0;
-        uint64_t tmp_sum;
-        for(uint32_t n = 0; n < n_matrices; n++) {
-            res[n] = new uint64_t[a_row];
-            for (uint32_t i = 0; i < a_row; i++) {
-                tmp_sum = 0;
-                for (uint32_t k = ind; k < ind + a_col; k++) {
-                    tmp_sum += tmp[k];
-                }
-                ind += a_col;
-                res[n][i] = tmp_sum;
+        // reformat the given vectors into matrices, ensuring that one of their dimensions is 1
+        uint64_t ***mat_b = new uint64_t**[n_matrices];
+        for(uint32_t i = 0; i < n_matrices; i++) {
+            mat_b[i] = new uint64_t *[a_col];
+            for(uint32_t j = 0; j < a_col; j++) {
+                mat_b[i][j] = new uint64_t[1];
+                mat_b[i][j][0] = b[i][j];
             }
         }
 
-        delete[] concat_a;
-        delete[] concat_b;
-        delete[] tmp;
-        return res;
+        uint64_t ***result_array = MatrixMatrixMultiply(proxy, a, mat_b, n_matrices, a_row, a_col, 1);
+
+        for(uint32_t i = 0; i < n_matrices; i++) {
+            for(uint32_t j = 0; j < a_col; j++) {
+                delete [] mat_b[i][j];
+            }
+            delete [] mat_b[i];
+        }
+        delete [] mat_b;
+
+        uint64_t **result = new uint64_t *[n_matrices];
+        for(uint64_t i = 0; i < n_matrices; i++) {
+            result[i] = new uint64_t[a_row];
+            for(uint64_t j = 0; j < a_row; j++) {
+                result[i][j] = result_array[i][j][0];
+            }
+        }
+        return result;
     }
     else if(p_role == helper) {
-        // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-        Multiply(proxy, NULL, NULL, a_row, shift);
+        MatrixMatrixMultiply(proxy, NULL, NULL, n_matrices, a_row, a_col, 1, shift);
         return NULL;
     }
     else {
@@ -1794,7 +2004,7 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
                 inp2[i] = (uint64_t) 0 - a[i];
                 inp2[size + i] = (uint64_t) 0 - b[i];
             }
-            signs = MostSignificantBit(proxy, inp1, 2 * size);
+            signs = MostSignificantBit(proxy, inp1, 2 * size, shift);
             uint64_t *abs_vals = Multiplex(proxy, inp1, inp2, signs, 2 * size, shift);
             a = &abs_vals[0];
             b = &abs_vals[size];
@@ -1819,7 +2029,7 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
                 tmp = tmp << 1;
             }
         }
-        uint64_t *bits_of_a = MostSignificantBit(proxy, msb_bits_of_a, L_BIT * size, false);
+        uint64_t *bits_of_a = MostSignificantBit(proxy, msb_bits_of_a, L_BIT * size, shift, false);
 
         delete [] msb_bits_of_a;
 
@@ -1886,7 +2096,6 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
             delete [] Q;
             delete [] R;
             delete [] a;
-            delete [] b;
             return div_res;
         }
 
@@ -1896,11 +2105,11 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
     }
     else if (proxy->GetPRole() == helper) {
         if(first_call) {
-            MostSignificantBit(proxy, 0, 2 * size);
+            MostSignificantBit(proxy, 0, 2 * size, shift);
             Multiplex(proxy, 0, 0, 0, 2 * size, shift);
         }
 
-        MostSignificantBit(proxy, 0, L_BIT * size, false);
+        MostSignificantBit(proxy, 0, L_BIT * size, shift, false);
 
         for (int16_t i = L_BIT - 1; i >= 0; i--) {
             Compare(proxy, 0, 0, size, shift);
@@ -1965,7 +2174,7 @@ uint64_t* Normalise(Party *const proxy, const uint64_t *const a, const uint64_t 
                 z[j] = ((a[j] - u[j]) << i) - b[j];
             }
 
-            uint64_t *msb_z = MostSignificantBit(proxy, z, size);
+            uint64_t *msb_z = MostSignificantBit(proxy, z, size, shift);
             delete [] z;
 
             uint64_t *concat_cont_and_subt = new uint64_t[size * 2];
@@ -1995,7 +2204,7 @@ uint64_t* Normalise(Party *const proxy, const uint64_t *const a, const uint64_t 
     }
     else if (proxy->GetPRole() == helper) {
         for(int i = 1; i <= shift; i++) {
-            MostSignificantBit(proxy, 0, size);
+            MostSignificantBit(proxy, 0, size, shift);
             Multiply(proxy, 0, 0, 2 * size, shift);
         }
     }

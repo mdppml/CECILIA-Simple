@@ -1,6 +1,11 @@
 # CECILIA
 
 CECILIA is a three-party computational framework that offers a variety of building blocks to facilitate more complex algorithms in a privacy preserving manner. It is implemented in C++.
+## Links to Related Papers
+
+[CECILIA: Comprehensive Secure Machine Learning Framework](https://arxiv.org/abs/2202.03023)
+
+[ppAURORA: Privacy Preserving Area Under Receiver Operating Characteristic and Precision-Recall Curves](https://arxiv.org/abs/2102.08788)
 
 ## Installation
 
@@ -14,6 +19,22 @@ The benchmark bash script requires [toxiproxy](https://github.com/Shopify/toxipr
 
 ## Compiling
 
+### Building with CMake
+After cloning the repo into directory `CECILIA`, you can build the library `CECILIA` by executing the following commands. 
+```bash
+mkdir build
+cd build
+```
+
+```bash
+cmake -S ../ -G -DCMAKE_BUILD_TYPE=Release
+```
+
+```bash
+make
+```
+After the build completes, the output binaries can be found in `CECILIA/build/` directory 
+### Building with C++
 ### AUROC
 
 #### helper

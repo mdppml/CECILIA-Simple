@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
     auto *proxy = new Party(helper, port, address);
     bool keep_looping = true;
-    uint32_t sz, n_gms, size1, size2;
+    uint32_t sz, n_gms, n_matrices, size1, size2;
     uint64_t params [9];
     Operation operation;
     auto start = chrono::high_resolution_clock::now();
@@ -84,23 +84,27 @@ int main(int argc, char* argv[]) {
                 break;
             case coreMatrixMatrixMultiply:
                 sz = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-                MatrixMatrixMultiply(proxy, nullptr, nullptr, sz, 0, 0);
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MatrixMatrixMultiply(proxy, nullptr, nullptr, sz, size1, size2);
                 break;
             case coreVectorisedMatrixMatrixMultiply:
+                n_matrices = proxy->ReadInt();
                 sz = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixMatrixMultiply
-                MatrixMatrixMultiply(proxy, nullptr, nullptr, 0, sz, 0, 0);
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MatrixMatrixMultiply(proxy, nullptr, nullptr, n_matrices, sz, size1, size2);
                 break;
             case coreMatrixVectorMultiply:
-                sz = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-                MatrixVectorMultiply(proxy, nullptr, nullptr, sz, 0);
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MatrixVectorMultiply(proxy, nullptr, nullptr, size1, size2);
                 break;
             case coreVectorisedMatrixVectorMultiply:
-                sz = proxy->ReadInt();
-                // note that a_row is the required size of the multiplication that will be performed in MatrixVectorMultiply
-                MatrixVectorMultiply(proxy, nullptr, nullptr, 0, sz, 0);
+                n_matrices = proxy->ReadInt();
+                size1 = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MatrixVectorMultiply(proxy, nullptr, nullptr, n_matrices, size1, size2);
                 break;
             case cnnMax:
                 sz = proxy->ReadInt();

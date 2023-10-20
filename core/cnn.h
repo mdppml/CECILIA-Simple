@@ -1386,7 +1386,7 @@ uint64_t*** ConvolutionalLayer(
     }
     else if (proxy->GetPRole() == helper){
         // convolution:
-        MatrixMatrixMultiply(proxy, nullptr, nullptr, 0, i_channel * output_channel * k_size * conv_len, 0, 0);
+        MatrixMatrixMultiply(proxy, nullptr, nullptr, i_channel,  output_channel, k_size,  conv_len);
         // ACTIVATION:
         Relu(proxy, nullptr, conv_len * output_channel);
         if (doMaxpooling){
@@ -1425,7 +1425,7 @@ uint64_t* FullyConnectedLayer(
         return added_bias;
     }
     else if (proxy->GetPRole() == helper){
-        MatrixVectorMultiply(proxy, nullptr, nullptr, node_number * in_size, 0);
+        MatrixVectorMultiply(proxy, nullptr, nullptr, node_number, in_size);
         return nullptr;
     }
     else{
