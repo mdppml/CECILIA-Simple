@@ -1579,23 +1579,14 @@ uint64_t*** MatrixMatrixMultiply(
         }
         unsigned char *ptr = proxy->GetBuffer1();
 
-//        uint64_t ***mt[3];
-//        mt[0] = new uint64_t**[n_matrices];
-//        mt[1] = new uint64_t**[n_matrices];
-//        mt[2] = new uint64_t**[n_matrices];
         uint64_t ***mt2 = new uint64_t**[n_matrices];
 
         for(int i = 0; i < n_matrices; i++) {
-//            ConvertTo2dArray(&ptr, mt[0][i], a_row, a_col);
-//            ConvertTo2dArray(&ptr, mt[1][i], a_col, b_col);
-//            ConvertTo2dArray(&ptr, mt[2][i], a_row, b_col);
-
             // <X-A>_1
             E[i] = new uint64_t *[a_row];
             for(int j = 0; j < a_row; j++) {
                 E[i][j] = new uint64_t[a_col];
                 for(int k = 0; k < a_col; k++) {
-//                    E[i][j][k] = a[i][j][k] - mt[0][i][j][k];
                     E[i][j][k] = a[i][j][k] - proxy->GenerateCommonRandom2();
                 }
             }
@@ -1605,7 +1596,6 @@ uint64_t*** MatrixMatrixMultiply(
             for(int j = 0; j < a_col; j++) {
                 F[i][j] = new uint64_t[b_col];
                 for(int k = 0; k < b_col; k++) {
-//                    F[i][j][k] = b[i][j][k] - mt[1][i][j][k];
                     F[i][j][k] = b[i][j][k] - proxy->GenerateCommonRandom2();
                 }
             }
@@ -1630,21 +1620,15 @@ uint64_t*** MatrixMatrixMultiply(
 
         for(int n = 0; n < n_matrices; n++) {
             for(int r = 0; r < a_row; r++) {
-//                delete [] mt[0][n][r];
                 delete [] E[n][r];
             }
-//            delete [] mt[0][n];
             delete [] E[n];
 
             for(int r = 0; r < a_col; r++) {
-//                delete [] mt[1][n][r];
                 delete [] F[n][r];
             }
-//            delete [] mt[1][n];
             delete [] F[n];
         }
-//        delete [] mt[0];
-//        delete [] mt[1];
         delete [] E;
         delete [] F;
 
