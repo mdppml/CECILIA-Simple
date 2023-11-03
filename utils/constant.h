@@ -8,7 +8,7 @@
 #define L_BIT 64
 #define LP 67
 #define SP 7
-#define FRACTIONAL_BITS 0
+#define FRACTIONAL_BITS 10
 #define RING_SIZE 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
