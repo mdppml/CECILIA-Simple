@@ -90,18 +90,16 @@ public:
     }
 
     void InitialiseRbg() {
-        if (p_role == proxy1) {
-            OS_GenerateRandomBlock(false, buffer, 32);
-            Send(&socket_p1[0], buffer, 32);
-            common_rbg = new AesCtrRbg(buffer, 32);
-            common_rbg->Initialise();
-        } else if (p_role == proxy2) {
-            Receive(&socket_p0[0], buffer, 32);
-            common_rbg = new AesCtrRbg(buffer, 32);
-            common_rbg->Initialise();
+        if (p_role != helper) {
+            if (p_role == proxy1) {
+                OS_GenerateRandomBlock(false, buffer, 32);
+                Send(&socket_p1[0], buffer, 32);
+            } else { // proxy2
+                Receive(&socket_p0[0], buffer, 32);
+            }
+            common_rbg = std::make_unique<AesCtrRbg>(buffer, 32);
         }
-        rbg = new AesCtrRbg();
-        rbg->Initialise();
+        rbg = std::make_unique<AesCtrRbg>();
     }
 
 
@@ -160,7 +158,7 @@ public:
     }
 
     uint64_t** CreateShare(double **val, uint32_t n_row, uint32_t n_col, size_t shift = FRACTIONAL_BITS){
-        uint64_t **v = ConvertToUint64(val, n_row, n_col);
+        uint64_t **v = ConvertToUint64(val, n_row, n_col, shift);
         uint64_t **share = new uint64_t*[n_row];
         for (uint32_t i = 0; i < n_row; i++){
             share[i] = new uint64_t[n_col];
@@ -172,6 +170,7 @@ public:
                     share[i][j] = v[i][j] - GenerateCommonRandom();
                 }
             }
+            delete[] v[i];
         }
         delete[] v;
         return share;
@@ -287,8 +286,8 @@ private:
     int socket_p0[SOCKET_NUMBER],socket_p1[SOCKET_NUMBER],socket_helper[SOCKET_NUMBER];
     uint8_t buffer[BUFFER_SIZE];
     uint8_t buffer2[BUFFER_SIZE];
-    AesCtrRbg* common_rbg;
-    AesCtrRbg* rbg;
+    std::unique_ptr<AesCtrRbg> common_rbg;
+    std::unique_ptr<AesCtrRbg> rbg;
     int n_bits; // number of bits of a value to consider in the BenchmarkExp computation
     int neg_n_bits; // number of bits of a negative value to consider in the BenchmarkExp computation
     double max_power = 0;

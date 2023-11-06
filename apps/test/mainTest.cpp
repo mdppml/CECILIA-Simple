@@ -25,6 +25,9 @@ static void TestMethods(const Test *const test, Role proxy_role) {
     if (all_working and (proxy_role == proxy2)) {
         std::cout << "All tested functions of " << test->name_ << " are working!" << std::endl;
     }
+    if (proxy_role != proxy2) {
+        std::cout << "Tests for " << test->name_ << " finished execution. Check proxy2 for the results." << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {

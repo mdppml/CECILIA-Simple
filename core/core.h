@@ -34,40 +34,44 @@ uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
 }
 
 uint64_t *Reconstruct(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t mask= RING_SIZE) {
-    uint64_t *b = new uint64_t[sz];
-    if (proxy->GetPRole() == proxy1 ) {
-        unsigned char *ptr = proxy->GetBuffer1();
-        for (int i = 0; i < sz; i++) {
-            AddValueToCharArray(a[i], &ptr);
-        }
-        thread thr1 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer1(), sz * 8);
-        thread thr2 = thread(Receive, proxy->GetSocketP2(), proxy->GetBuffer2(), sz * 8);
-        thr1.join();
-        thr2.join();
+    if (proxy->GetPRole() != helper) {
+        uint64_t *b = new uint64_t[sz];
+        if (proxy->GetPRole() == proxy1 ) {
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < sz; i++) {
+                AddValueToCharArray(a[i], &ptr);
+            }
+            thread thr1 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer1(), sz * 8);
+            thread thr2 = thread(Receive, proxy->GetSocketP2(), proxy->GetBuffer2(), sz * 8);
+            thr1.join();
+            thr2.join();
 
-        ptr = proxy->GetBuffer2();
-        for (int i = 0; i < sz; i++) {
-            b[i] = ConvertToLong(&ptr);
-        }
+            ptr = proxy->GetBuffer2();
+            for (int i = 0; i < sz; i++) {
+                b[i] = ConvertToLong(&ptr);
+            }
 
-    } else if (proxy->GetPRole() == proxy2) {
-        unsigned char *ptr = proxy->GetBuffer1();
-        for (int i = 0; i < sz; i++) {
-            AddValueToCharArray(a[i], &ptr);
+        } else if (proxy->GetPRole() == proxy2) {
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < sz; i++) {
+                AddValueToCharArray(a[i], &ptr);
+            }
+            thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), sz * 8);
+            thread thr2 = thread(Receive, proxy->GetSocketP1(), proxy->GetBuffer2(), sz * 8);
+            thr1.join();
+            thr2.join();
+            ptr = proxy->GetBuffer2();
+            for (int i = 0; i < sz; i++) {
+                b[i] = ConvertToLong(&ptr);
+            }
         }
-        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), sz * 8);
-        thread thr2 = thread(Receive, proxy->GetSocketP1(), proxy->GetBuffer2(), sz * 8);
-        thr1.join();
-        thr2.join();
-        ptr = proxy->GetBuffer2();
         for (int i = 0; i < sz; i++) {
-            b[i] = ConvertToLong(&ptr);
+            b[i] = (a[i] + b[i]) & mask;
         }
+        return b;
+    } else {
+        return nullptr;
     }
-    for (int i = 0; i < sz; i++) {
-        b[i] = (a[i] + b[i]) & mask;
-    }
-    return b;
 }
 
 uint64_t Reconstruct(Party *const proxy, uint64_t a, uint64_t mask= RING_SIZE) {
@@ -77,53 +81,57 @@ uint64_t Reconstruct(Party *const proxy, uint64_t a, uint64_t mask= RING_SIZE) {
     return result;
 }
 
+
 /**Reconstruct a secret shared 2D array.*/
 uint64_t** Reconstruct(Party *const proxy, const uint64_t *const *const a, uint32_t n_row, uint32_t n_col) {
-    uint64_t **b = new uint64_t*[n_row];
-    if (proxy->GetPRole() == proxy1) {
-        unsigned char *ptr = proxy->GetBuffer1();
+    if (proxy->GetPRole() != helper) {
+        uint64_t **b = new uint64_t*[n_row];
+        if (proxy->GetPRole() == proxy1) {
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < n_row; i++) {
+                b[i] = new uint64_t[n_col];
+                for( int j = 0; j < n_col; j++) {
+                    AddValueToCharArray(a[i][j], &ptr);
+                }
+            }
+            thread thr1 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer1(), n_row * n_col * 8);
+            thread thr2 = thread(Receive, proxy->GetSocketP2(), proxy->GetBuffer2(), n_row * n_col * 8);
+            thr1.join();
+            thr2.join();
+            ptr = proxy->GetBuffer2();
+            for (int i = 0; i < n_row; i++) {
+                for(int j = 0; j < n_col; j++) {
+                    b[i][j] = ConvertToLong(&ptr);
+                }
+            }
+        } else if (proxy->GetPRole() == proxy2) {
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < n_row; i++) {
+                for( int j = 0; j < n_col; j++) {
+                    AddValueToCharArray(a[i][j], &ptr);
+                }
+            }
+            thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), n_row * n_col * 8);
+            thread thr2 = thread(Receive, proxy->GetSocketP1(), proxy->GetBuffer2(), n_row * n_col * 8);
+            thr1.join();
+            thr2.join();
+            ptr = proxy->GetBuffer2();
+            for (int i = 0; i < n_row; i++) {
+                b[i] = new uint64_t[n_col];
+                for( int j = 0; j < n_col; j++) {
+                    b[i][j] = ConvertToLong(&ptr);
+                }
+            }
+        }
         for (int i = 0; i < n_row; i++) {
-            b[i] = new uint64_t[n_col];
             for( int j = 0; j < n_col; j++) {
-                AddValueToCharArray(a[i][j], &ptr);
+                b[i][j] = (a[i][j] + b[i][j]);
             }
         }
-        thread thr1 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer1(), n_row * n_col * 8);
-        thread thr2 = thread(Receive, proxy->GetSocketP2(), proxy->GetBuffer2(), n_row * n_col * 8);
-        thr1.join();
-        thr2.join();
-        ptr = proxy->GetBuffer2();
-        for (int i = 0; i < n_row; i++) {
-            for(int j = 0; j < n_col; j++) {
-                b[i][j] = ConvertToLong(&ptr);
-            }
-        }
-
-    } else if (proxy->GetPRole() == proxy2) {
-        unsigned char *ptr = proxy->GetBuffer1();
-        for (int i = 0; i < n_row; i++) {
-            for( int j = 0; j < n_col; j++) {
-                AddValueToCharArray(a[i][j], &ptr);
-            }
-        }
-        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), n_row * n_col * 8);
-        thread thr2 = thread(Receive, proxy->GetSocketP1(), proxy->GetBuffer2(), n_row * n_col * 8);
-        thr1.join();
-        thr2.join();
-        ptr = proxy->GetBuffer2();
-        for (int i = 0; i < n_row; i++) {
-            b[i] = new uint64_t[n_col];
-            for( int j = 0; j < n_col; j++) {
-                b[i][j] = ConvertToLong(&ptr);
-            }
-        }
+        return b;
+    } else {
+        return nullptr;
     }
-    for (int i = 0; i < n_row; i++) {
-        for( int j = 0; j < n_col; j++) {
-            b[i][j] = (a[i][j] + b[i][j]);
-        }
-    }
-    return b;
 }
 
 /**Reconstruct a secret shared 3D array.*/
@@ -180,6 +188,7 @@ uint64_t*** Reconstruct(Party *const proxy, const uint64_t *const *const *const 
 uint64_t Add(Party *const proxy, uint64_t a, uint64_t b) {
     return a + b;
 }
+
 /**
  * Adds values of a and b at equal position.
  * @param proxy
@@ -222,8 +231,6 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
  * @param size the number of multiplication triples that will be generated
  */
  void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const *const mt1, uint64_t *const *const mt2, uint32_t size) {
-
-    srand(time(NULL));
     for (int i = 0; i < size; i++) {
         uint64_t tmp_a = proxy->GenerateRandom();
         uint64_t tmp_b = proxy->GenerateRandom();
@@ -449,7 +456,7 @@ uint8_t PrivateCompareBool(Party *const proxy, uint64_t a, const uint8_t *const 
  *
  * @param x an array of values in the ring 2^63
  * @param sz the length of @p x
- * @return
+ * @return an array of values in the ring 2^64
  */
 uint64_t *ModularConversion(Party *const proxy, const uint64_t *const x, uint32_t sz) {
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
@@ -660,7 +667,7 @@ uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32
             for (int j = 0; j < L_BIT - 1; j++) {
                 uint8_t k = (y >> j) & 0x1;
                 uint8_t yb_1 = proxy->GenerateRandomByte() % 0x3f;
-                uint8_t yb_2 = LP - yb_1 + k; //Mod(k - yb_1, LP);
+                uint8_t yb_2 = LP - yb_1 + k;
                 AddValueToCharArray(yb_1, &ptr_out);
                 AddValueToCharArray(yb_2, &ptr_out2);
             }
@@ -931,6 +938,7 @@ uint64_t Multiply(Party *const proxy, uint64_t a, uint64_t b, int shift = FRACTI
     }
 }
 
+
 /** Multiple exponentials. Note that this function considers only the specific number of least significant bits not to
  * cause overflow. This is different for positive and negative powers.
  *
@@ -988,9 +996,15 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
                 repeated_msb_a[(i * (n_bits + 1)) + bi + 1] = msb_a[i];
             }
         }
+        delete[] msb_a;
+        delete[] abs_a;
+        delete[] pec;
+        delete[] nec;
         uint64_t *e_contributions = Multiplex(proxy, pos_e_contributions, neg_e_contributions, repeated_msb_a,
                                               size * (n_bits + 1), shift);
-
+        delete[] pos_e_contributions;
+        delete[] neg_e_contributions;
+        delete[] repeated_msb_a;
         uint64_t* new_a = new uint64_t[size];
         uint64_t* selected_e_contributions = new uint64_t[size * n_bits];
         for(uint32_t i = 0; i < size; i++) {
@@ -1203,7 +1217,7 @@ uint64_t DotProduct(Party *const proxy, const uint64_t *const a, const uint64_t 
  * @param a three dimensional matrix
  * @param b three dimensional matrix
  * @param n_matrices number of two-dimensional matrices of @p a and @p b
- * @param a_row number of rows per two-dimensional matrix; for helper: this must be the product of n_matrices * a_row * a_col * b_col, all other values are ignored.
+ * @param a_row number of rows per two-dimensional matrix
  * @param a_col number of columns per two-dimensional matrix of @p a
  * @param b_col number of columns per two-dimensional matrix of @p b
  * @return a matrix of size @p n_matrices by @p a_row by @p b_col
@@ -1332,9 +1346,6 @@ uint64_t*** MatrixMatrixMultiply(
         return z;
     }
     else if(p_role == helper) {
-        if(a_row <= 0) {
-            throw invalid_argument("core::MatrixMatrixMultiply-Helper: The given size is " + to_string(a_row) + ". It has to be positive integer.");
-        }
         unsigned char *ptr_out = proxy->GetBuffer1();
         unsigned char *ptr_out2 = proxy->GetBuffer2();
 
@@ -1430,7 +1441,7 @@ uint64_t*** MatrixMatrixMultiply(
  *
  * @param a two dimensional matrix
  * @param b two dimensional matrix
- * @param a_row number of rows of @p a and @p b; for helper: this must be the product of a_row * a_col * b_col, all other values are ignored.
+ * @param a_row number of rows of @p a and @p b
  * @param a_col number of columns of @p a
  * @param b_col number of columns of @p b
  * @return a matrix of size @p a_row by @p b_col
@@ -1461,7 +1472,7 @@ uint64_t** MatrixMatrixMultiply(
  * @param a three dimensional matrix
  * @param b two dimensional matrix
  * @param n_matrices number of matrices in @p a / vectors in @p b
- * @param a_row number of rows of @p a; for helper: this must be the product of a_row * a_col * n_matrices, all other values are ignored.
+ * @param a_row number of rows of @p a
  * @param a_col number of columns of @p a / size of @p b
  * @return a two-dimensional matrix of size @p n_matrices by @p a_row
  */
@@ -1518,7 +1529,7 @@ uint64_t** MatrixVectorMultiply(
  * the length of b.
  * @param a two dimensional matrix
  * @param b vector
- * @param a_row number of rows of @p a; for helper: this must be the product of a_row * a_col, a_col is ignored.
+ * @param a_row number of rows of @p a
  * @param a_col number of columns of @p a / size of @p b
  * @return a vector of size @p a_row
  */
@@ -1541,6 +1552,7 @@ uint64_t* MatrixVectorMultiply(
     }
 }
 
+// TODO test
 /** Get the Modular Inverse (ModularInverse) of a given number a with modulo being the specified ring size.
  * For the resulting/returned value b, it must hold ab Mod(modulo) are congruent to 1. The modulo under which a
  * multiplied with the inverse are equal to 1, will always be the ring size.
@@ -1634,6 +1646,8 @@ uint64_t ModularInverse(Party *const proxy, uint64_t a){
     return -1;
 }
 
+
+// TODO test
 /** Compute the vectorized division of a / b where a and b are vectors - not the integer approximation of the result
  *
  * @param proxy : Party instance
@@ -1799,6 +1813,7 @@ uint64_t Divide(Party *const proxy, uint64_t a, uint64_t b, int shift = FRACTION
     }
 }
 
+// TODO test
 /** Perform division operation, or more specifically normalization operation, of two given inputs. The operation is
  * taken from SecureNN, but it is implemented by using the building blocks of CECILIA. Note that there is an implicit
  * assumption for Normalize to work correctly: the elements of a must be less than the corresponding elements of b.

@@ -135,7 +135,7 @@ public:
 
     }
 
-    ~PartyBm() {
+    ~PartyBm() { // TODO actually delete stuff correctly
         delete[] vector_;
         delete[] vector_of_matrices_;
         delete[] vector_of_gram_matrices_;
@@ -181,7 +181,7 @@ public:
         return make_tuple(count, function_names);
     }
 
-    void BenchmarkPartialSum() { //TODO ask about d
+    void BenchmarkPartialSum() {
         PartialSum(this, vector_, vector_length_, 3);
     }
 

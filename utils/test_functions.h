@@ -32,7 +32,7 @@
      return mat_data;
  }
 
- static double* Random1dData(Party *proxy, int size, double min_num, double max_num) {
+ static double* Random1dData(Party *proxy, size_t size, double min_num, double max_num) {
     double* mat_data = new double[size];
     random_device rd; // obtain a random number from hardware
     mt19937 gen(rd()); // seed the generator
@@ -44,8 +44,6 @@
 }
 
 static double** Random2dData(Party *proxy, size_t n_row, size_t n_col, double min_num, double max_num) {
-    double d_tmp1;
-    uint64_t tmp1;
     double** mat_data = new double *[n_row];
     random_device rd; // obtain a random number from hardware
     mt19937 gen(rd()); // seed the generator
@@ -59,20 +57,25 @@ static double** Random2dData(Party *proxy, size_t n_row, size_t n_col, double mi
     return mat_data;
 }
 
+static double*** Random3dData(
+    Party *proxy, size_t matrix_count, size_t row_count, size_t column_count, double minimum, double maximum
+) {
+    double*** values = new double**[matrix_count];
+    for (int i = 0; i < matrix_count; i++) {
+        values[i] = Random2dData(proxy, row_count, column_count, minimum, maximum);
+    }
+    return values;
+}
+
 static uint64_t** RandomGramMatrix(Party *proxy, int n_row, int n_col) {
     double d_tmp1;
-    uint64_t tmp1, a;
-    int role = proxy->GetPRole();
 
     // data matrix generation
     double **rand_matrix = new double *[n_row];
     for(int i = 0; i < n_row; i++) {
         rand_matrix[i] = new double[n_col];
-
-        double tmp_sum = 0;
         for(int j = 0; j < n_col; j++) {
             d_tmp1 = 10 * (static_cast <float> (proxy->GenerateRandom()) / static_cast <float> (RAND_MAX));
-            tmp_sum += pow(d_tmp1, 2);
             rand_matrix[i][j] = d_tmp1;
         }
     }

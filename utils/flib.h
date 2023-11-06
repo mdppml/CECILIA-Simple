@@ -151,9 +151,9 @@ uint64_t* ConvertToUint64(double* x, uint32_t size, int precision= FRACTIONAL_BI
     double tmp = 1 << precision;
     for (int i = 0; i < size; i++) {
         if (x[i] < 0) {
-            res[i] = (uint64_t) 0 - (uint64_t) floor(abs(x[i] * (1 << precision)));
+            res[i] = (uint64_t) 0 - (uint64_t) floor(abs(x[i] * tmp));
         } else {
-            res[i] = (uint64_t) floor(x[i] * (1 << precision));
+            res[i] = (uint64_t) floor(x[i] * tmp);
         }
     }
     return res;
@@ -187,6 +187,16 @@ double **ConvertToDouble(uint64_t **x, uint32_t n_row, uint32_t n_col, int preci
     return res;
 }
 
+double ***ConvertToDouble(
+    uint64_t ***values, size_t matrix_count, size_t row_count, size_t column_count, int precision = FRACTIONAL_BITS
+) {
+    double*** result = new double**[matrix_count];
+    for (int i = 0; i < matrix_count; i++) {
+        result[i] = ConvertToDouble(values[i], row_count, column_count, precision);
+    }
+    return result;
+}
+
 uint64_t **ConvertToUint64(double** x, uint32_t n_row, uint32_t n_col, int precision= FRACTIONAL_BITS) {
     /*
      * Convert two-dimensional double array to two-dimensional uint64 array
@@ -206,9 +216,9 @@ uint64_t **ConvertToUint64(double** x, uint32_t n_row, uint32_t n_col, int preci
         res[i] = new uint64_t[n_col];
         for( uint32_t j = 0; j < n_col; j++) {
             if (x[i][j] < 0) { // negative values
-                res[i][j] = (uint64_t) 0 - (uint64_t) floor(abs(x[i][j] * (1 << precision)));
+                res[i][j] = (uint64_t) 0 - (uint64_t) floor(abs(x[i][j] * tmp));
             } else { // positive values
-                res[i][j] = (uint64_t) floor(x[i][j] * (1 << precision));
+                res[i][j] = (uint64_t) floor(x[i][j] * tmp);
             }
         }
     }
@@ -432,6 +442,40 @@ uint64_t*** LocalMatrixMatrixMultiply(
 
 
     return result;
+}
+
+void Delete2dMatrix(uint64_t** matrix, size_t row_count) {
+    for (int i = 0; i < row_count; i++) {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
+
+void Delete2dMatrix(double** matrix, size_t row_count) {
+    for (int i = 0; i < row_count; i++) {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
+
+void Delete3dMatrix(uint64_t*** matrix, size_t matrix_count, size_t row_count) {
+    for (int i = 0; i < matrix_count; i++) {
+        for (int ii = 0; ii < row_count; ii++) {
+            delete[] matrix[i][ii];
+        }
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
+
+void Delete3dMatrix(double*** matrix, size_t matrix_count, size_t row_count) {
+    for (int i = 0; i < matrix_count; i++) {
+        for (int ii = 0; ii < row_count; ii++) {
+            delete[] matrix[i][ii];
+        }
+        delete[] matrix[i];
+    }
+    delete[] matrix;
 }
 
 #endif //PML_FLIB_H

@@ -4,9 +4,7 @@ project(CECILIA)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_DEBUG "-O3")
 set(CMAKE_CXX_FLAGS_RELEASE  "-Wall -Wextra")
-set(CMAKE_CXX_FLAGS_RELEASE "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 # Libraries:
@@ -36,8 +34,12 @@ add_executable(proxy_aupr apps/aupr/proxy.cpp core/Party.h utils/constant.h util
 target_link_libraries(proxy_aupr PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Test
-#add_executable(proxy_test apps/test/mainTest.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
-#target_link_libraries(proxy_test PRIVATE Threads::Threads cryptopp::cryptopp)
+add_executable(proxy_test apps/test/mainTest.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+target_link_libraries(proxy_test PRIVATE Threads::Threads cryptopp::cryptopp)
+
+# Unit Tests
+add_executable(test apps/test/mainTest.cpp core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+target_link_libraries(test PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Benchmark
 add_executable(benchmark apps/benchmark/main.cpp)
