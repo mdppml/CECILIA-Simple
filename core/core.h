@@ -12,6 +12,12 @@
 #include <bitset>
 
 double recn_time = 0;
+double mul_triple_gen = 0;
+double mul_ef_calc = 0;
+double mul_z_calc = 0;
+double rec_calc = 0;
+double rec_transfer = 0;
+double rec_read = 0;
 
 /**
  * Perform the truncation operation which we use to keep the number of fractional bit consistent after Multiply operation
@@ -20,7 +26,6 @@ double recn_time = 0;
  * @return truncated z is returned
  */
 uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
-//    cout << "Truncate - before z: " << bitset<64>(z) << endl;
     switch (proxy->GetPRole()) {
         case proxy1:
             z = ArithmeticShift(z, shift);
@@ -31,7 +36,6 @@ uint64_t Truncate(Party *const proxy, uint64_t z, int shift = FRACTIONAL_BITS) {
         case helper:
             break;
     }
-//    cout << "Truncate - after z: " << bitset<64>(z) << endl;
     return z;
 }
 
@@ -89,30 +93,54 @@ uint64_t *ReconstructNarrow(Party *const proxy, const uint64_t *const a, uint32_
     uint64_t *b = new uint64_t[sz];
     if ( proxy->GetPRole() == proxy1 ) {
         unsigned char *ptr = proxy->GetBuffer1();
+        //auto start = chrono::high_resolution_clock::now();
         WriteToBuffer(a, ptr, sz, bsz);
         thread thr1 = thread(Send,proxy->GetSocketP2(), proxy->GetBuffer1(), sz*bsz);
         thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), sz*bsz);
         thr1.join();
         thr2.join();
-
+       // auto end = chrono::high_resolution_clock::now();
+       // rec_transfer +=
+       //         chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+       // start = chrono::high_resolution_clock::now();
         ptr = proxy->GetBuffer2();
         ReadBuffer(b, ptr, sz, bsz);
+       // end = chrono::high_resolution_clock::now();
+       // rec_read +=
+       //         chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+       // start = chrono::high_resolution_clock::now();
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < sz; i++) {
             b[i] = (a[i] + b[i]) & mask;
         }
-
+        //end = chrono::high_resolution_clock::now();
+        //rec_calc +=
+        //        chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     } else if ( proxy->GetPRole() == proxy2) {
         unsigned char *ptr = proxy->GetBuffer1();
         WriteToBuffer(a, ptr, sz, bsz);
+        //auto start = chrono::high_resolution_clock::now();
         thread thr1 = thread(Send,proxy->GetSocketP1(), proxy->GetBuffer1(), sz*bsz);
         thread thr2 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer2(), sz*bsz);
         thr2.join();
         thr1.join();
+        //auto end = chrono::high_resolution_clock::now();
+        //rec_transfer +=
+        //               chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        //start = chrono::high_resolution_clock::now();
         ptr = proxy->GetBuffer2();
         ReadBuffer(b, ptr, sz, bsz);
+        //end = chrono::high_resolution_clock::now();
+        //rec_read +=
+        //          chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        //start = chrono::high_resolution_clock::now();
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < sz; i++) {
             b[i] = (a[i] + b[i]) & mask;
         }
+        //end = chrono::high_resolution_clock::now();
+	//rec_calc +=
+        //          chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     }
     return b;
 }
@@ -290,8 +318,8 @@ void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const c1, uint32
         uint64_t b0 = proxy->GenerateCommonRandom()&mask;
         uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
         uint64_t c0=  proxy->GenerateCommonRandom()&mask;
-        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
-    }
+        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask;
+        }
 }
 
 /**
@@ -1003,7 +1031,6 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
         uint64_t *z = new uint64_t[size];
         for (int i = 0; i < size; i++) {
             z[i] = proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i];
-//            cout << "z before truncation: " << ConvertToDouble(Reconstruct(proxy, z[i])) / (1 << shift) << endl;
             z[i] = Truncate(proxy, z[i], shift);
         }
         delete [] e_f;
@@ -1052,20 +1079,14 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         uint64_t *c1 = new uint64_t[size];
 
         GenerateMultiplicationTriple(proxy, c1, size, mask);
-
         unsigned char *ptr_out2 = proxy->GetBuffer2();
         WriteToBuffer(c1, ptr_out2, size, bsz);
-        /*for (int j = 0; j < size; j++) {
-            AddValueToCharArray(c1[j], &ptr_out2, bsz);
-        }*/
-
         Send( proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
 
         delete[] c1;
         return 0;
 
     } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
-
         //total_mul += size;
         uint64_t *mt[3];
         mt[0] = new uint64_t[size]; //a
@@ -1076,25 +1097,46 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         if (proxy->GetPRole() == proxy2) {
             Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz);
             unsigned char *ptr = proxy->GetBuffer1();
+            //auto start = chrono::high_resolution_clock::now();
             for (int i = 0; i < size; ++i) {
                 mt[0][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[1][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[2][i] = ConvertToLong(&ptr, bsz);
+	    }
+        //auto end = chrono::high_resolution_clock::now();
+        //mul_triple_gen +=
+        //       chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        //start = chrono::high_resolution_clock::now();
 
+#pragma omp parallel for num_threads(4)
+            for (int i = 0; i < size; ++i) {
                 concat_e_f[i] = (a[i] - mt[0][i])&mask;
                 concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
             }
+       // end = chrono::high_resolution_clock::now();
+       // mul_ef_calc +=
+       //        chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         }
         else { // P1
+         //   auto start = chrono::high_resolution_clock::now();
             for (int i = 0; i < size; ++i) {
                 mt[0][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[1][i] = proxy->GenerateCommonRandom2() & mask;
                 mt[2][i] = proxy->GenerateCommonRandom2() & mask;
+		}
+           //auto end = chrono::high_resolution_clock::now();
+           //     mul_triple_gen +=
+           //                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+           //     start = chrono::high_resolution_clock::now();
 
-
+#pragma omp parallel for num_threads(4)
+            for (int i = 0; i < size; ++i) {
                 concat_e_f[i] = (a[i] - mt[0][i])&mask;
                 concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
-            }
+             }
+            //end = chrono::high_resolution_clock::now();
+            //mul_ef_calc +=
+            //chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         }
 
         auto start = chrono::high_resolution_clock::now();
@@ -1104,12 +1146,17 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         uint64_t *e = e_f;
         uint64_t *f = &e_f[size];
+	// start = chrono::high_resolution_clock::now();
 
         uint64_t *z = new uint64_t[size];
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < size; i++) {
             z[i] = (proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
-            z[i] = Truncate(proxy, z[i], shift);
+           // z[i] = Truncate(proxy, z[i], shift);
         }
+	 //end = chrono::high_resolution_clock::now();
+        //mul_z_calc +=
+               // chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
         delete [] e_f;
         delete [] concat_e_f;
         for (auto &i : mt) {
@@ -1218,9 +1265,11 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         uint64_t *f = &e_f[size];
 
         uint64_t *z = new uint64_t[size];
+        int pRole = proxy->GetPRole();
+#pragma omp parallel for num_threads(4)
         for (int i = 0; i < size; i++) {
-            z[i] = (proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
-            z[i] = Truncate(proxy, z[i], shift);
+            z[i] = (pRole * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
+            //z[i] = Truncate(proxy, z[i], shift);
         }
         delete [] e_f;
         delete [] concat_e_f;
@@ -1533,26 +1582,21 @@ uint64_t*** MatrixMatrixMultiply(
         uint64_t ***F = new uint64_t**[n_matrices];
 
         // receive the shares of A, B and C matrices
-        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(),
-                n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
+        if (p_role == proxy2) {
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(),
+                    n_matrices * a_row * b_col * 8);
+        }
         unsigned char *ptr = proxy->GetBuffer1();
 
-        uint64_t ***mt[3];
-        mt[0] = new uint64_t**[n_matrices];
-        mt[1] = new uint64_t**[n_matrices];
-        mt[2] = new uint64_t**[n_matrices];
+        uint64_t ***mt2 = new uint64_t**[n_matrices];
 
         for(int i = 0; i < n_matrices; i++) {
-            ConvertTo2dArray(&ptr, mt[0][i], a_row, a_col);
-            ConvertTo2dArray(&ptr, mt[1][i], a_col, b_col);
-            ConvertTo2dArray(&ptr, mt[2][i], a_row, b_col);
-
             // <X-A>_1
             E[i] = new uint64_t *[a_row];
             for(int j = 0; j < a_row; j++) {
                 E[i][j] = new uint64_t[a_col];
                 for(int k = 0; k < a_col; k++) {
-                    E[i][j][k] = a[i][j][k] - mt[0][i][j][k];
+                    E[i][j][k] = a[i][j][k] - proxy->GenerateCommonRandom2();
                 }
             }
 
@@ -1561,8 +1605,21 @@ uint64_t*** MatrixMatrixMultiply(
             for(int j = 0; j < a_col; j++) {
                 F[i][j] = new uint64_t[b_col];
                 for(int k = 0; k < b_col; k++) {
-                    F[i][j][k] = b[i][j][k] - mt[1][i][j][k];
+                    F[i][j][k] = b[i][j][k] - proxy->GenerateCommonRandom2();
                 }
+            }
+
+            if (p_role == proxy1) { // proxy1 generates its share of C locally using the common random generator with the helper
+                mt2[i] = new uint64_t *[a_row];
+                for (int j = 0; j < a_row; j++) {
+                    mt2[i][j] = new uint64_t[b_col];
+                    for (int k = 0; k < b_col; k++) {
+                        mt2[i][j][k] = proxy->GenerateCommonRandom2();
+                    }
+                }
+            }
+            else { // proxy2 gets its share of C from the helper
+                ConvertTo2dArray(&ptr, mt2[i], a_row, b_col);
             }
         }
 
@@ -1572,21 +1629,15 @@ uint64_t*** MatrixMatrixMultiply(
 
         for(int n = 0; n < n_matrices; n++) {
             for(int r = 0; r < a_row; r++) {
-                delete [] mt[0][n][r];
                 delete [] E[n][r];
             }
-            delete [] mt[0][n];
             delete [] E[n];
 
             for(int r = 0; r < a_col; r++) {
-                delete [] mt[1][n][r];
                 delete [] F[n][r];
             }
-            delete [] mt[1][n];
             delete [] F[n];
         }
-        delete [] mt[0];
-        delete [] mt[1];
         delete [] E;
         delete [] F;
 
@@ -1605,7 +1656,7 @@ uint64_t*** MatrixMatrixMultiply(
             for(int i = 0; i < a_row; i++) {
                 z[n][i] = new uint64_t[b_col];
                 for(int j = 0; j < b_col; j++) {
-                    z[n][i][j] = (p_role * -1) * tmpEF[n][i][j] + tmpXF[n][i][j] + tmpEY[n][i][j] + mt[2][n][i][j];
+                    z[n][i][j] = (p_role * -1) * tmpEF[n][i][j] + tmpXF[n][i][j] + tmpEY[n][i][j] + mt2[n][i][j];
                     z[n][i][j] = Truncate(proxy, z[n][i][j], shift);
                 }
             }
@@ -1617,13 +1668,13 @@ uint64_t*** MatrixMatrixMultiply(
                 delete [] tmpEF[n][r];
                 delete [] tmpXF[n][r];
                 delete [] tmpEY[n][r];
-                delete [] mt[2][n][r];
+                delete [] mt2[n][r];
             }
             delete [] recE[n];
             delete [] tmpEF[n];
             delete [] tmpXF[n];
             delete [] tmpEY[n];
-            delete [] mt[2][n];
+            delete [] mt2[n];
 
             for(int r = 0; r < a_col; r++) {
                 delete [] recF[n][r];
@@ -1635,68 +1686,66 @@ uint64_t*** MatrixMatrixMultiply(
         delete [] tmpEF;
         delete [] tmpXF;
         delete [] tmpEY;
-        delete [] mt[2];
+        delete [] mt2;
 
         return z;
     }
     else if(p_role == helper) {
         unsigned char *ptr_out = proxy->GetBuffer1();
-        unsigned char *ptr_out2 = proxy->GetBuffer2();
 
         // temporary matrices to hold the current A, B and C matrices
         uint64_t **tmpA = new uint64_t*[a_row];
+        uint64_t **tmpA1 = new uint64_t*[a_row];
+        uint64_t **tmpA2 = new uint64_t*[a_row];
         uint64_t **tmpB = new uint64_t*[a_col];
+        uint64_t **tmpB1 = new uint64_t*[a_col];
+        uint64_t **tmpB2 = new uint64_t*[a_col];
+        uint64_t **tmpC1 = new uint64_t*[a_row];
         uint64_t **tmpC;
 
         for(int i = 0; i < a_row; i++) {
             tmpA[i] = new uint64_t[a_col];
+            tmpA1[i] = new uint64_t[a_col];
+            tmpA2[i] = new uint64_t[a_col];
+            tmpC1[i] = new uint64_t[b_col];
         }
+
         for(int i = 0; i < a_col; i++) {
             tmpB[i] = new uint64_t[b_col];
+            tmpB1[i] = new uint64_t[b_col];
+            tmpB2[i] = new uint64_t[b_col];
         }
 
         uint64_t tmp; // to hold the generated random values
 
         // matrix generations
         for(uint32_t n = 0; n < n_matrices; n++) {
-            // generation of A
+            // generation of A and its shares
             for(uint32_t i = 0; i < a_row; i++) {
                 for(uint32_t j = 0; j < a_col; j++) {
-                    tmpA[i][j] = proxy->GenerateRandom();
+                    tmpA1[i][j] = proxy->GenerateCommonRandom();
+                    tmpA2[i][j] = proxy->GenerateCommonRandom2();
+                    tmpA[i][j] = tmpA1[i][j] + tmpA2[i][j];
                 }
             }
-            // generation of B
+
+            // generation of B and its shares
             for(uint32_t i = 0; i < a_col; i++) {
                 for(uint32_t j = 0; j < b_col; j++) {
-                    tmpB[i][j] = proxy->GenerateRandom();
+                    tmpB1[i][j] = proxy->GenerateCommonRandom();
+                    tmpB2[i][j] = proxy->GenerateCommonRandom2();
+                    tmpB[i][j] = tmpB1[i][j] + tmpB2[i][j];
                 }
             }
 
             // calculation of A * B
-            tmpC = LocalMatrixMatrixMultiply(tmpA, tmpB, a_row, a_col, b_col, 0);
+            tmpC = LocalMatrixMatrixMultiply(tmpA, tmpB, a_row, a_col, b_col, 0); // why shift=0?
 
-            // generation of shares of A
-            for(uint32_t i = 0; i < a_row; i++) {
-                for(uint32_t j = 0; j < a_col; j++) {
-                    tmp = proxy->GenerateRandom();
-                    AddValueToCharArray(tmp, &ptr_out);
-                    AddValueToCharArray(tmpA[i][j] - tmp, &ptr_out2);
-                }
-            }
-            // generation of shares of B
-            for(uint32_t i = 0; i < a_col; i++) {
-                for(uint32_t j = 0; j < b_col; j++) {
-                    tmp = proxy->GenerateRandom();
-                    AddValueToCharArray(tmp, &ptr_out);
-                    AddValueToCharArray(tmpB[i][j] - tmp, &ptr_out2);
-                }
-            }
             // generation of shares of C
             for(uint32_t i = 0; i < a_row; i++) {
                 for(uint32_t j = 0; j < b_col; j++) {
-                    tmp = proxy->GenerateRandom();
-                    AddValueToCharArray(tmp, &ptr_out);
-                    AddValueToCharArray(tmpC[i][j] - tmp, &ptr_out2);
+                    tmp = proxy->GenerateCommonRandom();
+                    AddValueToCharArray(tmpC[i][j] - tmp, &ptr_out);
                 }
             }
 
@@ -1708,20 +1757,25 @@ uint64_t*** MatrixMatrixMultiply(
 
         for(int i = 0; i < a_row; i++) {
             delete [] tmpA[i];
+            delete [] tmpA1[i];
+            delete [] tmpA2[i];
+            delete [] tmpC1[i];
         }
         delete [] tmpA;
+        delete [] tmpA1;
+        delete [] tmpA2;
+        delete [] tmpC1;
         for(int i = 0; i < a_col; i++) {
             delete [] tmpB[i];
+            delete [] tmpB1[i];
+            delete [] tmpB2[i];
         }
         delete [] tmpB;
+        delete [] tmpB1;
+        delete [] tmpB2;
 
         // send these matrices to proxy1 and proxy2, respectively
-        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(),
-                             n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
-        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(),
-                             n_matrices * (a_row * a_col + a_col * b_col + a_row * b_col) * 8);
-        thr1.join();
-        thr2.join();
+        Send(proxy->GetSocketP2(), proxy->GetBuffer1(), n_matrices * a_row * b_col * 8);
 
         return nullptr;
     }

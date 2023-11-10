@@ -3,6 +3,7 @@
 //
 #include <cstdlib>
 #include <iostream>
+#include <math.h>
 #include <chrono>
 #include <tuple>
 #include <iomanip>
@@ -19,8 +20,8 @@ void WriteResults(Party *proxy){
 
     string fileLine;
     vector<string> lines;
-    string fileName = "/Users/sesame/CECILIA_Refactored/results1.txt";
-    if(proxy->GetPRole()==proxy2) fileName = "/Users/sesame/CECILIA_Refactored/results2.txt";
+    string fileName = "/home/ubuntu/CECILIA/results1.txt";
+    if(proxy->GetPRole()==proxy2) fileName = "/home/ubuntu/CECILIA/results2.txt";
     ifstream readFile(fileName);
     if (readFile.is_open()){
         while (getline(readFile, fileLine)){
@@ -85,12 +86,12 @@ void VSortTest(Party *proxy){
 
     delete []a;
 }
-void SortNarrowTest(Party *proxy){
+void SortNarrowTest(Party *proxy, int sz2, int ringbits2){
     ofstream txt;
     cout<<setfill ('*')<<setw(50)<<"Calling SORT_test";
     cout<<setfill ('*')<<setw(49)<<"*"<<endl;
-    uint32_t size = sz;
-    cout<<"Size: "<<size<<endl;
+    uint32_t size = sz2;
+    cout<<"Size: "<<size << " \t ringbits: " << ringbits2 <<endl;
     auto* a =new uint64_t[size];
     for(int i = 0; i<size; i++) {
         //a[i] = proxy->generateCommonRandom();
@@ -104,11 +105,11 @@ void SortNarrowTest(Party *proxy){
 
     uint32_t params[2];
     params[0] = size;
-    params[1] = ringbits;
+    params[1] = ringbits2;
     proxy->SendBytes(coreSort2, params, 2);
     cout << "Calling Sort..\n";
     auto start = chrono::high_resolution_clock::now();
-    uint64_t* s = SortNarrow(proxy, a, size,ringbits);
+    uint64_t* s = SortNarrow(proxy, a, size,ringbits2);
     auto end = chrono::high_resolution_clock::now();
     double totaltime =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
@@ -122,12 +123,19 @@ void SortNarrowTest(Party *proxy){
     cout<<"Multiply Time:\t"<<mul_time<<endl;
     cout<<"Reconstruct Time:\t"<<recn_time<<endl;
     cout<<"CCM Time:\t"<<comp_time<<endl;
-    cout<<"TOT Time:\t"<<t_time<<endl;
-
+    cout<<"Total time:\t"<<t_time<<endl;
+    //cout<<"f Time:\t"<< perm_f <<endl;
+    //cout<<"s Time:\t"<< perm_s <<endl;
+    //cout<<"p Time:\t"<< perm_p <<endl;
+    //cout<<"REC transfer time:\t"<< rec_transfer <<endl;
+    //cout<<"REC read time:\t"<< rec_read <<endl;
+    //cout<<"MUL triple gen time:\t"<< mul_triple_gen <<endl;
+    //cout<<"REC ef calc:\t"<< mul_ef_calc <<endl;
+    
     WriteResults(proxy);
 
     cout << "Callng Reconstruct..\n";
-    uint64_t* sorted = ReconstructNarrowPermutation(proxy,s,size, ringbits);
+    uint64_t* sorted = ReconstructNarrowPermutation(proxy,s,size, ringbits2);
 
     for(int i = 0;i<10;i++){
         cout <<  sorted[i]<< endl;
@@ -188,8 +196,8 @@ int main(int argc, char* argv[]) {
     string caddress(argv[3]);
     uint16_t hport = atoi(argv[4]);
     string haddress(argv[5]);
-
-
+    int sz2 = atoi(argv[6]);
+    int ringbits2 = ceil(log2(sz2));
     Party *proxy;
     if (role == 0)
         proxy = new Party(proxy1, hport, haddress, cport, caddress);
@@ -200,8 +208,8 @@ int main(int argc, char* argv[]) {
 
     auto start = chrono::high_resolution_clock::now();
     //VSortTest(proxy);
-    //SortTest(proxy);
-    SortNarrowTest(proxy);
+//    SortTest(proxy);
+    SortNarrowTest(proxy, sz2, ringbits2);
     auto end = chrono::high_resolution_clock::now();
     double time_taken =
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();

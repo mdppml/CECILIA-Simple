@@ -669,9 +669,10 @@ uint64_t *XorToArithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
  * @param a XOR share
  * @param sz number of elements in the share
  * */
-uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
-    uint32_t mask = 0xfffff;
-    uint32_t bsz = sz/8 +1;
+uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz, uint32_t ringbits) {
+    //uint32_t mask = 0xfffff;
+    auto mask = (1<< (ringbits))-1;
+    uint32_t bsz = sz/8+1;
     if ( proxy->GetPRole() == helper ) {
         auto *a1 = new uint8_t[sz];
         auto *a2 = new uint8_t[sz];
@@ -716,7 +717,6 @@ uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
         uint64_t *result = new uint64_t[sz];
 
         if (proxy->GetPRole() == proxy1) {
-
             ptr = proxy->GetBuffer1();
             (*ptr) = 0;
             uint8_t bit_index = 7;
@@ -744,6 +744,7 @@ uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz) {
                 auto tmp = ConvertToLong(&ptr,3);
                 result[i] = (1- select) * r1[i] + select * tmp;      // if select is 0 take the first possibility else second
             }
+
         }
         else {  //P2
             ptr = proxy->GetBuffer1();

@@ -86,6 +86,8 @@ public:
         CryptoPP::byte byte = current_buffer[buffer_position];
         buffer_position += 1;
         return byte;
+        //return *(current_buffer++);
+
     }
 
     uint64_t GenerateUint64() {
@@ -108,7 +110,6 @@ public:
             buffer_position += 8;
             return random;
         #endif
-
     }
 
     /**\brief makes sure that everything is initialised

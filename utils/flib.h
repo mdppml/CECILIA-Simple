@@ -369,9 +369,7 @@ uint64_t GetModularInverse(uint64_t a){
  * Arithmetic shift defined in SecureNN: we fill the significant bits with the most significant bit.
  */
 uint64_t ArithmeticShift(uint64_t z, int n_shift = FRACTIONAL_BITS) {
-//    cout << bitset<64>(z) << endl;
     z = static_cast<uint64_t>( static_cast<int64_t>(z) >> n_shift);
-//    cout << bitset<64>(z) << endl;
     return z;
 }
 
