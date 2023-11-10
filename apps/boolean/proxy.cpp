@@ -167,7 +167,7 @@ void Conversion_test(Party *proxy){
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
 
-    cout << "Callng Reconstruct..\n";
+    cout << "Calling Reconstruct..\n";
     auto t_rec = Reconstruct(proxy, t, size);
     counter = 0;
     for(int i = 0;i<size;i++) {
@@ -191,7 +191,7 @@ void Conversion_test(Party *proxy){
     }
 
     start = chrono::high_resolution_clock::now();
-    t = XorToArithmetic3(proxy, b, size);
+//    t = XorToArithmetic3(proxy, b, size); TODO fix this line of code
     end = chrono::high_resolution_clock::now();
     totaltime = chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
     cout<<totaltime<<endl;
