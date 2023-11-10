@@ -7,6 +7,7 @@
 
 #define L_BIT 64
 #define LP 67
+#define SP 7
 #define FRACTIONAL_BITS 0
 #define RING_SIZE 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
@@ -20,7 +21,7 @@
 #define MAX_SAMPLE_MASK 0x7ffff
 
 #define MAX_MATRIX_SIZE 20000
-#define BUFFER_SIZE 400000000
+#define BUFFER_SIZE 600000000
 
 #define DEBUG_FLAG 0
 
@@ -45,7 +46,10 @@ enum Operation {
     coreVectorisedMultiplex,coreVectorisedModularConversion,coreModularConversion,coreVectorisedCompare,coreCompare,
     coreExp, coreVectorisedExp,coreDotProduct,coreVectorisedDotProduct,coreMatrixMatrixMultiply,
     coreVectorisedMatrixMatrixMultiply,coreMatrixVectorMultiply,coreVectorisedMatrixVectorMultiply, coreDivide,
-    coreVectorisedDivide, coreNormalise,coreSort,
+    coreVectorisedDivide, coreNormalise,coreVectorisedMultiply2,
+    coreSort, coreSort2, coreVSort,
+    //BOOLEAN CORE
+    boolAnd, boolSubtract, boolArithmeticToXor, boolXorToArithmetic, boolXorToArithmetic2,boolXorToArithmetic3,
     // AUC
     aucMostSignificantBit,aucDivide,aucVectorisedRound,aucVectorisedDivide,aucRocNoTie,aucRocWithTie,aucPrCurve,
     // CNN

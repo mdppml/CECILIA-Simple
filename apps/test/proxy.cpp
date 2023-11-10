@@ -20,13 +20,13 @@ using namespace std;
 
 constexpr int MIN_VAL = -100;
 constexpr int MAX_VAL = static_cast<int>((uint64_t) 1 << 43);
-constexpr int sz = 2000000;
+constexpr int sz = 10;
 constexpr int WSZ = 3;
 constexpr int num_repetition = 1;
 
 // ************************************ Ali  ***********************************************
 bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cnt){
-//    cout << setfill('*') << setw(50) << "Calling Multiply";
+//    cout << setfill('*') << setw(50) << "Calling MultiplyNarrow";
 //    cout << setfill('*') << setw(49) << "*" << endl;
 
     double xd = MIN_VAL + (double)(proxy->GenerateCommonRandom() & RAND_MAX) / ((double)(RAND_MAX / (MAX_VAL - MIN_VAL)));
@@ -58,7 +58,7 @@ bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cn
 //        cout << "-----------------------------------------" << endl;
 //    }
     if ((int)(rd - rcd) == 0) {
-//        cout<<"Multiply works correctly"<<endl;
+//        cout<<"MultiplyNarrow works correctly"<<endl;
 //        cout << "x: " << xd << "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
 //        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
 //        cout << "-----------------------------------------" << endl;
@@ -76,7 +76,7 @@ bool MUL_Test_v2(Party *proxy, int i, unordered_map<string, int> &cases, int &cn
 //        cout << "Share of r: " << r << endl;
 //        cout << "rec_r >? share_r: " << (rec_r > r) << endl;
 //        cout << "-----------------------------------------" << endl;
-//        cout<<"Multiply works incorrectly"<<endl;
+//        cout<<"MultiplyNarrow works incorrectly"<<endl;
 //        cout << "x: " << xd <""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""< "\ny: " << yd << "\nComputed r: " << rd << "\nGT r: " << rcd << endl;
 //        cout << "Bitwise computed r: " << bitset<64>(rec_r) << endl;
 //        cnt++;
@@ -288,39 +288,72 @@ bool MMUL_Test(Party *proxy, double &exe_time, bool only_timing = false){
         x[i] = proxy->CreateShare(xd);
         y[i] = proxy->CreateShare(yd);
     }
+    proxy->SendBytes(coreMultiply);
+    auto r = Multiply(proxy, x[0], y[0]);
 
-    proxy->SendBytes(coreVectorisedMultiply, params, 1);
+    bool flag = true;
+    unordered_map<string, int> umap;
+    uint64_t rec_x = Reconstruct(proxy, x[0]);
+    uint64_t rec_y = Reconstruct(proxy, y[0]);
+    uint64_t rec_r = Reconstruct(proxy, r);
+    double xd = ConvertToDouble(rec_x);
+    double yd = ConvertToDouble(rec_y);
+    double rd = ConvertToDouble(rec_r);
+    double rcd = (xd * yd);
+    if ((int) (rd - rcd) != 0) {
+        flag = false;
+        cout << "Absolute difference of multiplication of " << xd << " and " << yd << ": " << abs(rd - rcd) << endl;
+        for (auto& it: umap) {
+            // Do stuff
+            cout << it.first << ": " << it.second << endl;
+        }
+    }
+    delete [] x;
+    delete [] y;
+    delete [] params;
+
+    if (flag) {
+        cout<<"MMUL works correctly"<<endl;
+        return true;
+    }
+    else {
+        cout<<"MMUL works incorrectly"<<endl;
+        return false;
+    }
+}
+
+bool MMUL2_Test(Party *proxy){
+    cout<<setfill ('*')<<setw(50)<<"Calling MMUL";
+    cout<<setfill ('*')<<setw(49)<<"*"<<endl;
+    uint64_t *x = new uint64_t[sz];
+    uint64_t *y = new uint64_t[sz];
+    uint32_t* params = new uint32_t[2];
+    cout<<"SIZE:\t" << sz << endl;
+    auto bsz = 23;
+    params[0] = sz;
+    params[1] = bsz;
+    for (int i=0;i<sz;i++){
+        x[i] = 0x7fffff-i;
+        y[i] = i;
+    }
+    uint64_t *r;
     auto start = chrono::high_resolution_clock::now();
-    uint64_t *r = Multiply(proxy, x, y, sz);
+    for (int i = 0; i < 2; ++i) {
+        proxy->SendBytes(coreVectorisedMultiply2, params, 2);
+        r = Multiply(proxy, x, y, sz, bsz);
+    }
     auto end = chrono::high_resolution_clock::now();
     double time_taken = chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
-    cout << "Vectorized multiply Time:\t" << fixed << time_taken << setprecision(9) << " sec" << endl;
-    exe_time = time_taken;
-
+    cout<<"MultiplyNarrow Time:\t" << fixed
+        << time_taken << setprecision(9) << " sec" << endl;
     // checking the result
-    bool flag = true;
-    if(!only_timing) {
-        unordered_map<string, int> umap;
-        for (int i=0;i<sz;i++) {
-            uint64_t rec_x = Reconstruct(proxy, x[i]);
-            uint64_t rec_y = Reconstruct(proxy, y[i]);
-            uint64_t rec_r = Reconstruct(proxy, r[i]);
-            double xd = ConvertToDouble(rec_x);
-            double yd = ConvertToDouble(rec_y);
-            double rd = ConvertToDouble(rec_r);
-            double rcd = (xd * yd);
-            if ((int) (rd - rcd) != 0) {
-                flag = false;
-                cout << "Absolute difference of multiplication of " << xd << " and " << yd << ": " << abs(rd - rcd) << endl;
-                for (auto& it: umap) {
-                    // Do stuff
-                    cout << it.first << ": " << it.second << endl;
-                }
-                break;
-            }
-        }
+    auto rec_r = ReconstructNarrow(proxy, r, sz, 23);
+    for (int i = 0; i < sz; ++i) {
+        cout << rec_r[i] << endl;
     }
+    unordered_map<string, int> umap;
+    bool flag = true;
 
     delete [] x;
     delete [] y;
@@ -516,7 +549,6 @@ bool MCMP_Test(Party *proxy, double &exe_time, bool only_timing = false) {
     else
         cout << "Vectorized Compare works incorrectly" << endl;
     return flag;
-
 }
 
 void MUX_Test(Party *proxy, int &cnt) {
@@ -3596,6 +3628,7 @@ bool NETWORK_M_INPUTS_TEST(Party *proxy) {
     return correct;
 
 }
+
 
 // Main function to run the experiments
 int main(int argc, char *argv[]) {

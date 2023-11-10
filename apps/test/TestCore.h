@@ -19,7 +19,6 @@ public:
       GetGenericMethod("CreateShare or Reconstruct",              &TestCore::TestShareAndReconstruct),
       GetGenericMethod("Matrix CreateShare or Reconstruct",       &TestCore::TestMatrixReconstruct),
       GetGenericMethod("3D Matrix CreateShare or Reconstruct",    &TestCore::Test3dReconstruct),
-      GetGenericMethod("GenerateMultiplicationTriple",            &TestCore::TestGenerateMultiplicationTriple),
       GetGenericMethod("ModularConversion or PrivateCompareBool", &TestCore::TestModularConversion),
       GetGenericMethod("Multiplex",                               &TestCore::TestMultiplex),
       GetGenericMethod("Compare",                                 &TestCore::TestCompare),
@@ -117,29 +116,6 @@ public:
       }
     }
     return is_broken;
-  }
-
-  bool TestGenerateMultiplicationTriple() const {
-    if (proxy->GetPRole() == proxy2) {
-      size_t count = 100;
-      uint64_t **share1 = new uint64_t*[3];
-      uint64_t **share2 = new uint64_t*[3];
-      for (int i = 0; i < 3; i++) {
-        share1[i] = new uint64_t[count];
-        share2[i] = new uint64_t[count];
-      }
-      uint64_t result1, result2;
-      GenerateMultiplicationTriple(proxy.get(), share1, share2, count);
-      for (int i = 0; i < count; i++) {
-        result1 = (share1[0][i] + share2[0][i]) * (share1[1][i] + share2[1][i]);
-        result2 = share1[2][i] + share2[2][i];
-        if (result1 != result2) {
-          // debug info can be printed here
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   bool TestMultiplex() const {
@@ -256,8 +232,8 @@ public:
     bool is_broken = false;
     if (proxy->GetPRole() != helper) {
       std::unique_ptr<double[]> values(Random1dData(nullptr, score_count, -100.0, 100.0));
-      std::unique_ptr<uint64_t[]> shared(proxy->CreateShare(values.get(), score_count, 0));
-      std::unique_ptr<uint64_t[]> msb_shared(MostSignificantBit(proxy.get(), shared.get(), score_count, 0));
+      std::unique_ptr<uint64_t[]> shared(proxy->CreateShare(values.get(), score_count, bit_precision_));
+      std::unique_ptr<uint64_t[]> msb_shared(MostSignificantBit(proxy.get(), shared.get(), score_count, bit_precision_));
       std::unique_ptr<double[]> results (ReconstructDouble(msb_shared.get(), score_count));
       for (int i = 0; i < score_count; i++) {
         if ((GetPreciseRepresentation(values[i], bit_precision_) < 0) != results[i]) {

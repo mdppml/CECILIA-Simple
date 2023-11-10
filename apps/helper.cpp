@@ -7,6 +7,7 @@
 #include "../core/rkn.h"
 #include "../core/auc.h"
 #include "../core/sort.h"
+#include "../booleancore/core.h"
 
 
 int main(int argc, char* argv[]) {
@@ -60,6 +61,11 @@ int main(int argc, char* argv[]) {
             case coreVectorisedMultiply:
                 sz = proxy->ReadInt();
                 Multiply(proxy, nullptr, nullptr, sz);
+                break;
+            case coreVectorisedMultiply2:
+                sz = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MultiplyNarrow(proxy, nullptr, nullptr, sz, size2);
                 break;
             case coreDotProduct:
                 sz = proxy->ReadInt();
@@ -229,6 +235,40 @@ int main(int argc, char* argv[]) {
             case coreSort:
                 sz = proxy->ReadInt();
                 Sort(proxy, 0, sz);
+                break;
+            case coreVSort:
+                sz = proxy->ReadInt();
+                size1 = proxy->ReadInt();
+                Sort(proxy, 0, sz, size1, 0);
+                break;
+            case coreSort2:
+                sz = proxy->ReadInt();
+                size1 = proxy->ReadInt();
+                SortNarrow(proxy, 0, sz, size1);
+                break;
+            case boolAnd:
+                sz = proxy->ReadInt();
+                And2(proxy, 0, 0, sz);
+                break;
+            case boolSubtract:
+                sz = proxy->ReadInt();
+                BooleanSubtract2(proxy, 0, 0, sz);
+                break;
+            case boolArithmeticToXor:
+                sz = proxy->ReadInt();
+                ArithmeticToXor(proxy, 0, sz);
+                break;
+            case boolXorToArithmetic:
+                sz = proxy->ReadInt();
+                XorToArithmetic(proxy, 0, sz);
+                break;
+            case boolXorToArithmetic2:
+                sz = proxy->ReadInt();
+                XorToArithmetic2(proxy, 0, sz);
+                break;
+            case boolXorToArithmetic3:
+                sz = proxy->ReadInt();
+                XorToArithmetic3(proxy, 0, sz);
                 break;
             case coreEnd:
                 keep_looping = false;

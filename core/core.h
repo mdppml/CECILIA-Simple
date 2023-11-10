@@ -11,6 +11,8 @@
 #include <mutex>
 #include <bitset>
 
+double recn_time = 0;
+
 /**
  * Perform the truncation operation which we use to keep the number of fractional bit consistent after Multiply operation
  * @param proxy
@@ -81,6 +83,76 @@ uint64_t Reconstruct(Party *const proxy, uint64_t a, uint64_t mask= RING_SIZE) {
     return result;
 }
 
+uint64_t *ReconstructNarrow(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t ringbits) {
+    auto mask = (1<< ringbits)-1;
+    auto bsz = (uint32_t)ceil(ringbits/8.0);
+    uint64_t *b = new uint64_t[sz];
+    if ( proxy->GetPRole() == proxy1 ) {
+        unsigned char *ptr = proxy->GetBuffer1();
+        WriteToBuffer(a, ptr, sz, bsz);
+        thread thr1 = thread(Send,proxy->GetSocketP2(), proxy->GetBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), sz*bsz);
+        thr1.join();
+        thr2.join();
+
+        ptr = proxy->GetBuffer2();
+        ReadBuffer(b, ptr, sz, bsz);
+        for (int i = 0; i < sz; i++) {
+            b[i] = (a[i] + b[i]) & mask;
+        }
+
+    } else if ( proxy->GetPRole() == proxy2) {
+        unsigned char *ptr = proxy->GetBuffer1();
+        WriteToBuffer(a, ptr, sz, bsz);
+        thread thr1 = thread(Send,proxy->GetSocketP1(), proxy->GetBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer2(), sz*bsz);
+        thr2.join();
+        thr1.join();
+        ptr = proxy->GetBuffer2();
+        ReadBuffer(b, ptr, sz, bsz);
+        for (int i = 0; i < sz; i++) {
+            b[i] = (a[i] + b[i]) & mask;
+        }
+    }
+    return b;
+}
+
+
+uint64_t *ReconstructNarrowPermutation(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t ringbits) {
+    auto mask = (1<< ringbits)-1;
+    auto bsz = (uint32_t)ceil(ringbits/8.0);
+    uint64_t *b = new uint64_t[sz];
+    uint64_t *ab = new uint64_t[sz];
+    if ( proxy->GetPRole() == proxy1 ) {
+        unsigned char *ptr = proxy->GetBuffer1();
+        WriteToBuffer(a,ptr,sz,bsz);
+        thread thr1 = thread(Send,proxy->GetSocketP2(), proxy->GetBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), sz*bsz);
+        thr1.join();
+        thr2.join();
+
+        ptr = proxy->GetBuffer2();
+        ReadBuffer(b,ptr,sz,bsz);
+        for (int i = 0; i < sz; i++) {
+            ab[i] = (b[a[i]-1]);
+        }
+
+    } else if ( proxy->GetPRole() == proxy2) {
+        unsigned char *ptr = proxy->GetBuffer1();
+        WriteToBuffer(a,ptr,sz,bsz);
+        thread thr1 = thread(Send,proxy->GetSocketP1(), proxy->GetBuffer1(), sz*bsz);
+        thread thr2 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer2(), sz*bsz);
+        thr2.join();
+        thr1.join();
+        ptr = proxy->GetBuffer2();
+        ReadBuffer(b,ptr,sz,bsz);
+        for (int i = 0; i < sz; i++) {
+            ab[i] = (a[b[i]-1]) ;
+        }
+    }
+    delete [] b;
+    return ab;
+}
 
 /**Reconstruct a secret shared 2D array.*/
 uint64_t** Reconstruct(Party *const proxy, const uint64_t *const *const a, uint32_t n_row, uint32_t n_col) {
@@ -205,6 +277,23 @@ uint64_t* Add(Party *const proxy, const uint64_t *const a, const uint64_t *const
     return sum;
 }
 
+/** For smaller ring size
+ * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
+ * @param size the number of multiplication triples that will be generated
+ */
+void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const c1, uint32_t size, uint64_t mask) {
+
+    for (int i = 0; i < size; i++) {
+        uint64_t a0 = proxy->GenerateCommonRandom()&mask;
+        uint64_t a1 = proxy->GenerateCommonRandom2() & mask;
+        uint64_t b0 = proxy->GenerateCommonRandom()&mask;
+        uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
+        uint64_t c0=  proxy->GenerateCommonRandom()&mask;
+        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
+    }
+}
+
 /**
  * Adds values of all vectors in a at equal position in a row to calculate their sum (sum over column where each row is one vector).
  * @param proxy
@@ -225,28 +314,44 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
 }
 
 
-/**
+/** Strictly a function for the helper to generate Beaver's multiplication triples.
+ * It is used to compute proxy2's shares of c, which then need to be sent to it.
+ * @param c1 array in which proxy2's shares of C will be stored
+ * @param size the number of multiplication triples that will be generated
+ */
+ void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const c1, uint32_t size) {
+     for (int i = 0; i < size; i++) {
+        uint64_t a0 = proxy->GenerateCommonRandom();
+        uint64_t a1 = proxy->GenerateCommonRandom2();
+        uint64_t b0 = proxy->GenerateCommonRandom();
+        uint64_t b1 = proxy->GenerateCommonRandom2();
+        uint64_t c0=  proxy->GenerateCommonRandom();
+        c1[i] = ((a0+a1)*(b0+b1)) - c0;
+    }
+}
+
+/** For smaller ring size and symmetric Multiply comm.
+ * Half of the c0 and c1 is generated with RNG, rest is calculated and sent by Helper
  * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
  * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
  * @param size the number of multiplication triples that will be generated
  */
- void GenerateMultiplicationTriple(Party *const proxy, uint64_t *const *const mt1, uint64_t *const *const mt2, uint32_t size) {
-    for (int i = 0; i < size; i++) {
-        uint64_t tmp_a = proxy->GenerateRandom();
-        uint64_t tmp_b = proxy->GenerateRandom();
-        uint64_t tmp_c = tmp_a * tmp_b; // Mod operation here?
-
-        // a
-        mt1[0][i] = proxy->GenerateRandom();
-        mt2[0][i] = tmp_a - mt1[0][i];
-
-        // b
-        mt1[1][i] = proxy->GenerateRandom();
-        mt2[1][i] = tmp_b - mt1[1][i];
-
-        // c
-        mt1[2][i] = proxy->GenerateRandom();
-        mt2[2][i] = tmp_c - mt1[2][i];
+[[maybe_unused]] void GenerateMultiplicationTripleSym(Party *const proxy, uint64_t *const c0, uint64_t *const c1, uint32_t size, uint64_t mask) {
+    for (int i = 0; i < size/2; i++) {
+        uint64_t a0 = proxy->GenerateCommonRandom()&mask;
+        uint64_t a1 = proxy->GenerateCommonRandom2() & mask;
+        uint64_t b0 = proxy->GenerateCommonRandom()&mask;
+        uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
+        uint64_t c0=  proxy->GenerateCommonRandom()&mask;
+        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
+    }
+    for (int i = 0; i < size/2; i++) {
+        uint64_t a0 = proxy->GenerateCommonRandom()&mask;
+        uint64_t a1 = proxy->GenerateCommonRandom2() & mask;
+        uint64_t b0 = proxy->GenerateCommonRandom()&mask;
+        uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
+        uint64_t c1= proxy->GenerateCommonRandom2() & mask;
+        c0[i] = (((a0+a1)*(b0+b1)) - c1)&mask; //(a0+a1)*(b0+b1) - c1
     }
 }
 
@@ -846,54 +951,49 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
     if (DEBUG_FLAG >= 1)
         cout << "************************************************************\nPMNF_MUL is called" << endl;
     if (proxy->GetPRole() == helper) {
-        uint64_t *mt1[3];
-        uint64_t *mt2[3];
-        for (int i = 0; i < 3; i++) {
-            mt1[i] = new uint64_t[size];
-            mt2[i] = new uint64_t[size];
-        }
-        GenerateMultiplicationTriple(proxy, mt1, mt2, size);
+        uint64_t *c1 = new uint64_t[size];
 
-        // send the multiplication triples to proxy1
-        unsigned char *ptr_out = proxy->GetBuffer1();
+        GenerateMultiplicationTriple(proxy, c1, size);
+
         unsigned char *ptr_out2 = proxy->GetBuffer2();
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < size; j++) {
-                AddValueToCharArray(mt1[i][j], &ptr_out);
-                AddValueToCharArray(mt2[i][j], &ptr_out2);
-            }
+        for (int j = 0; j < size; j++) {
+            AddValueToCharArray(c1[j], &ptr_out2);
         }
-        //AddValueToCharArray(mt1, &ptr_out, 3, size); // a special method is needed here!
-        thread thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), size * 3 * 8);
-        thread thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), size * 3 * 8);
-        thr1.join();
-        thr2.join();
 
-        for (int i = 0; i < 3; i++) {
-            delete[] mt1[i];
-            delete[] mt2[i];
-        }
+        Send( proxy->GetSocketP2(), proxy->GetBuffer2(), size * 8);
+
+        delete[] c1;
+
         if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
 
     } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
-        //total_mul += size;
-        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * 3 * 8);
-        unsigned char *ptr = proxy->GetBuffer1();
-        unsigned char *ptr1 = ptr + (size*8);
-        unsigned char *ptr2 = ptr + 2*(size*8);
         uint64_t *mt[3];
-        mt[0] = new uint64_t[size];
-        mt[1] = new uint64_t[size];
-        mt[2] = new uint64_t[size];
+        mt[0] = new uint64_t[size]; //a
+        mt[1] = new uint64_t[size]; //b
+        mt[2] = new uint64_t[size]; //c
         uint64_t *concat_e_f = new uint64_t[size * 2];
-        for (int j = 0; j < size; j++) {
-            mt[0][j] = ConvertToLong(&ptr);
-            mt[1][j] = ConvertToLong(&ptr1);
-            mt[2][j] = ConvertToLong(&ptr2);
-            concat_e_f[j] = a[j] - mt[0][j];
-            concat_e_f[j + size] = b[j] - mt[1][j];
+        if (proxy->GetPRole() == proxy2) {
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * 8);
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < size; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2();
+                mt[1][i] = proxy->GenerateCommonRandom2();
+                mt[2][i] = ConvertToLong(&ptr);
+                concat_e_f[i] = a[i] - mt[0][i];
+                concat_e_f[i + size] = b[i] - mt[1][i];
+            }
+        }
+        else {
+            for (int i = 0; i < size; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2();
+                mt[1][i] = proxy->GenerateCommonRandom2();
+                mt[2][i] = proxy->GenerateCommonRandom2();
+
+                concat_e_f[i] = a[i] - mt[0][i];
+                concat_e_f[i + size] = b[i] - mt[1][i];
+            }
         }
 
         uint64_t *e_f = Reconstruct(proxy, concat_e_f, size * 2);
@@ -938,6 +1038,200 @@ uint64_t Multiply(Party *const proxy, uint64_t a, uint64_t b, int shift = FRACTI
     }
 }
 
+/** Multiplication of two arrays of numbers for smaller ring size
+ *
+ * @param a one of the vectors of shares of the multiplicands
+ * @param b the other vector of shares of the multiplicands
+ * @param size the size of the vectors @p a and @p b
+ * @return a vector containing the share of the result of the multiplication
+ */
+uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint64_t *const b, uint32_t size, uint32_t ringbits, int shift = FRACTIONAL_BITS) {
+    uint64_t mask = (1<<ringbits)-1;
+    uint32_t bsz = ceil((double)ringbits/8.0);
+    if (proxy->GetPRole() == helper) {
+        uint64_t *c1 = new uint64_t[size];
+
+        GenerateMultiplicationTriple(proxy, c1, size, mask);
+
+        unsigned char *ptr_out2 = proxy->GetBuffer2();
+        WriteToBuffer(c1, ptr_out2, size, bsz);
+        /*for (int j = 0; j < size; j++) {
+            AddValueToCharArray(c1[j], &ptr_out2, bsz);
+        }*/
+
+        Send( proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
+
+        delete[] c1;
+        return 0;
+
+    } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+
+        //total_mul += size;
+        uint64_t *mt[3];
+        mt[0] = new uint64_t[size]; //a
+        mt[1] = new uint64_t[size]; //b
+        mt[2] = new uint64_t[size]; //c
+        uint64_t *concat_e_f = new uint64_t[size * 2];
+
+        if (proxy->GetPRole() == proxy2) {
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz);
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < size; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[1][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[2][i] = ConvertToLong(&ptr, bsz);
+
+                concat_e_f[i] = (a[i] - mt[0][i])&mask;
+                concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
+            }
+        }
+        else { // P1
+            for (int i = 0; i < size; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[1][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[2][i] = proxy->GenerateCommonRandom2() & mask;
+
+
+                concat_e_f[i] = (a[i] - mt[0][i])&mask;
+                concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
+            }
+        }
+
+        auto start = chrono::high_resolution_clock::now();
+        uint64_t *e_f = ReconstructNarrow(proxy, concat_e_f, size * 2, ringbits);
+        auto end = chrono::high_resolution_clock::now();
+        recn_time +=
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        uint64_t *e = e_f;
+        uint64_t *f = &e_f[size];
+
+        uint64_t *z = new uint64_t[size];
+        for (int i = 0; i < size; i++) {
+            z[i] = (proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
+            z[i] = Truncate(proxy, z[i], shift);
+        }
+        delete [] e_f;
+        delete [] concat_e_f;
+        for (auto &i : mt) {
+            delete[] i;
+        }
+        return z;
+    } else {
+        return nullptr;
+    }
+}
+
+
+/** Multiplication of two arrays of numbers for smaller ring size
+ * Uses common randon generator in generation of beaver triples to reduce the communication cost
+ * SYMMETRIC: Helper sending half of the c1 to P2  and half of the c0 to P1
+ * @param a one of the vectors of shares of the multiplicands
+ * @param b the other vector of shares of the multiplicands
+ * @param size the size of the vectors @p a and @p b
+ * @return a vector containing the share of the result of the multiplication
+ */
+ [[maybe_unused]] uint64_t *MUL_sym(
+     Party *const proxy,
+     const uint64_t *const a,
+     const uint64_t *const b,
+     uint32_t size,
+     uint32_t ringbits,
+     int shift = FRACTIONAL_BITS
+ ) {
+    uint64_t mask = (1<<ringbits)-1;
+    uint32_t bsz = ceil((double)ringbits/8.0);
+    uint32_t hsize = size/2; //half size
+    if (proxy->GetPRole() == helper) {
+        uint64_t *c0 = new uint64_t[hsize];
+        uint64_t *c1 = new uint64_t[hsize];
+
+        GenerateMultiplicationTripleSym(proxy,c0, c1, size, mask);
+        unsigned char *ptr_out1 = proxy->GetBuffer1();
+        unsigned char *ptr_out2 = proxy->GetBuffer2();
+        //WriteToBuffer(c1,ptr_out2,size,bsz);
+        for (int j = 0; j < hsize; j++) {
+            AddValueToCharArray(c0[j], &ptr_out1, bsz);
+            AddValueToCharArray(c1[j], &ptr_out2, bsz);
+        }
+
+        Send( proxy->GetSocketP1(), proxy->GetBuffer1(), hsize * bsz);
+        Send( proxy->GetSocketP2(), proxy->GetBuffer2(), hsize * bsz);
+
+        delete[] c0;
+        delete[] c1;
+        return 0;
+
+    } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+
+        uint64_t *mt[3];
+        mt[0] = new uint64_t[size]; //a
+        mt[1] = new uint64_t[size]; //b
+        mt[2] = new uint64_t[size]; //c
+        uint64_t *concat_e_f = new uint64_t[size * 2];
+
+        if (proxy->GetPRole() == proxy2) {
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), hsize * bsz);
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < hsize; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[1][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[2][i] = ConvertToLong(&ptr, bsz);
+
+                concat_e_f[i] = (a[i] - mt[0][i])&mask;
+                concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
+            }
+            for (int i = hsize; i < size; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[1][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[2][i] = proxy->GenerateCommonRandom2() & mask;
+
+                concat_e_f[i] = (a[i] - mt[0][i])&mask;
+                concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
+            }
+        }
+        else { // P1
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), hsize * bsz);
+            unsigned char *ptr = proxy->GetBuffer1();
+            for (int i = 0; i < hsize; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[1][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[2][i] = proxy->GenerateCommonRandom2() & mask;
+
+                concat_e_f[i] = (a[i] - mt[0][i])&mask;
+                concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
+            }
+            for (int i = hsize; i < size; ++i) {
+                mt[0][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[1][i] = proxy->GenerateCommonRandom2() & mask;
+                mt[2][i] = ConvertToLong(&ptr, bsz);
+
+                concat_e_f[i] = (a[i] - mt[0][i])&mask;
+                concat_e_f[i + size] = (b[i] - mt[1][i])&mask;
+            }
+        }
+        auto start = chrono::high_resolution_clock::now();
+        uint64_t *e_f = ReconstructNarrow(proxy, concat_e_f, size * 2, ringbits);
+        auto end = chrono::high_resolution_clock::now();
+        recn_time +=
+                chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        uint64_t *e = e_f;
+        uint64_t *f = &e_f[size];
+
+        uint64_t *z = new uint64_t[size];
+        for (int i = 0; i < size; i++) {
+            z[i] = (proxy->GetPRole() * e[i] * f[i] + f[i] * mt[0][i] + e[i] * mt[1][i] + mt[2][i])&mask;
+            z[i] = Truncate(proxy, z[i], shift);
+        }
+        delete [] e_f;
+        delete [] concat_e_f;
+        for (auto &i : mt) {
+            delete[] i;
+        }
+        return z;
+    } else {
+        return nullptr;
+    }
+}
 
 /** Multiple exponentials. Note that this function considers only the specific number of least significant bits not to
  * cause overflow. This is different for positive and negative powers.

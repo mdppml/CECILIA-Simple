@@ -439,7 +439,6 @@ int main(int argc, char *argv[]) {
             image_file.open(path, std::ios::app);
             if (!image_file) {
                 cout << "Error opening file for appending prediction at " << path << endl;
-
                 return 1;
             }
             /*for (int v = 0; v < nodes_out; ++v) {

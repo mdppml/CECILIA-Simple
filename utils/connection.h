@@ -38,6 +38,42 @@ void RTimers(){
     receive_time = 0.0;
     send_time = 0.0;
 }
+
+void SetBufferSizes(int socket){
+    int sendbuff;
+    socklen_t optlen;
+    int res = 0;
+    // Get buffer size
+    optlen = sizeof(sendbuff);
+    res = getsockopt(socket, SOL_SOCKET, SO_SNDBUF, &sendbuff, &optlen);
+
+    if(res == -1)
+        printf("Error getsockopt one");
+    else
+        printf("send buffer size = %d\n", sendbuff);
+
+    // Set buffer size
+    sendbuff = 2626560;
+
+    printf("sets the send buffer to %d\n", sendbuff);
+
+    int recvbuff;
+    res = 0;
+    // Get buffer size
+    optlen = sizeof(recvbuff);
+    res = getsockopt(socket, SOL_SOCKET, SO_RCVBUF, &recvbuff, &optlen);
+
+    if(res == -1)
+        printf("Error getsockopt one");
+    else
+        printf("receive buffer size = %d\n", recvbuff);
+
+    // Set buffer size
+    recvbuff = 131072;
+
+    printf("sets the recv buffer to %d\n", recvbuff);
+}
+
 int OpenSocket(string address, uint16_t port){
     int server_fd, sock;
     struct sockaddr_in addr;
@@ -72,6 +108,7 @@ int OpenSocket(string address, uint16_t port){
         perror("setsockopt");
         exit(EXIT_FAILURE);
     }
+    //SetBufferSizes(sock);
     close(server_fd);
     return sock;
 }
@@ -103,6 +140,7 @@ int ConnectToSocket(string address, uint16_t port){
     while (connect(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         sleep(1);
     }
+    //SetBufferSizes(sock);
     return sock;
 }
 

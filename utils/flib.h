@@ -7,15 +7,22 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <thread>
+
+uint64_t b_mask[9]= {0,0xff,0,0xffffff,0,0,0,0,18446744073709551615};
 
 uint64_t ConvertToLong(unsigned char **ptr){
-    uint64_t val = 0;
-    for (int i=56;i>=0;i-=8){
-        val=val+((uint64_t)(**ptr)<<i);
-        (*ptr)++;
-    }
+    uint64_t val = (*((uint64_t *)(*ptr)));
+    (*ptr)+=8;
     return val;
 }
+
+uint64_t ConvertToLong(unsigned char **ptr, int bsz){
+    uint64_t val = (*((uint64_t *)(*ptr)))&b_mask[bsz];
+    (*ptr)+=bsz;
+    return val;
+}
+
 uint32_t ConvertToInt(unsigned char **ptr){
     uint32_t val = 0;
     for (int i=24;i>=0;i-=8){
@@ -24,22 +31,26 @@ uint32_t ConvertToInt(unsigned char **ptr){
     }
     return val;
 }
+
 uint8_t ConvertToUint8(unsigned char **ptr){
     uint8_t val = (uint8_t)(**ptr);
     (*ptr)++;
     return val;
 }
+
 void ConvertToArray(unsigned char **ptr, uint8_t arr[], int sz){
     for (int i=0;i<sz;i++) {
         arr[i] = (**ptr);
         (*ptr)++;
     }
 }
+
 void ConvertToArray(unsigned char **ptr, uint64_t arr[], int sz){
     for (int i=0;i<sz;i++) {
         arr[i] = ConvertToLong(ptr);
     }
 }
+
 void ConvertToArray(unsigned char **ptr, uint64_t *&arr, uint32_t size){
     // Recover a one dimensional dynamic array
     arr = new uint64_t[size];
@@ -47,12 +58,36 @@ void ConvertToArray(unsigned char **ptr, uint64_t *&arr, uint32_t size){
         arr[i] = ConvertToLong(ptr);
     }
 }
-void AddValueToCharArray(uint64_t val, unsigned char **ptr){
-    for (int i=56;i>=0;i-=8){
-        (**ptr)=(val>>i)&0xff;
+
+void AddBitToCharArray(uint8_t val, uint8_t **ptr, uint8_t *bit_index){
+    (**ptr)=(**ptr)^(val<<(*bit_index));
+    if ((*bit_index) == 0){
+        (*bit_index) = 7;
+        (*ptr)++;
+        (**ptr)=0;
+    }
+    else
+        (*bit_index)-=1;
+}
+
+
+//This is compatible with AddBitToCharArray
+uint8_t ConvertToByte(uint8_t **ptr, uint8_t *bit_index){
+    uint8_t val = ((**ptr)>>(*bit_index))&0x1;
+    if ((*bit_index) == 0){
+        (*bit_index) = 7;
         (*ptr)++;
     }
+    else
+        (*bit_index)-=1;
+    return val;
 }
+
+void AddValueToCharArray(uint64_t val,unsigned char **ptr, int bsz=8){
+    *((uint64_t *)(*ptr)) = val;
+    (*ptr)+=bsz;
+}
+
 void AddValueToCharArray(uint32_t val, unsigned char **ptr){
     for (int i=24;i>=0;i-=8){
         (**ptr)=(val>>i)&0xff;
@@ -63,6 +98,7 @@ void AddValueToCharArray(uint8_t val, unsigned char **ptr){
     (**ptr)=(val)&0xff;
     (*ptr)++;
 }
+
 void AddValueToCharArray(uint8_t val[], unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
         (**ptr)=(val[i])&0xff;
@@ -73,6 +109,7 @@ void AddValueToCharArray(uint64_t *val, unsigned char **ptr, int sz){
     for (int i=0;i<sz;i++){
         AddValueToCharArray(val[i], ptr);
     }
+
 }
 void AddArrayToCharArray(uint64_t **val, unsigned char **ptr, uint32_t n_row, uint32_t n_col){
     // Add uint64_t vals in **val to the buffer to send
@@ -89,6 +126,11 @@ uint8_t Bit(uint64_t val, uint8_t ind){
 // what does this do exactly? TODO give more descriptive name
 uint8_t Mod(int k, int n) {
     return ((k %= n) < 0) ? k+n : k;
+}
+
+uint64_t MersenneMod(uint64_t k, uint64_t p, uint8_t s) {
+    uint64_t i = (k & p) + (k >> s);
+    return (i >= p) ? i - p : i;
 }
 
 double ConvertToDouble(uint64_t x, int precision= FRACTIONAL_BITS) {
@@ -288,10 +330,17 @@ long long GetModularInverseN(long long a, long long m) {
     return x;
 }
 
-// what does this do, exactly? TODO give more descriptive name
+/** Get modular multiplication of given numbers
+ * @param a, b are multiplicants
+ * @param m modulus
+ * @return a*b%n
+ *
+ * Modulo operation is done by eMod Method
+ * 3rd parameter of MersenneMod should be log(m). In this case it is 61 since 2^61-1
+ * */
 long long MultMod(long long x, long long y, long long m) {
     long long res = 0;
-    x = x % m;
+    x = MersenneMod(x, m, 61);//x % m;
     while (y > 0) {
         if (y % 2 == 1)
             res = (res + x) % m;
@@ -345,14 +394,6 @@ uint64_t LocalMultiply(uint64_t a, uint64_t b, int shift = FRACTIONAL_BITS) {
     } else {
         z = -1 * ((-1 * z) >> shift);
     }
-    // v2
-//    cout << "LocalMultiply - before AS z: " << bitset<64>(z) << endl;
-//    if ((z >> 63) == 0) {
-//        z = ArithmeticShift(z, FRACTIONAL_BITS);
-//    } else {
-//        z = -1 * ArithmeticShift(-1 * z, FRACTIONAL_BITS);
-//    }
-//    cout << "LocalMultiply - after AS z: " << bitset<64>(z) << endl;
     return z;
 }
 
@@ -426,7 +467,6 @@ uint64_t*** LocalMatrixMatrixMultiply(
 
     for(uint32_t g = 0; g < n_mats; g++) {
         result[g] = new uint64_t*[a_row];
-        uint64_t tmp_sum = 0;
         for (uint32_t i = 0; i < a_row; i++) {
             result[g][i] = new uint64_t[b_col];
             for(uint32_t j = 0; j < b_col; j++) {
@@ -476,6 +516,72 @@ void Delete3dMatrix(double*** matrix, size_t matrix_count, size_t row_count) {
         delete[] matrix[i];
     }
     delete[] matrix;
+}
+
+void AddToBuffer(const uint64_t *const val, unsigned char *ptr, int size, uint32_t bsz= 8){
+    unsigned char *ptr_tmp = ptr;
+    for (int i = 0; i<size-2; i++) {
+        AddValueToCharArray(*(val+i), &ptr_tmp, bsz);
+    }
+    for (int i = 0; i<2*bsz; i++) {
+        *(ptr_tmp+i) = 0;
+    }
+    *((uint64_t *)(ptr_tmp)) += *(val+size-2);
+    ptr_tmp+=bsz;
+    *((uint64_t *)(ptr_tmp)) += *(val+size-1);
+}
+
+void WriteToBuffer(const uint64_t *const val, unsigned char *ptr, int size, uint32_t bsz= 8){
+    thread thr[SOCKET_NUMBER];
+    int block_size = (int)ceil(size*1.0/SOCKET_NUMBER);
+    if (block_size<50)
+        block_size = size;
+    uint32_t written = 0;
+    uint32_t thr_num = 0;
+    for (int i=0;i<SOCKET_NUMBER;i++){
+        if ((size-written)<=block_size){
+            block_size = size-written;
+            thr[i] = thread(AddToBuffer, val + written, ptr + (written * bsz), block_size, bsz);
+            thr_num++;
+            break;
+        }else{
+            thr[i] = thread(AddToBuffer, val + written, ptr + (written * bsz), block_size, bsz);
+            thr_num++;
+            written+=block_size;
+        }
+    }
+    for (int i=0;i<thr_num;i++){
+        thr[i].join();
+    }
+}
+
+void ReadBufferSingular(uint64_t *val, unsigned char *ptr, int size, uint32_t bsz= 8){
+    unsigned char *ptr_tmp = ptr;
+    for (int i = 0; i < size; i++) {
+        *(val+i) = ConvertToLong(&ptr_tmp, bsz);
+    }
+}
+
+void ReadBuffer(uint64_t *val, unsigned char *ptr, int size, uint32_t bsz= 8){
+    thread thr[SOCKET_NUMBER];
+    int block_size = (int)ceil(size*1.0/SOCKET_NUMBER);
+    uint32_t read = 0;
+    uint32_t thr_num = 0;
+    for (int i=0;i<SOCKET_NUMBER;i++){
+        if ((size-read)<=block_size){
+            block_size = size-read;
+            thr[i] = thread(ReadBufferSingular, val + read, ptr + (read * bsz), block_size, bsz);
+            thr_num++;
+            break;
+        }else{
+            thr[i] = thread(ReadBufferSingular, val + read, ptr + (read * bsz), block_size, bsz);
+            thr_num++;
+            read+=block_size;
+        }
+    }
+    for (int i=0;i<thr_num;i++){
+        thr[i].join();
+    }
 }
 
 #endif //PML_FLIB_H

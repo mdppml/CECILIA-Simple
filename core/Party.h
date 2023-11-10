@@ -90,15 +90,20 @@ public:
     }
 
     void InitialiseRbg() {
-        if (p_role != helper) {
-            if (p_role == proxy1) {
-                OS_GenerateRandomBlock(false, buffer, 32);
-                Send(&socket_p1[0], buffer, 32);
-            } else { // proxy2
-                Receive(&socket_p0[0], buffer, 32);
-            }
-            common_rbg = std::make_unique<AesCtrRbg>(buffer, 32);
+        if (p_role == proxy1) {
+            OS_GenerateRandomBlock(false, buffer, 64);
+            Send(&socket_p1[0], buffer, 32);
+            Send(&socket_helper[0], buffer+32, 32);
+        } else if (p_role == proxy2) {
+            Receive(&socket_p0[0], buffer, 32);
+            OS_GenerateRandomBlock(false, buffer+32, 32);
+            Send(&socket_helper[0], buffer+32, 32);
+        } else { // helper
+            Receive(&socket_p0[0], buffer, 32);
+            Receive(&socket_p1[0], buffer+32, 32);
         }
+        common_rbg = std::make_unique<AesCtrRbg>(buffer, 32);
+        common_rbg2 = std::make_unique<AesCtrRbg>(buffer+32, 32);
         rbg = std::make_unique<AesCtrRbg>();
     }
 
@@ -115,8 +120,16 @@ public:
         return common_rbg->GenerateUint64();
     }
 
+    uint64_t GenerateCommonRandom2() {
+        return common_rbg2->GenerateUint64();
+    }
+
     uint8_t GenerateCommonRandomByte() {
         return common_rbg->GenerateByte();
+    }
+
+    uint8_t GenerateCommonRandomByte2() {
+        return common_rbg2->GenerateByte();
     }
 
     uint64_t CreateShare(uint64_t val){
@@ -126,6 +139,28 @@ public:
         }
         else{
             share = val - GenerateCommonRandom();
+        }
+        return share;
+    }
+
+    uint64_t createXORShare(uint64_t val){
+        uint64_t share;
+        if (p_role == proxy1) {
+            share = GenerateCommonRandom();
+        }
+        else{
+            share = val ^ GenerateCommonRandom();
+        }
+        return share;
+    }
+
+    uint8_t createXORShare(uint8_t value) {
+        uint8_t share;
+        if (p_role == proxy1) {
+            share = GenerateCommonRandomByte();
+        }
+        else{
+            share = value ^ GenerateCommonRandomByte();
         }
         return share;
     }
@@ -183,6 +218,7 @@ public:
         } else
             return -1;
     }
+
 
     uint32_t ReadInt() {
         if (p_role == helper) {
@@ -287,9 +323,10 @@ private:
     uint8_t buffer[BUFFER_SIZE];
     uint8_t buffer2[BUFFER_SIZE];
     std::unique_ptr<AesCtrRbg> common_rbg;
+    std::unique_ptr<AesCtrRbg> common_rbg2; // with helper
     std::unique_ptr<AesCtrRbg> rbg;
-    int n_bits; // number of bits of a value to consider in the BenchmarkExp computation
-    int neg_n_bits; // number of bits of a negative value to consider in the BenchmarkExp computation
+    int n_bits; // number of bits of a value to consider in the exponential computation
+    int neg_n_bits; // number of bits of a negative value to consider in the exponential computation
     double max_power = 0;
     double min_power = 0;
     uint64_t neg_truncation_mask = 0;

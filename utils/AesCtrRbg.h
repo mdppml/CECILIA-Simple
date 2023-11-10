@@ -61,10 +61,8 @@ public:
         EntropyHelper(input, length, false);
     }
 
-    /**Does not keep track of whether the cipher has to be reseeded. Therefore, this must be done outside of this class.
-     * @param output the buffer where the block should be stored
-     * @param size the number of bytes to generate
-     */
+    // Does not keep track of whether the cipher has to be reseeded.
+    //   Therefore, this must be done outside of this class.
     void GenerateBlock(CryptoPP::byte *output, size_t size) override
     {
         size_t remaining_bytes = size;
@@ -94,9 +92,23 @@ public:
         if (buffer_position+8 > kRandomBufferSize) {
             ReplenishBuffer();
         }
-        uint64_t random = *(uint64_t *)(current_buffer.get() +buffer_position);
-        buffer_position += 8;
-        return random;
+        #ifdef __linux__
+            // this is undefined behaviour and happens to work on current versions of gcc
+            uint64_t random = (current_buffer[buffer_position]<<56)
+                | (current_buffer[buffer_position+1]<<48)
+                | (current_buffer[buffer_position+2]<<40)
+                | (current_buffer[buffer_position+3]<<32)
+                | (current_buffer[buffer_position+4]<<24)
+                | (current_buffer[buffer_position+5]<<16)
+                | (current_buffer[buffer_position+6]<<8);
+            buffer_position += 1;
+            return random;
+        #else
+            uint64_t random = *(uint64_t *)(current_buffer.get() +buffer_position);
+            buffer_position += 8;
+            return random;
+        #endif
+
     }
 
     /**\brief makes sure that everything is initialised
