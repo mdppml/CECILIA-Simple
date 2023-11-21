@@ -47,7 +47,7 @@ enum Operation {
     coreExp, coreVectorisedExp,coreDotProduct,coreVectorisedDotProduct,coreMatrixMatrixMultiply,
     coreVectorisedMatrixMatrixMultiply,coreMatrixVectorMultiply,coreVectorisedMatrixVectorMultiply, coreDivide,
     coreVectorisedDivide, coreNormalise,coreVectorisedMultiply2,
-    coreSort, coreSort2, coreVSort,
+    coreSort,
     //BOOLEAN CORE
     boolAnd, boolSubtract, boolArithmeticToXor, boolXorToArithmetic, boolXorToArithmetic2,boolXorToArithmetic3,
     // AUC

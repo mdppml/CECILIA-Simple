@@ -141,43 +141,6 @@ uint64_t *ReconstructNarrow(Party *const proxy, const uint64_t *const a, uint32_
     return b;
 }
 
-
-uint64_t *ReconstructNarrowPermutation(Party *const proxy, const uint64_t *const a, uint32_t sz, uint64_t ringbits) {
-    auto mask = (1<< ringbits)-1;
-    auto bsz = (uint32_t)ceil(ringbits/8.0);
-    uint64_t *b = new uint64_t[sz];
-    uint64_t *ab = new uint64_t[sz];
-    if ( proxy->GetPRole() == proxy1 ) {
-        unsigned char *ptr = proxy->GetBuffer1();
-        WriteToBuffer(a,ptr,sz,bsz);
-        thread thr1 = thread(Send,proxy->GetSocketP2(), proxy->GetBuffer1(), sz*bsz);
-        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), sz*bsz);
-        thr1.join();
-        thr2.join();
-
-        ptr = proxy->GetBuffer2();
-        ReadBuffer(b,ptr,sz,bsz);
-        for (int i = 0; i < sz; i++) {
-            ab[i] = (b[a[i]-1]);
-        }
-
-    } else if ( proxy->GetPRole() == proxy2) {
-        unsigned char *ptr = proxy->GetBuffer1();
-        WriteToBuffer(a,ptr,sz,bsz);
-        thread thr1 = thread(Send,proxy->GetSocketP1(), proxy->GetBuffer1(), sz*bsz);
-        thread thr2 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer2(), sz*bsz);
-        thr2.join();
-        thr1.join();
-        ptr = proxy->GetBuffer2();
-        ReadBuffer(b,ptr,sz,bsz);
-        for (int i = 0; i < sz; i++) {
-            ab[i] = (a[b[i]-1]) ;
-        }
-    }
-    delete [] b;
-    return ab;
-}
-
 /**Reconstruct a secret shared 2D array.*/
 uint64_t** Reconstruct(Party *const proxy, const uint64_t *const *const a, uint32_t n_row, uint32_t n_col) {
     uint64_t **b = new uint64_t*[n_row];
@@ -399,24 +362,24 @@ uint64_t** Add(Party *const proxy, const uint64_t *const *const *const a, int n_
     }
     return res;
 }
-uint64_t* MultiplexNarrow(Party *const proxy, const uint64_t *const x, const uint64_t *const y, const uint64_t *const b, uint32_t sz, uint32_t ringbits) {
+uint32_t* MultiplexNarrow(Party *const proxy, const uint32_t *const x, const uint32_t *const y, const uint32_t *const b, uint32_t sz, uint32_t ringbits) {
     auto mask = (1<< ringbits)-1;
     uint32_t bsz = ceil((double)ringbits/8.0);
     if (proxy->GetPRole() == proxy1){
         unsigned char *ptr = proxy->GetBuffer1();
-        uint64_t *res = new uint64_t[sz];
-        uint64_t *m1 = new uint64_t[sz];
+        uint32_t *res = new uint32_t[sz];
+        uint32_t *m1 = new uint32_t[sz];
         for (uint32_t i = 0; i < sz; i++) {
-            uint64_t r1= proxy->GenerateCommonRandom();
-            uint64_t r2= r1 & mask;
+            uint32_t r1= proxy->GenerateCommonRandom();
+            uint32_t r2= r1 & mask;
             r1 = (r1 >> ringbits) & mask;
-            uint64_t r3= proxy->GenerateCommonRandom();
-            uint64_t r4= r3 & mask;
+            uint32_t r3= proxy->GenerateCommonRandom();
+            uint32_t r4= r3 & mask;
             r3 = (r3 >> ringbits) & mask;
 
             m1[i] = ((b[i] * (x[i] - y[i])) - (r2*b[i]) - (r3*(x[i] - y[i])) - (r3*r4)) & mask ;
-            uint64_t m2 = (b[i] + r1) & mask;
-            uint64_t m3 = (x[i] - y[i] + r4) & mask;
+            uint32_t m2 = (b[i] + r1) & mask;
+            uint32_t m3 = (x[i] - y[i] + r4) & mask;
 
             AddValueToCharArray(m2, &ptr, bsz);
             AddValueToCharArray(m3, &ptr, bsz);
@@ -433,19 +396,19 @@ uint64_t* MultiplexNarrow(Party *const proxy, const uint64_t *const x, const uin
 
     }else if (proxy->GetPRole() == proxy2){
         unsigned char *ptr = proxy->GetBuffer1();
-        uint64_t *res = new uint64_t[sz];
-        uint64_t *m1 = new uint64_t[sz];
+        uint32_t *res = new uint32_t[sz];
+        uint32_t *m1 = new uint32_t[sz];
         for (uint32_t i = 0; i < sz; i++) {
-            uint64_t r1= proxy->GenerateCommonRandom();
-            uint64_t r2= r1 & mask;
+            uint32_t r1= proxy->GenerateCommonRandom();
+            uint32_t r2= r1 & mask;
             r1 = (r1 >> ringbits) & mask;
-            uint64_t r3= proxy->GenerateCommonRandom();
-            uint64_t r4= r3 & mask;
+            uint32_t r3= proxy->GenerateCommonRandom();
+            uint32_t r4= r3 & mask;
             r3 = (r3 >> ringbits) & mask;
 
             m1[i] = ((b[i] * (x[i] - y[i])) - (r1*(x[i] - y[i])) - (r1*r2) - (r4*b[i])) & mask;
-            uint64_t m2 = (x[i] - y[i] + r2) & mask;
-            uint64_t m3 = (b[i] + r3) & mask;
+            uint32_t m2 = (x[i] - y[i] + r2) & mask;
+            uint32_t m3 = (b[i] + r3) & mask;
 
             AddValueToCharArray(m2, &ptr, bsz);
             AddValueToCharArray(m3, &ptr, bsz);
@@ -468,21 +431,21 @@ uint64_t* MultiplexNarrow(Party *const proxy, const uint64_t *const x, const uin
         thr2.join();
         unsigned char *ptr = proxy->GetBuffer1();
         unsigned char *ptr2 = proxy->GetBuffer2();
-        uint64_t *m = new uint64_t[sz];
+        uint32_t *m = new uint32_t[sz];
         for (uint32_t i = 0; i < sz; i++) {
-            uint64_t m2 = ConvertToLong(&ptr, bsz);
-            uint64_t m3 = ConvertToLong(&ptr, bsz);
+            uint32_t m2 = ConvertToLong(&ptr, bsz);
+            uint32_t m3 = ConvertToLong(&ptr, bsz);
 
-            uint64_t m5 = ConvertToLong(&ptr2, bsz);
-            uint64_t m6 = ConvertToLong(&ptr2, bsz);
+            uint32_t m5 = ConvertToLong(&ptr2, bsz);
+            uint32_t m6 = ConvertToLong(&ptr2, bsz);
 
             m[i] = ((m2 * m5) + (m3 * m6)) & mask;
         }
         unsigned char *ptr_out = proxy->GetBuffer1();
         unsigned char *ptr_out2 = proxy->GetBuffer2();
         for (uint32_t i = 0; i < sz; i++) {
-            uint64_t tmp1= proxy->GenerateRandom() & mask;
-            uint64_t tmp2 = (m[i]-tmp1) & mask;
+            uint32_t tmp1= proxy->GenerateRandom() & mask;
+            uint32_t tmp2 = (m[i]-tmp1) & mask;
             AddValueToCharArray(tmp1, &ptr_out, bsz);
             AddValueToCharArray(tmp2, &ptr_out2, bsz);
         }
