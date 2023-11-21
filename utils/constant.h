@@ -8,7 +8,7 @@
 #define L_BIT 64
 #define LP 67
 #define SP 7
-#define FRACTIONAL_BITS 10
+#define FRACTIONAL_BITS 0
 #define RING_SIZE 0xffffffffffffffff  // ring size
 #define N1_MASK 0x7fffffffffffffff
 #define N1 0x8000000000000000
@@ -21,7 +21,7 @@
 #define MAX_SAMPLE_MASK 0x7ffff
 
 #define MAX_MATRIX_SIZE 20000
-#define BUFFER_SIZE 1200000000
+#define BUFFER_SIZE 40000000
 
 #define DEBUG_FLAG 0
 
@@ -34,7 +34,7 @@
 #define MAX_A 0x3fffff
 
 // constants for sockets
-#define SOCKET_NUMBER 4
+#define SOCKET_NUMBER 1
 
 enum Role {
     proxy1, proxy2, helper
@@ -43,7 +43,7 @@ enum Role {
 enum Operation {
     // Core
     coreVectorisedMostSignificantBit,coreMostSignificantBit,coreEnd,coreMultiply,coreVectorisedMultiply,coreMultiplex,
-    coreVectorisedMultiplex,coreVectorisedModularConversion,coreModularConversion,coreVectorisedCompare,coreCompare,
+    coreVectorisedMultiplex,coreVectorisedMultiplex2,coreVectorisedModularConversion,coreModularConversion,coreVectorisedCompare,coreCompare,
     coreExp, coreVectorisedExp,coreDotProduct,coreVectorisedDotProduct,coreMatrixMatrixMultiply,
     coreVectorisedMatrixMatrixMultiply,coreMatrixVectorMultiply,coreVectorisedMatrixVectorMultiply, coreDivide,
     coreVectorisedDivide, coreNormalise,coreVectorisedMultiply2,

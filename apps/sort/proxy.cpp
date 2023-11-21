@@ -7,7 +7,6 @@
 #include <chrono>
 #include <tuple>
 #include <iomanip>
-#include "../../core/core.h"
 #include "../../core/sort.h"
 
 using namespace std;
@@ -101,6 +100,9 @@ void SortNarrowTest(Party *proxy, int sz2, int ringbits2){
             a[i] = 0;
         }
     }
+    if (proxy->GetPRole() == proxy1){
+        a[0] = 3;
+    }
 
 
     uint32_t params[2];
@@ -132,7 +134,7 @@ void SortNarrowTest(Party *proxy, int sz2, int ringbits2){
     //cout<<"MUL triple gen time:\t"<< mul_triple_gen <<endl;
     //cout<<"REC ef calc:\t"<< mul_ef_calc <<endl;
     
-    WriteResults(proxy);
+    //WriteResults(proxy);
 
     cout << "Callng Reconstruct..\n";
     uint64_t* sorted = ReconstructNarrowPermutation(proxy,s,size, ringbits2);
@@ -215,7 +217,6 @@ int main(int argc, char* argv[]) {
             chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-9;
     cout<<time_taken<<endl;
-
 
     proxy->SendBytes(coreEnd);
     //proxy->PrintBytes();

@@ -55,6 +55,11 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 Multiplex(proxy, nullptr, nullptr, nullptr, sz);
                 break;
+            case coreVectorisedMultiplex2:
+                sz = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MultiplexNarrow(proxy, nullptr, nullptr, nullptr, sz,size2);
+                break;
             case coreMultiply:
                 Multiply(proxy, 0, 0);
                 break;

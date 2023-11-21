@@ -63,22 +63,20 @@ uint64_t* GenerateP(const uint64_t *const t, uint32_t size) {
     return result;
 
 }
-uint64_t* GenerateF(Party *const proxy, const uint64_t *const a, uint32_t size, uint64_t mask) {
+uint64_t* GenerateF(Party *const proxy, uint64_t *a, uint32_t size, uint64_t mask) {
     if(proxy->GetPRole() ==proxy1) {
         auto *result = new uint64_t[2 * size];
-#pragma omp parallel for num_threads(4)
+        memcpy(result+size,a,size*8);
         for(int i = 0; i < size; i++) {
-            result[i] = (1 - a[i])&mask;
-            result[i + size] = a[i];
+            result[i]= (1 - a[i])&mask;
         }
         return result;
     }
     else if(proxy->GetPRole() == proxy2) {
         auto *result = new uint64_t[2 * size];
-#pragma omp parallel for num_threads(4)
+        memcpy(result+size,a,size*8);
         for(int i = 0; i < size; i++) {
-            result[i] = (0 - a[i])&mask;
-            result[i + size] = a[i];
+            result[i]= (0 - a[i])&mask;
         }
         return result;
     }
@@ -96,7 +94,6 @@ uint64_t* GenerateS(const uint64_t *const a, uint32_t size, uint64_t mask) {
 
 uint64_t* GenerateP(const uint64_t *const t, uint32_t size, uint64_t mask) {
     auto *result = new uint64_t[size];
-#pragma omp parallel for num_threads(4)
     for(int i = 0; i < size; ++i) {
         result[i] = (t[i] + t[i + size])&mask ;
     }
@@ -121,101 +118,63 @@ uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint3
     }
 }
 
-uint64_t *GeneratePermutation(Party *const proxy, const uint64_t *const x, uint32_t size, uint32_t ringbits) {
+uint64_t *GeneratePermutation(Party *const proxy, uint64_t *x, uint32_t size, uint32_t ringbits) {
     uint64_t mask =(1<< ringbits) -1;
     if(proxy->GetPRole() ==proxy1 || proxy->GetPRole() == proxy2) {
-       // auto start = chrono::high_resolution_clock::now();
-        uint64_t *f = GenerateF(proxy, x, size, mask);
-       // auto end = chrono::high_resolution_clock::now();
-	//perm_f += chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
-        //start = chrono::high_resolution_clock::now();       
-        uint64_t *s = GenerateS(f, size * 2, mask);
-        //end = chrono::high_resolution_clock::now();
-	//perm_s += chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        uint64_t* x_ptr = x;
         auto start = chrono::high_resolution_clock::now();
-        uint64_t *t = MultiplyNarrow(proxy, f, s, size * 2, ringbits, 0);
+        uint64_t *f = GenerateF(proxy, x, size, mask);
         auto end = chrono::high_resolution_clock::now();
         mul_time +=
                 chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
-        uint64_t *p = GenerateP(t, size, mask);
-        //end = chrono::high_resolution_clock::now();
-	//perm_p += chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+        uint64_t *s = GenerateS(f, size * 2, mask);
+        uint64_t *p = MultiplexNarrow(proxy,s,s+size,f+size,size,ringbits);
 
         delete[] f;
         delete[] s;
-        delete[] t;
         return p;
     }
     else{   //helper
-        MultiplyNarrow(proxy, nullptr, nullptr, size * 2, ringbits,0 );
-        //cout << "After MUL " << endl;
+        MultiplexNarrow(proxy,nullptr,nullptr,nullptr,size,ringbits);
 	return nullptr;
     }
 }
-void GetRandomPermutationInplace(const uint64_t *const randoms, uint32_t size, uint64_t*result,  uint32_t ringbits=20){
-    //uint64_t * to_permute=new std::uint64_t[size];
-    for(int i = 0; i < size; i++)  result[i] = i+1;
-   /* int last = size-1;
-    for(int i = 0; i<size;i++){
-        uint64_t index = randoms[i]%(last+1);
-        result[i] = to_permute[index];
-        to_permute[index] = to_permute[last];
-        last--;
-    }*/
-
-   auto mask = (1<<(ringbits-1))-1;
-    for(int i = size/2; i<size;i++){
-        uint64_t index = randoms[i] & mask;
-        auto value = result[i];
-        result[i] = result[index];
-        result[index] = value;
-    }
-    //for(int i = 0; i<size;i++){
-   //     result[i] = i+1;
-   // }
-   //delete [] to_permute;
-}
-
-uint64_t *GetRandomPermutation(const uint64_t *const randoms, uint32_t size,  uint32_t ringbits=20){
+uint64_t *GetRandomPermutation(uint64_t ind1, uint64_t ind2, uint32_t size,  uint32_t ringbits=20){
     uint64_t * to_permute=new std::uint64_t[size];
     for(int i = 0; i < size; i++)  to_permute[i] = i+1;
-   /* uint64_t* result = new uint64_t[size];
-    int last = size-1;
-    for(int i = 0; i<size;i++){
-        uint64_t index = randoms[i]%(last+1);
-        result[i] = to_permute[index];
-        to_permute[index] = to_permute[last];
-        last--;
-    }*/
-//    for(int i = 0; i<size;i++){
-//        result[i] = i+1;
-//    }
-
     auto mask = (1<<(ringbits-1))-1;
-    for(int i = size/2; i<size;i++){
-        uint64_t index = randoms[i] & mask;
-        auto value = to_permute[i];
-        to_permute[i] = to_permute[index];
-        to_permute[index] = value;
+    ind1 = ind1 & mask;
+    ind2 = ind2 & mask;
+    for(int i = 0; i < size; i++){
+        auto value = to_permute[ind1];
+        to_permute[ind1] = to_permute[i];
+        to_permute[i] = value;
+        ind1 = (ind1 + ind2) & mask;
     }
-    //delete [] to_permute;
-    //return result;
     return to_permute;
 }
+void GetRandomPermutationIn(uint64_t * to_permute, uint64_t ind1, uint64_t ind2, uint32_t size, uint32_t ringbits=20){
+    for(int i = 0; i < size; i++)  to_permute[i] = i+1;
+    auto mask = (1<<(ringbits-1))-1;
+    ind1 = ind1 & mask;
+    ind2 = ind2 & mask;
+    for(int i = 0; i < size; i++){
+        auto value = to_permute[ind1];
+        to_permute[ind1] = to_permute[i];
+        to_permute[i] = value;
+        ind1 = (ind1 + ind2) & mask;
+    }
+}
+
 uint64_t *Arithmetic2Permutation(Party *const proxy, const uint64_t *const p, uint32_t size, uint32_t ringbits) {
     uint64_t mask =(1<< ringbits) -1;
     int bsz = (ringbits)/8 + 1;
     uint64_t*  pip= new std::uint64_t[size];
-    uint64_t* randoms = new std::uint64_t[size];
     uint64_t*  perm= new std::uint64_t[size];
 
     if(proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
-        for (int j = 0; j < size; ++j) {
-            randoms[j] = proxy->GenerateCommonRandom();
-        }
-        uint64_t* pi = GetRandomPermutation(randoms, size, ringbits);
+        uint64_t* pi = GetRandomPermutation(proxy->GenerateCommonRandom(),proxy->GenerateCommonRandom(), size, ringbits);
 
-	delete [] randoms;
         unsigned char *ptr = proxy->GetBuffer1();
         for (int i = 0; i < size; ++i) {
             AddValueToCharArray(p[pi[i]-1], &ptr, bsz);     //permute p with pi and add to buffer to send to helper
@@ -243,19 +202,19 @@ uint64_t *Arithmetic2Permutation(Party *const proxy, const uint64_t *const p, ui
 
         unsigned char *ptr1 = proxy->GetBuffer1();
         unsigned char *ptr2 = proxy->GetBuffer2();
-	thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz);
+        uint64_t rnd1 = proxy->GenerateRandom();
+        uint64_t rnd2 = proxy->GenerateRandom();
+        thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz);
         thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
+        uint64_t *e = new uint64_t[size];
+        thread thr3 = thread(GetRandomPermutationIn,e,rnd1,rnd2, size, ringbits);
         thr1.join();
         thr2.join();
+        thr3.join();
         for (int i = 0; i < size; i++) {
             pip[i] = ConvertToLong(&ptr1, bsz);
             pip[i] = (pip[i]+ConvertToLong(&ptr2, bsz))&mask;      //reconstruct pip
         }
-        for (int j = 0; j < size; ++j) {
-            randoms[j] = (proxy->GenerateRandom());
-        }
-        uint64_t* e = GetRandomPermutation(randoms, size, ringbits);      //permutation components for p0
-        delete [] randoms;
         for (int i = 0; i < size; ++i) {
            perm[e[i]-1] = pip[i];                  //permutation component for p1
         }
@@ -264,8 +223,6 @@ uint64_t *Arithmetic2Permutation(Party *const proxy, const uint64_t *const p, ui
         ptr2 = proxy->GetBuffer2();
         uint64_t tempShare;
         for (int i = 0; i < size; i++) {
-            //if(e[i] > size ) cout << "e " << (uint64_t)(e[i]&mask) << endl;
-            //if(perm[i] > size ) cout << "perm " << (uint64_t)(perm[i]&mask) << endl;
             AddValueToCharArray(e[i]&mask, &ptr1, bsz);
             AddValueToCharArray(perm[i]&mask, &ptr2, bsz);
         }
@@ -550,14 +507,11 @@ uint8_t *ApplyPermutationNarrow2(
         uint32_t size,
         uint64_t ringbits
 ) {
-    int bsz = (ringbits)/8.0 +1;
-    auto mask = (1<< (ringbits+1))-1; //ringbits+1 because number to be permuted 24 bit not 23
-    auto mask2 = (1<< (ringbits))-1;
+    auto bsz = ceil((ringbits)/8.0);
     // construct permuted p and v shares
     auto* pip = new uint64_t[size];
     auto* pir = new uint8_t[size];
     auto* pr_inv = new uint8_t[size];
-
 
     if (proxy->GetPRole() == proxy1) {
         uint8_t map[128];
@@ -566,11 +520,12 @@ uint8_t *ApplyPermutationNarrow2(
             map[i] = proxy->GenerateCommonRandomByte()&0x1;
         }
         for (int i = 0; i < size; i++) {
-            r[i] = proxy->GenerateRandomByte()&0x1;
+            uint8_t tmp = proxy->GenerateRandomByte();
+            r[i] = tmp&0x1;
             v[i] = (v[i] + r[i])&0x1;
-            int index = proxy->GenerateRandomByte()&0x7f;   //need to be smaller than nu
+            int index = tmp>>1;   //need to be smaller than nu
             while (map[index] != r[i]) {
-                index = proxy->GenerateRandomByte() & 0x7f;
+                index = (index+1) & 0x7f;
             }
             r[i] = (index<<1)+v[i];
         }
@@ -621,9 +576,9 @@ uint8_t *ApplyPermutationNarrow2(
         unsigned char *ptr1 = proxy->GetBuffer1();
         unsigned char *ptr2 = proxy->GetBuffer2();
         for (int i = 0; i < size; i++) {
-            pip1[i] = ConvertToLong(&ptr1, bsz)&mask2;
+            pip1[i] = ConvertToLong(&ptr1, bsz);
             pir[i] = ConvertToUint8(&ptr1);
-            pip2[i] = ConvertToLong(&ptr2,bsz)&mask2;
+            pip2[i] = ConvertToLong(&ptr2,bsz);
             auto tmp = ConvertToUint8(&ptr2);
             pir[i] = ((((pir[i]>>1)+(tmp>>1))&0x7f)<<1)+((pir[i]^tmp)&0x1);
         }
@@ -631,12 +586,14 @@ uint8_t *ApplyPermutationNarrow2(
         for (int i = 0; i < size; ++i) {
             pip[i] = pip2[pip1[i]-1];
         }
+
         delete [] pip1;
         delete [] pip2;
 
+
         for(int i = 0; i < size; i++){  //applying inverse permutation, check
             pr_inv[pip[i]-1] = pir[i];   //-1 because permutation starts from 1
-	}
+        }
 
         //we need to create shares to send
         ptr1 = proxy->GetBuffer1();
@@ -655,7 +612,6 @@ uint8_t *ApplyPermutationNarrow2(
 }
     delete[] pip;
     delete[] pir;
-
     return pr_inv;
 }
 
@@ -665,6 +621,11 @@ uint8_t *ApplyPermutationNarrow2(
  *@param b is the second permutation's (arithmetic)share
  *@param size is the number of elements in the vector
  * */
+
+
+
+
+
 uint64_t *ComposePermutations1Round(
         Party *const proxy,
         const uint64_t *const a,
@@ -678,7 +639,6 @@ uint64_t *ComposePermutations1Round(
 
     if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2){
         uint64_t *randoms_t = new uint64_t[size];
-        //auto t = new uint64_t[size];
 
         uint64_t *pia = new uint64_t[size];
         uint64_t *a_perm = new uint64_t[size];
@@ -688,12 +648,18 @@ uint64_t *ComposePermutations1Round(
         unsigned char *ptr = proxy->GetBuffer1();
 
         if (proxy->GetPRole() == proxy1){
-            //pia = t◯a_perm and pib = k◯b
-#pragma omp parallel for num_threads(4)
-            for(int i = 0; i < size; i++){
-                pia[i] = a[t[i]-1];
-                b_perm[i] = b[t[i]-1];      //this keeps the kb0
-            }
+            std::thread thr1([pia,a,t,size](){
+                for(int i = 0; i < size; i++){
+                    pia[i] = a[t[i]-1];
+                }
+            });
+            std::thread thr2([b_perm,b,t,size](){
+                for(int i = 0; i < size; i++){
+                    b_perm[i] = b[t[i]-1];
+                }
+            });
+            thr1.join();
+            thr2.join();
 
             ptr = proxy->GetBuffer1();
             //(t◯a_perm)◯t = pia◯t
@@ -702,8 +668,8 @@ uint64_t *ComposePermutations1Round(
                 AddValueToCharArray(a_perm[i], &ptr,bsz);
                 AddValueToCharArray(b_perm[i], &ptr,bsz);
             }
-            Send( proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
-            Receive( proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //
+            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //
             ptr2 = proxy->GetBuffer2();
             for (int i = 0; i < size; i++) {
                 pia[t[i]-1] = ConvertToLong(&ptr2, bsz); //receive and get rid of t
@@ -711,27 +677,38 @@ uint64_t *ComposePermutations1Round(
         }
         else{
             uint64_t *k_inv = new uint64_t[size];
-            //pia = (t^-1)◯a_perm and b_perm = k◯b1
-#pragma omp parallel for num_threads(4)
-            for(int i = 0; i < size; i++){
-                pia[t[i]-1] = a[i];
-                b_perm[i] = b[t[i]-1];
-                k_inv[t[i]-1] = i+1;
-            }
+            std::thread thr1([pia,a,t,size](){
+                for(int i = 0; i < size; i++){
+                    pia[t[i]-1] = a[i];
+                }
+            });
+            std::thread thr2([b_perm,b,t,size](){
+                for(int i = 0; i < size; i++){
+                    b_perm[i] = b[t[i]-1];
+                }
+            });
+            std::thread thr3([k_inv,t,size](){
+                for(int i = 0; i < size; i++){
+                    k_inv[t[i]-1] = i+1;
+                }
+            });
+            thr1.join();
+            thr2.join();
+            thr3.join();
+
             ptr = proxy->GetBuffer1();
-            //(t^-1)◯a_perm◯(k^-1) = pia◯(k^-1)
             for(int i = 0; i < size; i++){
                 a_perm[i] = k_inv[pia[i]-1];
                 AddValueToCharArray(a_perm[i], &ptr,bsz);
                 AddValueToCharArray(b_perm[i], &ptr,bsz);
             }
-            Send( proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
-            delete [] k_inv;
-            Receive( proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //
+            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //
             ptr2 = proxy->GetBuffer2();
             for (int i = 0; i < size; i++) {
                 pia[i] = ConvertToLong(&ptr2, bsz); //receive and get rid of t
             }
+            delete [] k_inv;
         }
 
         delete [] a_perm;
@@ -743,31 +720,37 @@ uint64_t *ComposePermutations1Round(
 
     }else{ //helper
         uint64_t *pia = new uint64_t[size];
-        uint64_t *randoms_e = new uint64_t[size];
         uint64_t *e = new uint64_t[size];
         uint64_t *f = new uint64_t[size];
         uint64_t *h = new uint64_t[size];
         unsigned char *ptr1 = proxy->GetBuffer1();
         unsigned char *ptr2 = proxy->GetBuffer2();
 
+        //Create permutation elements(shares)
+        //pia = e◯f and pib= h◯j
+        uint64_t *e_ = new uint64_t[size];
+        uint64_t rnd1 = proxy->GenerateRandom();
+        uint64_t rnd2 = proxy->GenerateRandom();
+
+
         thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz*2);
         thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz*2);
+        thread thr3 = thread(GetRandomPermutationIn,e_,rnd1, rnd2, size, ringbits);
         thr1.join();
         thr2.join();
+        thr3.join();
         ptr1 = proxy->GetBuffer1();
         ptr2 = proxy->GetBuffer2();
+
+
         for (int i = 0; i < size; i++) {
             e[i] = ConvertToLong(&ptr1, bsz);   //ta0t
             h[i] = ConvertToLong(&ptr1,bsz);     //kb0
             f[i] = ConvertToLong(&ptr2,bsz);     //(t^-1)a1(k^-1)
             h[i] = (h[i]+ConvertToLong(&ptr2,bsz))&mask;     //kb = kb0+kb1
-            randoms_e[i] = proxy->GenerateRandom();
-
         }
 
-        //Create permutation elements(shares)
-        //pia = e◯f and pib= h◯j
-        uint64_t* e_ = GetRandomPermutation(randoms_e, size, ringbits);
+
 
         for (int i = 0; i < size; i++) {
             pia[i] = f[e[i]-1];   //t(a0)t(t^-1)(a1)(k^-1)
@@ -777,8 +760,6 @@ uint64_t *ComposePermutations1Round(
             f[e_[i]-1]=  h[pia[i]-1];
         }
 
-
-        delete [] randoms_e;
 
         ptr1 = proxy->GetBuffer1();
         ptr2 = proxy->GetBuffer2();
@@ -800,311 +781,6 @@ uint64_t *ComposePermutations1Round(
     return nullptr;
 }
 
-/**Compose two permutations a◯b in 2 rounds
- *@param a is the first permutation's (arithmetic)share
- *@param b is the second permutation's (arithmetic)share
- *@param size is the number of elements in the vector
- * */
-uint64_t *ComposePermutations2Rounds(
-        Party *const proxy,
-        const uint64_t *const a,
-        const uint64_t *const b,
-        uint32_t size,
-        uint64_t ringbits
-) {
-    auto bsz = ceil((ringbits)/8.0);
-    auto mask = (1<< (ringbits))-1;
-
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2){
-        uint64_t *randoms = new uint64_t[size];
-        uint64_t *randoms_t = new uint64_t[size];
-        uint64_t *randoms_k = new uint64_t[size];
-        uint64_t *randoms_m = new uint64_t[size];
-        auto t = new uint64_t[size];
-        uint64_t* k = new uint64_t[size];
-        uint64_t* m = new uint64_t[size];
-        for (int j = 0; j < size; ++j) {
-            randoms[j] = proxy->GenerateCommonRandom();
-            randoms_t[j] = proxy->GenerateCommonRandom();
-            randoms_k[j] = proxy->GenerateCommonRandom();
-            randoms_m[j] = proxy->GenerateCommonRandom();
-        }
-        uint64_t* pi = new uint64_t[size];
-        thread thr = thread(GetRandomPermutationInplace, randoms, size, pi, ringbits);
-        thread thr0 = thread(GetRandomPermutationInplace, randoms_t, size, t, ringbits);
-        thread thr1 = thread(GetRandomPermutationInplace, randoms_k, size, k, ringbits);
-        thread thr2 = thread(GetRandomPermutationInplace, randoms_m, size, m, ringbits);
-        thr.join();
-        thr1.join();
-        thr2.join();
-        thr0.join();
-        delete [] randoms;
-        delete [] randoms_k;
-        delete [] randoms_t;
-        delete [] randoms_m;
-        uint64_t *pia = new uint64_t[size];
-        uint64_t *pib = new uint64_t[size];
-        uint64_t *a_perm = new uint64_t[size];
-        uint64_t *b_perm = new uint64_t[size];
-
-        unsigned char *ptr2 = proxy->GetBuffer2();
-        unsigned char *ptr = proxy->GetBuffer1();
-        for (int i = 0; i < size; i++) { //permute a and b using pi
-            pia[i] = a[pi[i]-1];
-            pib[i] = b[pi[i]-1];
-            AddValueToCharArray(pia[i], &ptr,bsz);
-            AddValueToCharArray(pib[i], &ptr,bsz);
-        }
-        thr1 = thread(Send, proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
-        thr2 = thread(Receive, proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //receives a share from pv_inv
-        thr1.join();
-        thr2.join();
-
-
-        if (proxy->GetPRole() == proxy1){
-            uint64_t *randoms_e = new uint64_t[size];
-            for (int j = 0; j < size; ++j) {
-                randoms_e[j] = proxy->GenerateCommonRandom2();
-            }
-
-            //Create permutation elements(shares)
-            //pia = e◯f and pib= h◯j
-            pia = GetRandomPermutation(randoms_e, size);    //generate pia perm share e
-            delete [] randoms_e;
-            ptr2 = proxy->GetBuffer2();
-            for (int i = 0; i < size; i++) {
-                b_perm[pi[i]-1] = ConvertToLong(&ptr2, bsz); // receive pib permutation shares and eliminate pi
-                a_perm[pi[i]-1] = pia[i];   //eliminate pi
-
-            }
-
-            //pia = t◯a_perm and pib = k◯b_perm
-            for(int i = 0; i < size; i++){
-                pia[i] = a_perm[t[i]-1];
-                pib[i] = b_perm[k[i]-1];
-            }
-
-            ptr = proxy->GetBuffer1();
-            //(t◯a_perm)◯t = pia◯t and (k◯b_perm)◯m = pib◯m
-            for(int i = 0; i < size; i++){
-                a_perm[i] = t[pia[i]-1];
-                b_perm[i] = m[pib[i]-1];
-                AddValueToCharArray(a_perm[i], &ptr,bsz);
-                AddValueToCharArray(b_perm[i], &ptr,bsz);
-            }
-            Send( proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
-
-        }
-        else{
-            uint64_t *randoms_j = new uint64_t[size];
-            for (int j = 0; j < size; ++j) {
-                randoms_j[j] = proxy->GenerateCommonRandom2();
-            }
-            //Create permutation elements(shares)
-            //pia = e◯f and pib= h◯j
-            pib = GetRandomPermutation(randoms_j, size);    //generate pib perm share j
-            delete [] randoms_j;
-
-            ptr2 = proxy->GetBuffer2();
-            for (int i = 0; i < size; i++) {
-                a_perm[i] = ConvertToLong(&ptr2, bsz); // receive pia permutation shares f
-            }
-
-            uint64_t *k_inv = new uint64_t[size];
-            //pia = (t^-1)◯a_perm and b_perm = (k^-1)◯pib
-            for(int i = 0; i < size; i++){
-                pia[t[i]-1] = a_perm[i];
-                b_perm[m[i]-1] = pib[i];
-                k_inv[k[i]-1] = i+1;
-            }
-            ptr = proxy->GetBuffer1();
-            //(t^-1)◯a_perm◯(k^-1) = pia◯(k^-1)
-            for(int i = 0; i < size; i++){
-                a_perm[i] = k_inv[pia[i]-1];
-                AddValueToCharArray(a_perm[i], &ptr,bsz);
-                AddValueToCharArray(b_perm[i], &ptr,bsz);
-            }
-            Send( proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
-            delete [] k_inv;
-        }
-        Receive( proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //
-        ptr2 = proxy->GetBuffer2();
-        for (int i = 0; i < size; i++) {
-            pib[t[i]-1] = ConvertToLong(&ptr2, bsz); //receive and get rid of t
-        }
-        delete [] pia;
-        delete [] a_perm;
-        delete [] b_perm;
-        delete [] pi;
-        delete [] t;
-        delete [] k;
-        delete [] m;
-        return pib;
-
-
-    }else{ //helper
-        uint64_t *pia = new uint64_t[size];
-        uint64_t *pib = new uint64_t[size];
-        uint64_t *randoms_e = new uint64_t[size];
-        uint64_t *randoms_j = new uint64_t[size];
-        uint64_t *f = new uint64_t[size];
-        uint64_t *h = new uint64_t[size];
-        unsigned char *ptr1 = proxy->GetBuffer1();
-        unsigned char *ptr2 = proxy->GetBuffer2();
-        thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz*2);
-        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz*2);
-        thr1.join();
-        thr2.join();
-        for (int i = 0; i < size; i++) {
-            pia[i] = ConvertToLong(&ptr1, bsz);
-            pib[i] = ConvertToLong(&ptr1,bsz);
-            pia[i] = (pia[i]+ConvertToLong(&ptr2,bsz))&mask;     //pia reconstructed
-            pib[i] = (pib[i]+ConvertToLong(&ptr2,bsz))&mask;     //pib reconstructed
-        }
-        for (int j = 0; j < size; ++j) {
-            randoms_e[j] = proxy->GenerateCommonRandom();
-            randoms_j[j] = proxy->GenerateCommonRandom2();
-        }
-
-        //Create permutation elements(shares)
-        //pia = e◯f and pib= h◯j
-        uint64_t* e = GetRandomPermutation(randoms_e, size);
-        uint64_t* j = GetRandomPermutation(randoms_j, size);
-        for (int i = 0; i < size; ++i) {
-            randoms_j[j[i]-1]= i+1;
-        }
-        for (int i = 0; i < size; ++i) {
-            f[e[i]-1]= pia[i];
-            h[i]= randoms_j[pib[i]-1];
-        }
-
-        ptr1 = proxy->GetBuffer1();
-        ptr2 = proxy->GetBuffer2();
-        for (int i = 0; i < size; i++) {
-            AddValueToCharArray(h[i], &ptr1, bsz);
-            AddValueToCharArray(f[i], &ptr2,bsz);
-        }
-
-        thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz);
-        thr2 = thread( Send, proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
-        thr1.join();
-        thr2.join();
-
-        thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz*2);
-        thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz*2);
-        thr1.join();
-        thr2.join();
-
-        ptr1 = proxy->GetBuffer1();
-        ptr2 = proxy->GetBuffer2();
-        for (int i = 0; i < size; i++) {
-            e[i] = ConvertToLong(&ptr1, bsz);   //ta0t
-            h[i] = ConvertToLong(&ptr1,bsz);     //kb0k
-            f[i] = ConvertToLong(&ptr2,bsz);     //(t^-1)a1(k^-1)
-            j[i] = ConvertToLong(&ptr2,bsz);     //(k^-1)b1
-        }
-
-        for (int i = 0; i < size; i++) {
-            pia[i] = f[e[i]-1];   //t(a0)t(t^-1)(a1)(k^-1)
-            pib[i] = j[h[i]-1];     //kb0k(k^-1)b1
-        }
-
-        for (int i = 0; i < size; i++) {
-            e[i] = pib[pia[i]-1];   //tab
-        }
-
-        ptr1 = proxy->GetBuffer1();
-        ptr2 = proxy->GetBuffer2();
-        for (int i = 0; i < size; i++) {
-            auto tempShare = proxy->GenerateRandom()&mask;
-            AddValueToCharArray(tempShare, &ptr1, bsz);
-            AddValueToCharArray((e[i]-tempShare)&mask, &ptr2,bsz);
-        }
-
-        Send( proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz);
-        Send( proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
-
-        delete [] pia;
-        delete [] e;
-        delete [] f;
-        delete [] h;
-        delete [] j;
-        delete [] pib;
-        return nullptr;
-    }
-    return nullptr;
-}
-
-uint64_t *ComposePermutations(
-        Party *const proxy,
-        const uint64_t *const p,
-        const uint64_t *const r,
-        uint32_t size,
-        uint64_t ringbits
-) {
-    auto bsz = ceil((ringbits)/8.0);
-    auto mask = (1<< (ringbits))-1;
-
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2){
-        uint64_t *randoms = new uint64_t[size];
-        uint64_t *pip = new uint64_t[size];
-        uint64_t *pr = new uint64_t[size];
-        for (int j = 0; j < size; ++j) {
-            randoms[j] = proxy->GenerateCommonRandom();
-        }
-        uint64_t* pi = GetRandomPermutation(randoms, size);
-
-        unsigned char *ptr = proxy->GetBuffer1();
-        for (int i = 0; i < size; i++) { //permute p using pi
-            pip[i] = p[pi[i]-1];
-            AddValueToCharArray(pip[i], &ptr,bsz);
-            AddValueToCharArray(r[i], &ptr,bsz);
-        }
-        thread thr1 = thread(Send, proxy->GetSocketHelper(), proxy->GetBuffer1(), size * bsz * 2);
-        thread thr2 = thread(Receive, proxy->GetSocketHelper(), proxy->GetBuffer2(),size * bsz); //receives a share from pv_inv
-        thr1.join();
-        thr2.join();
-
-        ptr = proxy->GetBuffer2();
-        for (int i = 0; i < size; i++) {
-            pr[pi[i]-1] = ConvertToLong(&ptr, bsz); // = pipr[i]
-        }
-        delete [] pip;
-        delete [] randoms;
-        return pr;
-    }else{
-        uint64_t *pip = new uint64_t[size];
-        uint64_t *r_prime = new uint64_t[size];
-        unsigned char *ptr1 = proxy->GetBuffer1();
-        unsigned char *ptr2 = proxy->GetBuffer2();
-        thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz*2);
-        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz*2);
-        thr1.join();
-        thr2.join();
-        for (int i = 0; i < size; i++) {
-            pip[i] = ConvertToLong(&ptr1, bsz);
-            r_prime[i] = ConvertToLong(&ptr1,bsz);
-            pip[i] = (pip[i]+ConvertToLong(&ptr2,bsz))&mask;
-            r_prime[i] = (r_prime[i]+ConvertToLong(&ptr2,bsz))&mask;
-        }
-        ptr1 = proxy->GetBuffer1();
-        ptr2 = proxy->GetBuffer2();
-        for (int i = 0; i < size; i++) {
-            auto pipr_prime = r_prime[pip[i]-1];
-            auto tempShare = proxy->GenerateRandom()&mask;
-            AddValueToCharArray(tempShare, &ptr1, bsz);
-            AddValueToCharArray((pipr_prime-tempShare)&mask, &ptr2,bsz);
-        }
-        thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), size * bsz);
-        thr2 = thread( Send, proxy->GetSocketP2(), proxy->GetBuffer2(), size * bsz);
-        thr1.join();
-        thr2.join();
-        delete [] pip;
-        delete [] r_prime;
-        return NULL;
-    }
-    return NULL;
-}
 
 
 /**ApplyPermutation for Sorting (for XOR shared data)
@@ -1441,7 +1117,6 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //
     }
     else {  //P1 or P2
         double tt0 = 0, tt1 = 0, tt2 = 0, tt3=0, tt4=0, tt5=0;
-        auto *randoms = new uint64_t[size];
         auto* res = new uint64_t[size];
         auto* to_shift = new uint64_t[size];
         for (int j = 0; j < size ; ++j) {
@@ -1468,13 +1143,7 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //
             tt2 = tt2 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
             start = chrono::high_resolution_clock::now();
-            for (int j = 0; j < size ; j++)
-                randoms[j] = proxy->GenerateCommonRandom();
-            end = chrono::high_resolution_clock::now();
-            tt3 =  tt3 + chrono::duration_cast<chrono::nanoseconds>(end - start).count();
-
-            start = chrono::high_resolution_clock::now();
-            uint64_t* pi = GetRandomPermutation(randoms, size);
+            uint64_t* pi = GetRandomPermutation(proxy->GenerateCommonRandom(),proxy->GenerateCommonRandom(), size);
             end = chrono::high_resolution_clock::now();
             tt4 = tt4+ chrono::duration_cast<chrono::nanoseconds>(end - start).count();
 
@@ -1498,7 +1167,6 @@ uint64_t *Sort(Party *const proxy, const uint64_t *const a, uint32_t size) {  //
         cout << "GenComRan\t" << tt3*1e-6 << " msec\n";
         cout << "GenComPerm\t" << tt4*1e-6 << " msec\n";
         cout << "ApplyPerm\t"<< tt5*1e-6 << " msec\n";
-        delete[] randoms;
         delete[] to_shift;
         return res;
     }
@@ -1544,19 +1212,19 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
         }
         auto dca = XorToArithmetic3(proxy, dc, size, ringbits);
         auto permG = GeneratePermutation(proxy, dca, size, ringbits);
-        
+
         permG = Arithmetic2Permutation(proxy, permG, size, ringbits);//Convert arithmetic share to permutation components
 
         for(int i = 1; i < LT; ++i) {
+            uint64_t* pi = new uint64_t[size];
+            uint64_t* pi1 = new uint64_t[size];
+            thread thr1 = thread(GetRandomPermutationIn,pi,proxy->GenerateCommonRandom(),proxy->GenerateCommonRandom(), size, ringbits);
+            thread thr2 = thread(GetRandomPermutationIn,pi1,proxy->GenerateCommonRandom(),proxy->GenerateCommonRandom(), size, ringbits);
             for (int j = 0; j < size; ++j) {
                 tmp[j] = (a_xor[j]>>i)&0x1;
-                randoms[j] = proxy->GenerateCommonRandom();
             }
-            auto start = chrono::high_resolution_clock::now();
-            uint64_t* pi = GetRandomPermutation(randoms, size, ringbits);
-            auto end = chrono::high_resolution_clock::now();
-            grp_time +=
-                    chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+            thr1.join();
+            thr2.join();
 
             start = chrono::high_resolution_clock::now();
             auto tmp2 = ApplyPermutationNarrow2(proxy, permG, tmp, pi, size, ringbits);
@@ -1575,7 +1243,7 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
             end = chrono::high_resolution_clock::now();
             x2a_time +=
                     chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
-            
+
             start = chrono::high_resolution_clock::now();
             auto permC = GeneratePermutation(proxy, dca, size, ringbits);
             end = chrono::high_resolution_clock::now();
@@ -1584,14 +1252,12 @@ uint64_t *SortNarrow(Party *const proxy, const uint64_t *const a, uint32_t size,
 
 
             start = chrono::high_resolution_clock::now();
-            for (int j = 0; j < size; ++j) {
-                randoms[j] = proxy->GenerateCommonRandom();
-            }
-            GetRandomPermutationInplace( randoms, size, pi, ringbits);
-            permG = ComposePermutations1Round(proxy, permG, permC, pi, size, ringbits);
+            permG = ComposePermutations1Round(proxy, permG, permC, pi1, size, ringbits);
             end = chrono::high_resolution_clock::now();
             comp_time +=
                     chrono::duration_cast<chrono::nanoseconds>(end - start).count()*1e-9;
+            delete[] pi;
+            delete[] pi1;
             }
 
         delete[] randoms;
@@ -1658,10 +1324,8 @@ uint64_t **Sort(
 
             uint64_t* perm = GeneratePermutation(proxy, msb_array, size);  //obtain permutation for msb
 
-            for (int j = 0; j < size ; j++)
-                randoms[j] = proxy->GenerateCommonRandom();
 
-            uint64_t* pi = GetRandomPermutation(randoms, size);
+            uint64_t* pi = GetRandomPermutation(proxy->GenerateCommonRandom(),proxy->GenerateCommonRandom(), size);
 
             res = ApplyPermutationVectorized(proxy, perm, res, pi, size, categories);  //apply the permutation to the current array
             for (int j = 0; j < size; ++j) {

@@ -43,8 +43,8 @@ target_link_libraries(helper PRIVATE Threads::Threads cryptopp::cryptopp)
 #target_link_libraries(proxy_aupr PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Sort
-#add_executable(sort_test apps/sort/proxy.cpp core/sort.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
-#target_link_libraries(sort_test PRIVATE Threads::Threads cryptopp::cryptopp OpenMP::OpenMP_CXX)
+add_executable(sort_test apps/sort/proxy.cpp core/sort.h core/Party.h core/core.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+target_link_libraries(sort_test PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Boolean
 #add_executable(bool_test apps/boolean/proxy.cpp booleancore/core.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
@@ -59,8 +59,8 @@ target_link_libraries(helper PRIVATE Threads::Threads cryptopp::cryptopp)
 #target_link_libraries(benchmark PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Felicia
-add_executable(proxy_felicia apps/felicia/proxy.cpp core/Party.h core/rkn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h ${ENC_FILES})
-target_link_libraries(proxy_felicia PRIVATE Threads::Threads Eigen3::Eigen cryptopp::cryptopp)
+# add_executable(proxy_felicia apps/felicia/proxy.cpp core/Party.h core/rkn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h ${ENC_FILES})
+# target_link_libraries(proxy_felicia PRIVATE Threads::Threads Eigen3::Eigen cryptopp::cryptopp)
 
 
 # include dependencies using git submodule:

@@ -39,7 +39,6 @@ public:
             OpenHelper(hip, hport, socket_p0, socket_p1);
         }
         InitialiseRbg();
-
         // pre-compute the truncation mask for negative values based on FRACTIONAL_BITS
         neg_truncation_mask = ((1UL << shift) - 1) << (L_BIT - shift);
 
@@ -94,34 +93,26 @@ public:
             OS_GenerateRandomBlock(false, buffer, 32);
             Send(&socket_p1[0], buffer, 32);
             common_rbg = new AesCtrRbg(buffer, 32);
-            common_rbg->Initialise();
             OS_GenerateRandomBlock(false, buffer, 32);
             Send(&socket_helper[0], buffer, 32);
             common_rbg2 = new AesCtrRbg(buffer, 32);
-            common_rbg2->Initialise();
         } else if (p_role == proxy2) {
             Receive(&socket_p0[0], buffer, 32);
             unsigned char *ptr = &buffer[0];
             common_rbg = new AesCtrRbg(ptr, 32);
-            common_rbg->Initialise();
             OS_GenerateRandomBlock(false, buffer, 32);
             Send(&socket_helper[0], buffer, 32);
             common_rbg2 = new AesCtrRbg(buffer, 32);
-            common_rbg2->Initialise();
         }
         else if (p_role == helper) {
             Receive(&socket_p0[0], buffer, 32);
             unsigned char *ptr = &buffer[0];
             common_rbg = new AesCtrRbg(ptr, 32);
-            common_rbg->Initialise();
-
             Receive(&socket_p1[0], buffer, 32);
             ptr = &buffer[0];
             common_rbg2 = new AesCtrRbg(ptr, 32);
-            common_rbg2->Initialise();
         }
         rbg = new AesCtrRbg();
-        rbg->Initialise();
     }
 
 
