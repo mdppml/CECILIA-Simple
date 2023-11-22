@@ -55,6 +55,11 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 Multiplex(proxy, nullptr, nullptr, nullptr, sz);
                 break;
+            case coreVectorisedMultiplex2:
+                sz = proxy->ReadInt();
+                size2 = proxy->ReadInt();
+                MultiplexNarrow(proxy, nullptr, nullptr, nullptr, sz,size2);
+                break;
             case coreMultiply:
                 Multiply(proxy, 0, 0);
                 break;
@@ -234,17 +239,8 @@ int main(int argc, char* argv[]) {
                 break;
             case coreSort:
                 sz = proxy->ReadInt();
-                Sort(proxy, 0, sz);
-                break;
-            case coreVSort:
-                sz = proxy->ReadInt();
                 size1 = proxy->ReadInt();
-                Sort(proxy, 0, sz, size1, 0);
-                break;
-            case coreSort2:
-                sz = proxy->ReadInt();
-                size1 = proxy->ReadInt();
-                SortNarrow(proxy, 0, sz, size1);
+                Sort(proxy, 0, sz, size1);
                 break;
             case boolAnd:
                 sz = proxy->ReadInt();

@@ -6,21 +6,14 @@ set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_DEBUG "-O3")
 set(CMAKE_CXX_FLAGS_RELEASE  "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_RELEASE "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 # Libraries:
 find_package(Threads REQUIRED)
-find_package(OpenMP REQUIRED)
-if (OPENMP_FOUND)
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-else()
-	message("OPENMP NOT FOUND")
-endif()
+
 # Helper
 add_executable(helper apps/helper.cpp)
-target_link_libraries(helper PRIVATE Threads::Threads cryptopp::cryptopp OpenMP::OpenMP_CXX)
 target_link_libraries(helper PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # CNN
@@ -42,8 +35,8 @@ add_executable(proxy_aupr apps/aupr/proxy.cpp core/Party.h utils/constant.h util
 target_link_libraries(proxy_aupr PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Sort
-add_executable(sort_test apps/sort/proxy.cpp core/sort.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
-target_link_libraries(sort_test PRIVATE Threads::Threads cryptopp::cryptopp OpenMP::OpenMP_CXX)
+add_executable(sort_test apps/sort/proxy.cpp core/sort.h core/Party.h core/core.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})
+target_link_libraries(sort_test PRIVATE Threads::Threads cryptopp::cryptopp)
 
 # Boolean
 add_executable(bool_test apps/boolean/proxy.cpp booleancore/core.h core/Party.h core/core.h core/cnn.h utils/constant.h utils/parse_options.cpp utils/parse_options.h utils/connection.h utils/flib.h utils/llib.h ${ENC_FILES})

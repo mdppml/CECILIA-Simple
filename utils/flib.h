@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <thread>
 
-uint64_t b_mask[9]= {0,0xff,0,0xffffff,0,0,0,0,18446744073709551615};
+uint64_t b_mask[9]= {0,0xff,0xffff,0xffffff,0xffffffff,0xffffffffff,0xffffffffffff,0xffffffffffffff,0xffffffffffffffff};
 
 uint64_t ConvertToLong(unsigned char **ptr){
     uint64_t val = (*((uint64_t *)(*ptr)));

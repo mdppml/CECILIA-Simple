@@ -669,16 +669,17 @@ uint64_t *XorToArithmetic2(Party* proxy, uint8_t *a, uint32_t sz) {
  * @param a XOR share
  * @param sz number of elements in the share
  * */
-uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz, uint32_t ringbits) {
+uint32_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz, uint32_t ringbits) {
     //uint32_t mask = 0xfffff;
     auto mask = (1<< (ringbits))-1;
-    uint32_t bsz = sz/8+1;
+    uint32_t byte_count = sz/8+1;
+    uint32_t bsz = ceil((double)ringbits/8.0);
     if ( proxy->GetPRole() == helper ) {
         auto *a1 = new uint8_t[sz];
         auto *a2 = new uint8_t[sz];
 
-        thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), bsz*2);//it will receive 2 things from P0
-        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), bsz);
+        thread thr1 = thread(Receive,proxy->GetSocketP1(), proxy->GetBuffer1(), byte_count*2);//it will receive 2 things from P0
+        thread thr2 = thread(Receive,proxy->GetSocketP2(), proxy->GetBuffer2(), byte_count);
         thr1.join();
         thr2.join();
 
@@ -695,32 +696,30 @@ uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz, uint32_t ringb
         //we need to create shares to send
         ptr1 = proxy->GetBuffer1();
         ptr2 = proxy->GetBuffer2();
-        uint64_t tempShare;
+        uint32_t tempShare;
         for (int i = 0; i < sz; i++) {
             tempShare = proxy->GenerateCommonRandom()&mask;           //P0 share for 1st possibility
-            AddValueToCharArray((a1[i]-tempShare)&mask, &ptr2,3);   //P1 share for 1st possibility
+            AddValueToCharArray((a1[i]-tempShare)&mask, &ptr2,bsz);   //P1 share for 1st possibility
             tempShare = proxy->GenerateCommonRandom2()&mask;          //P1 share for 2nd possibility
-            AddValueToCharArray((a2[i]-tempShare)&mask, &ptr1,3);   //P0 share for 2nd possibility
-
+            AddValueToCharArray((a2[i]-tempShare)&mask, &ptr1,bsz);   //P0 share for 2nd possibility
         }
-
-        Send( proxy->GetSocketP1(), proxy->GetBuffer1(), sz * 3);
-        Send( proxy->GetSocketP2(), proxy->GetBuffer2(), sz * 3);
+        Send( proxy->GetSocketP1(), proxy->GetBuffer1(), sz * bsz);
+        Send( proxy->GetSocketP2(), proxy->GetBuffer2(), sz * bsz);
         delete [] a1;
         delete [] a2;
 
         return nullptr;
     }
     else { //P0 or proxy1
-        unsigned char *ptr = proxy->GetBuffer1();
-        uint8_t *r = new uint8_t[bsz];
-        uint64_t *result = new uint64_t[sz];
+        unsigned char *ptr;
+        uint8_t *r = new uint8_t[byte_count];
+        uint32_t *result = new uint32_t[sz];
 
         if (proxy->GetPRole() == proxy1) {
             ptr = proxy->GetBuffer1();
             (*ptr) = 0;
             uint8_t bit_index = 7;
-            for (int i = 0; i < bsz; ++i) {
+            for (int i = 0; i < byte_count; ++i) {
                 r[i] = proxy->GenerateCommonRandomByte();
                 for (int j = 7; j >= 0; j--) {
                     uint8_t bit = ((a[i]>>j)&0x1)^((r[i]>>j)&0x1);
@@ -729,49 +728,37 @@ uint64_t *XorToArithmetic3(Party* proxy, uint8_t *a, uint32_t sz, uint32_t ringb
                 }
             }
 
-            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), bsz*2);  //sent ar to helper
-
-            auto r1 = new uint64_t[sz];
-            for (int i = 0; i < sz; ++i) {
-                r1[i] = proxy->GenerateCommonRandom2()&mask;  //this will be a share of first possibility
-            }
-
-            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz*3);   // receive Arithmetic share for second possibility
+            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), byte_count*2);  //sent ar to helper
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz*bsz);   // receive Arithmetic share for second possibility
 
             ptr = proxy->GetBuffer1();
             for (int i = 0; i < sz; i++) {
+                uint32_t r1 = proxy->GenerateCommonRandom2()&mask;
                 auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
-                auto tmp = ConvertToLong(&ptr,3);
-                result[i] = (1- select) * r1[i] + select * tmp;      // if select is 0 take the first possibility else second
+                auto tmp = ConvertToLong(&ptr,bsz);
+                result[i] = (1- select) * r1 + select * tmp;      // if select is 0 take the first possibility else second
             }
-
         }
         else {  //P2
             ptr = proxy->GetBuffer1();
-            for (int i = 0; i < bsz; i++) {
+            for (int i = 0; i < byte_count; i++) {
                 r[i] = proxy->GenerateCommonRandomByte();
             }
 
-            for (int i = 0; i < bsz; i++) {
+            for (int i = 0; i < byte_count; i++) {
                 AddValueToCharArray(a[i], &ptr);
             }
 
-            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), bsz);  //sent ar to helper
-
-            auto r1 = new uint64_t[sz];
-            for (int i = 0; i < sz; ++i) {
-                r1[i] = proxy->GenerateCommonRandom2()&mask;  //this will be a share of second possibility
-            }
-
-            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz * 3);   // receive the share of first possibility
+            Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), byte_count);  //sent ar to helper
+            Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz * bsz);   // receive the share of first possibility
 
             ptr = proxy->GetBuffer1();
             for (int i = 0; i < sz; i++) {
+                uint32_t r1 = proxy->GenerateCommonRandom2()&mask;
                 auto select = ((r[i/8]>>(7-(i&7))) & 0x1);
-                auto tmp = ConvertToLong(&ptr,3);
-                result[i] = (1- select) * tmp + select * r1[i];      // if select is 0 take the first possibility else second
+                auto tmp = ConvertToLong(&ptr,bsz);
+                result[i] = (1- select) * tmp + select * r1;      // if select is 0 take the first possibility else second
             }
-
         }
         delete [] r;
         return result;

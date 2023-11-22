@@ -91,20 +91,29 @@ public:
 
     void InitialiseRbg() {
         if (p_role == proxy1) {
-            OS_GenerateRandomBlock(false, buffer, 64);
+            OS_GenerateRandomBlock(false, buffer, 32);
             Send(&socket_p1[0], buffer, 32);
-            Send(&socket_helper[0], buffer+32, 32);
+            common_rbg = new AesCtrRbg(buffer, 32);
+            OS_GenerateRandomBlock(false, buffer, 32);
+            Send(&socket_helper[0], buffer, 32);
+            common_rbg2 = new AesCtrRbg(buffer, 32);
         } else if (p_role == proxy2) {
             Receive(&socket_p0[0], buffer, 32);
-            OS_GenerateRandomBlock(false, buffer+32, 32);
-            Send(&socket_helper[0], buffer+32, 32);
-        } else { // helper
-            Receive(&socket_p0[0], buffer, 32);
-            Receive(&socket_p1[0], buffer+32, 32);
+            unsigned char *ptr = &buffer[0];
+            common_rbg = new AesCtrRbg(ptr, 32);
+            OS_GenerateRandomBlock(false, buffer, 32);
+            Send(&socket_helper[0], buffer, 32);
+            common_rbg2 = new AesCtrRbg(buffer, 32);
         }
-        common_rbg = std::make_unique<AesCtrRbg>(buffer, 32);
-        common_rbg2 = std::make_unique<AesCtrRbg>(buffer+32, 32);
-        rbg = std::make_unique<AesCtrRbg>();
+        else if (p_role == helper) {
+            Receive(&socket_p0[0], buffer, 32);
+            unsigned char *ptr = &buffer[0];
+            common_rbg = new AesCtrRbg(ptr, 32);
+            Receive(&socket_p1[0], buffer, 32);
+            ptr = &buffer[0];
+            common_rbg2 = new AesCtrRbg(ptr, 32);
+        }
+        rbg = new AesCtrRbg();
     }
 
 
@@ -322,9 +331,10 @@ private:
     int socket_p0[SOCKET_NUMBER],socket_p1[SOCKET_NUMBER],socket_helper[SOCKET_NUMBER];
     uint8_t buffer[BUFFER_SIZE];
     uint8_t buffer2[BUFFER_SIZE];
-    std::unique_ptr<AesCtrRbg> common_rbg;
-    std::unique_ptr<AesCtrRbg> common_rbg2; // with helper
-    std::unique_ptr<AesCtrRbg> rbg;
+//    std::unique_ptr<AesCtrRbg> common_rbg;
+    AesCtrRbg* common_rbg;
+    AesCtrRbg* common_rbg2; // with helper
+    AesCtrRbg* rbg;
     int n_bits; // number of bits of a value to consider in the exponential computation
     int neg_n_bits; // number of bits of a negative value to consider in the exponential computation
     double max_power = 0;
