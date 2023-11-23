@@ -789,8 +789,8 @@ void MostSignificantBitSubroutine(
  * @param format p_format: Whether to convert the result to the regular representation. Defaults to true.
  * @return uint64_t* x < 0
  */
-uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, int shift = FRACTIONAL_BITS, bool format = true) {
-    if ( proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
+uint64_t *MostSignificantBit(Party *const proxy, const uint64_t *const x, uint32_t sz, size_t shift=FRACTIONAL_BITS, bool format = true) {
+    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint8_t f = proxy->GenerateCommonRandomByte() & 0x1;
         uint64_t *z_1 = new uint64_t[sz];
         uint64_t *ya = new uint64_t[sz];
@@ -948,6 +948,60 @@ uint64_t MostSignificantBit(Party *const proxy, uint64_t x, int shift=FRACTIONAL
     }
 }
 
+uint64_t* ArithmeticAnd(Party *const proxy, const uint64_t *const a, const uint64_t *const b, size_t size, int shift=FRACTIONAL_BITS) {
+    if (proxy->GetPRole() != helper) {
+        std::unique_ptr<uint64_t[]> sums = std::make_unique_for_overwrite<uint64_t[]>(size);
+        uint64_t point_five = ConvertToUint64(0.5, shift);
+        for (int i = 0; i < size; i++) {
+            sums[i] = point_five - a[i] - b[i];
+        }
+        return MostSignificantBit(proxy, sums.get(), size, shift);
+    } else {
+        return MostSignificantBit(proxy, nullptr, size, shift);
+    }
+}
+
+/**
+ * @brief Compares all values of x to all values of y.
+ *
+ * In the resulting array, the first y_size results are all comparisons between the first x value and y and so on.
+ * @param proxy p_proxy
+ * @param x p_x: an array of shared values
+ * @param y p_y:an array of shared values
+ * @param x_size p_x_size: the amount of values in x
+ * @param y_size p_y_size: the amount of values in y
+ * @param shift p_shift: How many bits are reserved for the decimal places. Defaults to FRAC.
+ * @return uint64_t* all comparison results between x and y
+ */
+uint64_t *CompareAll(
+    Party *const proxy,
+    const uint64_t *const x,
+    const uint64_t *const y,
+    int x_size,
+    int y_size,
+    int shift = FRACTIONAL_BITS
+) {
+    int overall_size = x_size*y_size;
+    if (proxy->GetPRole() != helper) {
+        uint64_t* difference = new uint64_t[overall_size];
+        int overall_index;
+        for (int x_index = 0; x_index < x_size; x_index++) {
+            for (int y_index = 0; y_index < y_size; y_index++) {
+                overall_index = x_index * y_size + y_index;
+                difference[overall_index] = x[x_index] - y[y_index];
+            }
+        }
+        uint64_t *result = MostSignificantBit(proxy, difference, overall_size, shift);
+        delete[] difference;
+        for (int i = 0; i < overall_size; i++) {
+            result[i] = (proxy->GetPRole()<<shift) - (result[i] << shift);
+        }
+        return result;
+    } else { // HELPER
+        MostSignificantBit(proxy, nullptr, overall_size, shift);
+        return nullptr;
+    }
+}
 
 /** Comparison between two numbers.
  *
@@ -957,7 +1011,7 @@ uint64_t MostSignificantBit(Party *const proxy, uint64_t x, int shift=FRACTIONAL
  * @return @p x > @p y
  */
 uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *const y, uint32_t sz, int shift = FRACTIONAL_BITS) {
-    if ( proxy->GetPRole() == proxy1 ||  proxy->GetPRole() == proxy2) {
+    if ( proxy->GetPRole() != helper) {
         uint64_t* diff = new uint64_t[sz];
         for (int i = 0; i < sz; i++) {
             diff[i] = y[i] - x[i];
@@ -967,9 +1021,9 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
         return m;
     }else if ( proxy->GetPRole() == helper) {
         MostSignificantBit(proxy, nullptr, sz, shift);
-        return NULL;
+        return nullptr;
     }
-    return NULL;
+    return nullptr;
 }
 
 /** Comparison between two numbers.
@@ -980,16 +1034,15 @@ uint64_t *Compare(Party *const proxy, const uint64_t *const x, const uint64_t *c
  * @return @p x > @p y
  */
 uint64_t Compare(Party *const proxy, uint64_t x, uint64_t y, int shift = FRACTIONAL_BITS) {
-    if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
+    if ( proxy->GetPRole() != helper) {
         uint64_t *result_array = Compare(proxy, &x, &y, 1, shift);
         uint64_t result = result_array[0];
         delete[] result_array;
         return  result;
-    }else if (proxy->GetPRole() == helper) {
+    }else { // helper
         Compare(proxy, nullptr, nullptr, 1, shift);
         return 0;
     }
-    return -1;
 }
 
 
@@ -1003,11 +1056,7 @@ uint64_t* Equals(Party *const proxy, const uint64_t *const x, const uint64_t *co
         delete[] xyx;
         auto m = new uint64_t[size];
         for (int i = 0; i < size; i++) {
-            //if (proxy->getPRole() == P1) {
-             //   m[i] = greater_and_smaller[i]+greater_and_smaller[i+size]-convert2uint64(1.0, shift);
-            //} else {
                 m[i] = ConvertToUint64(0.5, shift) -greater_and_smaller[i] -greater_and_smaller[i+size];
-           // }
         }
         delete[] greater_and_smaller;
         return m;
@@ -1056,7 +1105,6 @@ uint64_t *Multiply(Party *const proxy, const uint64_t *const a, const uint64_t *
         if (DEBUG_FLAG >= 1)
             cout << "Returning from PMNF_MUL...\n************************************************************" << endl;
         return 0;
-
     } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
         uint64_t *mt[3];
         mt[0] = new uint64_t[size]; //a
@@ -1148,7 +1196,6 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         return 0;
 
     } else if (proxy->GetPRole() == proxy1 || proxy->GetPRole() == proxy2) {
-        //total_mul += size;
         uint64_t *mt[3];
         mt[0] = new uint64_t[size]; //a
         mt[1] = new uint64_t[size]; //b
@@ -1256,7 +1303,6 @@ uint64_t *MultiplyNarrow(Party *const proxy, const uint64_t *const a, const uint
         GenerateMultiplicationTripleSym(proxy,c0, c1, size, mask);
         unsigned char *ptr_out1 = proxy->GetBuffer1();
         unsigned char *ptr_out2 = proxy->GetBuffer2();
-        //WriteToBuffer(c1,ptr_out2,size,bsz);
         for (int j = 0; j < hsize; j++) {
             AddValueToCharArray(c0[j], &ptr_out1, bsz);
             AddValueToCharArray(c1[j], &ptr_out2, bsz);
@@ -1500,7 +1546,6 @@ uint64_t* Exp(Party *const proxy, const uint64_t *const a, uint32_t size, int sh
         Multiplex(proxy, 0, 0, 0, size * (n_bits + 1), shift);
         MostSignificantBit(proxy, 0, size * n_bits, shift);
         Multiplex(proxy, 0, 0, 0, size * n_bits, shift);
-
         int current_size = n_bits;
         bool flag = false;
         for (int i = 0; i < (int) ceil(log2(n_bits)); i++) {
@@ -2017,7 +2062,7 @@ uint64_t ModularInverse(Party *const proxy, uint64_t a){
                 for(uint64_t j = 0; j < i; j++){
                     if(((ringProducts_recon[j] + ringProducts_recon[i]) & RING_SIZE) == 1){
                         //Mod inverse of a is found: i+1 + j+1
-                        m = exchangingBit * 2 * step + i + j + 2; // exchangingBit * step + i+1 + exchangingBit * step + j+1
+                        m = exchangingBit * 2 * step + i + j + 2;
                         cout << "ModularInverse was found: " << m << endl;
                         // SEND fresh share of found modular inverse
                         //reassign buffer because ptr1 and ptr2 were incremented by convert2Long calls.
@@ -2146,7 +2191,7 @@ uint64_t* Divide(Party *const proxy, const uint64_t *a, const uint64_t *b, uint3
             // choose the negative result if a >= 0 and b < 0, or a < 0 and b >= 0
             // This is exactly what XOR does. We mimic XOR arithmetically, i.e. a XOR b = a + b - 2ab
             uint64_t *tmp = Multiply(proxy, signs, &signs[size], size, shift); // for determining the signs of the results
-            uint64_t *c = new uint64_t[size]; // // for determining the signs of the results - selection bits
+            uint64_t *c = new uint64_t[size]; // for determining the signs of the results - selection bits
             for(int i = 0; i < size; i++) {
                 R[i] = R[i] << shift; // prepare the remainder for the second division call
                 Q[i] = Q[i] << shift; // prepare the quotient for the final quotient
