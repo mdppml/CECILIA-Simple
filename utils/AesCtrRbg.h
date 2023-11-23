@@ -43,6 +43,12 @@ public:
     }
 
     ~AesCtrRbg() override {
+        if (buffer_thread64.joinable()) {
+            buffer_thread64.join();
+        }
+        if (buffer_thread8.joinable()) {
+            buffer_thread8.join();
+        }
         delete[] current_buffer64;
         delete[] unused_buffer64;
         delete[] current_buffer8;

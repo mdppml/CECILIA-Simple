@@ -11,13 +11,22 @@
 
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
+    int const default_argc = 2;
+    char* default_args[] = {"", "127.0.0.1", "7777"};
+    if(argc == 1 ){
+            argc = default_argc;
+            argv = default_args;
+    }
+    else if (argc != 3){
         clog << "Error: The program requires exactly two arguments; the IP address of the helper and the port it is listening on." << endl;
+        clog << "In case of no arguments the program will use the default IP address (localhost) and port number (7777)." << endl;
         return 1;
+    }
+    else{
+        clog << "IP address and port number received, helper is starting..." << endl;
     }
     string address(argv[1]);
     uint16_t port = strtol(argv[2], nullptr, 10);
-
     auto *proxy = new Party(helper, port, address);
     bool keep_looping = true;
     uint32_t sz, n_gms, n_matrices, size1, size2;
