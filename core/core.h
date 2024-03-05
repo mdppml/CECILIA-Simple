@@ -948,19 +948,6 @@ uint64_t MostSignificantBit(Party *const proxy, uint64_t x, int shift=FRACTIONAL
     }
 }
 
-uint64_t* ArithmeticAnd(Party *const proxy, const uint64_t *const a, const uint64_t *const b, size_t size, int shift=FRACTIONAL_BITS) {
-    if (proxy->GetPRole() != helper) {
-        std::unique_ptr<uint64_t[]> sums = std::make_unique_for_overwrite<uint64_t[]>(size);
-        uint64_t point_five = ConvertToUint64(0.5, shift);
-        for (int i = 0; i < size; i++) {
-            sums[i] = point_five - a[i] - b[i];
-        }
-        return MostSignificantBit(proxy, sums.get(), size, shift);
-    } else {
-        return MostSignificantBit(proxy, nullptr, size, shift);
-    }
-}
-
 /**
  * @brief Compares all values of x to all values of y.
  *
