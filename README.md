@@ -2,29 +2,18 @@
 
 CECILIA is a three-party computational framework that offers a variety of building blocks to facilitate more complex algorithms in a privacy preserving manner. It is implemented in C++.
 
-## Table of Contents
-
-- [CECILIA](#cecilia)
-    - [Table of Contents](#table-of-contents)
-    - [Links to the Related Papers](#links-to-the-related-papers)
-    - [Installation](#installation)
-    - [Building](#building)
-        - [Building with CMake](#building-with-cmake)
-        - [Building with C++](#building-with-c)
-            - [AUROC](#auroc)
-            - [AUROC WITH TIE](#auroc-with-tie)
-            - [AUPRC](#auprc)
-    - [Usage](#usage)
-    - [Building Blocks](#building-blocks)
-        - [Core](#core)
-        - [Boolean Core](#boolean-core)
-    - [Applications](#applications)
-        - [CNN](#cnn)
-        - [RKN](#rkn)
-        - [Sorting](#sorting)
-        - [Record Linkage](#record-linkage)
-    - [Applications to be added soon](#applications-to-be-added-soon)
-    - [License](#license)
+<!-- TOC -->
+* [CECILIA](#cecilia)
+  * [Links to the Related Papers](#links-to-the-related-papers)
+  * [Installation](#installation)
+  * [Building](#building)
+    * [Requirements](#requirements)
+    * [Building with CMake](#building-with-cmake)
+  * [Usage](#usage)
+  * [Building Blocks](#building-blocks)
+    * [Core: Function Descriptions](#core--function-descriptions)
+  * [License](#license)
+<!-- TOC -->
 
 ## Links to the Related Papers
 
@@ -98,10 +87,7 @@ If you are working on your local machine you need these commands to run demo cod
 ## Building Blocks
 
 `CECILIA` has several primitives implemented. The most general ones e.g. Multiplication can be found in `core`. The operations performing on XOR-shares and conversion functions are in `booleancore`. The application spesific functions are usually in their corresponding header files ()
-### Core
-
-
-### Function Descriptions
+### Core: Function Descriptions
 
 - **`Reconstruct`**: There are several overloaded versions of this function, each designed to reconstruct different data types (e.g., single values, arrays, 2D arrays, and 3D arrays) from their secret-shared representations. Reconstruction is a critical step in MPC, allowing parties to obtain the actual computation result from its secret-shared form without compromising data privacy.
   
@@ -133,4 +119,3 @@ If you are working on your local machine you need these commands to run demo cod
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
-# CECILIA-Simple
