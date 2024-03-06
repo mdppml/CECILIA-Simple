@@ -321,30 +321,6 @@ uint64_t* Add(Party *const proxy, const uint64_t *const *const a, int n_vectors,
     }
 }
 
-/** For smaller ring size and symmetric Multiply comm.
- * Half of the c0 and c1 is generated with RNG, rest is calculated and sent by Helper
- * @param mt1 3-by-size array whose rows will be a_i, b_i and c_i, respectively
- * @param mt2 3-by-size array whose rows will be a_i, b_i and c_i, respectively
- * @param size the number of multiplication triples that will be generated
- */
-[[maybe_unused]] void GenerateMultiplicationTripleSym(Party *const proxy, uint64_t *const c0, uint64_t *const c1, uint32_t size, uint64_t mask) {
-    for (int i = 0; i < size/2; i++) {
-        uint64_t a0 = proxy->GenerateCommonRandom()&mask;
-        uint64_t a1 = proxy->GenerateCommonRandom2() & mask;
-        uint64_t b0 = proxy->GenerateCommonRandom()&mask;
-        uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
-        uint64_t c0=  proxy->GenerateCommonRandom()&mask;
-        c1[i] = (((a0+a1)*(b0+b1)) - c0)&mask; //(a0+a1)*(b0+b1) - c0
-    }
-    for (int i = 0; i < size/2; i++) {
-        uint64_t a0 = proxy->GenerateCommonRandom()&mask;
-        uint64_t a1 = proxy->GenerateCommonRandom2() & mask;
-        uint64_t b0 = proxy->GenerateCommonRandom()&mask;
-        uint64_t b1 = proxy->GenerateCommonRandom2() & mask;
-        uint64_t c1= proxy->GenerateCommonRandom2() & mask;
-        c0[i] = (((a0+a1)*(b0+b1)) - c1)&mask; //(a0+a1)*(b0+b1) - c1
-    }
-}
 
 /**
  * Adds values of all matrices in a at equal position to calculate their sum (sum over all matrices in a).
@@ -368,104 +344,6 @@ uint64_t** Add(Party *const proxy, const uint64_t *const *const *const a, int n_
     }
     return res;
 }
-uint32_t* MultiplexNarrow(Party *const proxy, const uint32_t *const x, const uint32_t *const y, const uint32_t *const b, uint32_t sz, uint32_t ringbits) {
-    auto mask = (1<< ringbits)-1;
-    uint32_t bsz = ceil((double)ringbits/8.0);
-    if (proxy->GetPRole() == proxy1){
-        unsigned char *ptr = proxy->GetBuffer1();
-        uint32_t *res = new uint32_t[sz];
-        uint32_t *m1 = new uint32_t[sz];
-        for (uint32_t i = 0; i < sz; i++) {
-            uint32_t r1= proxy->GenerateCommonRandom();
-            uint32_t r2= r1 & mask;
-            r1 = (r1 >> ringbits) & mask;
-            uint32_t r3= proxy->GenerateCommonRandom();
-            uint32_t r4= r3 & mask;
-            r3 = (r3 >> ringbits) & mask;
-
-            m1[i] = ((b[i] * (x[i] - y[i])) - (r2*b[i]) - (r3*(x[i] - y[i])) - (r3*r4)) & mask ;
-            uint32_t m2 = (b[i] + r1) & mask;
-            uint32_t m3 = (x[i] - y[i] + r4) & mask;
-
-            AddValueToCharArray(m2, &ptr, bsz);
-            AddValueToCharArray(m3, &ptr, bsz);
-        }
-        Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz * bsz * 2);
-        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz * bsz);
-        ptr = proxy->GetBuffer1();
-        for (uint32_t i = 0; i < sz; i++) {
-            res[i] = (m1[i] + ConvertToLong(&ptr,bsz)) & mask;
-            res[i] = (x[i] - res[i]) & mask;
-        }
-        delete [] m1;
-        return res;
-
-    }else if (proxy->GetPRole() == proxy2){
-        unsigned char *ptr = proxy->GetBuffer1();
-        uint32_t *res = new uint32_t[sz];
-        uint32_t *m1 = new uint32_t[sz];
-        for (uint32_t i = 0; i < sz; i++) {
-            uint32_t r1= proxy->GenerateCommonRandom();
-            uint32_t r2= r1 & mask;
-            r1 = (r1 >> ringbits) & mask;
-            uint32_t r3= proxy->GenerateCommonRandom();
-            uint32_t r4= r3 & mask;
-            r3 = (r3 >> ringbits) & mask;
-
-            m1[i] = ((b[i] * (x[i] - y[i])) - (r1*(x[i] - y[i])) - (r1*r2) - (r4*b[i])) & mask;
-            uint32_t m2 = (x[i] - y[i] + r2) & mask;
-            uint32_t m3 = (b[i] + r3) & mask;
-
-            AddValueToCharArray(m2, &ptr, bsz);
-            AddValueToCharArray(m3, &ptr, bsz);
-
-        }
-        Send(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz * 2 * bsz);
-        Receive(proxy->GetSocketHelper(), proxy->GetBuffer1(), sz * bsz);
-        ptr = proxy->GetBuffer1();
-        for (uint32_t i = 0; i < sz; i++) {
-            res[i] = (m1[i] + ConvertToLong(&ptr,bsz)) & mask;
-            res[i] = (x[i] - res[i]) & mask;
-        }
-        delete [] m1;
-        return res;
-
-    }else if (proxy->GetPRole() == helper){
-        thread thr1 = thread(Receive, proxy->GetSocketP1(), proxy->GetBuffer1(), sz * 2 * bsz);
-        thread thr2 = thread(Receive, proxy->GetSocketP2(), proxy->GetBuffer2(), sz * 2 * bsz);
-        thr1.join();
-        thr2.join();
-        unsigned char *ptr = proxy->GetBuffer1();
-        unsigned char *ptr2 = proxy->GetBuffer2();
-        uint32_t *m = new uint32_t[sz];
-        for (uint32_t i = 0; i < sz; i++) {
-            uint32_t m2 = ConvertToLong(&ptr, bsz);
-            uint32_t m3 = ConvertToLong(&ptr, bsz);
-
-            uint32_t m5 = ConvertToLong(&ptr2, bsz);
-            uint32_t m6 = ConvertToLong(&ptr2, bsz);
-
-            m[i] = ((m2 * m5) + (m3 * m6)) & mask;
-        }
-        unsigned char *ptr_out = proxy->GetBuffer1();
-        unsigned char *ptr_out2 = proxy->GetBuffer2();
-        for (uint32_t i = 0; i < sz; i++) {
-            uint32_t tmp1= proxy->GenerateRandom() & mask;
-            uint32_t tmp2 = (m[i]-tmp1) & mask;
-            AddValueToCharArray(tmp1, &ptr_out, bsz);
-            AddValueToCharArray(tmp2, &ptr_out2, bsz);
-        }
-        delete []m;
-        thr1 = thread(Send, proxy->GetSocketP1(), proxy->GetBuffer1(), sz * bsz);
-        thr2 = thread(Send, proxy->GetSocketP2(), proxy->GetBuffer2(), sz * bsz);
-        thr1.join();
-        thr2.join();
-        return NULL;
-    }
-    return NULL;
-}
-
-
 
 uint64_t* Multiplex(Party *const proxy, const uint64_t *const x, const uint64_t *const y, const uint64_t *const b, uint32_t sz, int shift = FRACTIONAL_BITS) {
     if (proxy->GetPRole() == proxy1){

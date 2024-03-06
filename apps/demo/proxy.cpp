@@ -135,6 +135,58 @@ int main(int argc, char* argv[]) {
                 Reconstruct(proxy, de_cmp_secret_shared)) << endl;
         cout << "d >= e if the comparison result is 1. 0 otherwise." << endl << endl;
 
+        /*
+         * As you may have noticed, the functions that we call perform only a single operation. This means that the
+         * multiplication operation, for instance, perform the multiplication of v1 and v2. If I have N number pairs,
+         * then I need to call Multiply() function N-times for each pair separately. However, this might be costly.
+         * Especially when the proxies and the helper are connected via WAN in which the round trip time is large,
+         * these separate calls will require so many communication rounds, i.e. sending and receiving data between
+         * parties, and cost too much time due to large round trip time between the parties. One way to handle this is
+         * to gather these calls and send/receive their data as bulk. This approach is called "vectorization". CECILIA2
+         * offers such optimization. We have the vectorized versions of the functions that we have seen previously.
+         * Let us see how we can call these functions' vectorized versions.
+         */
+
+        // Let us create a vector of data
+        int size = 3;
+        double vec1[3] = {4, 2, -2};
+        double vec2[3] = {-12, 2, 6};
+
+        uint64_t* vec1_secret_shared = proxy->CreateShare(vec1, 3);
+        uint64_t* vec2_secret_shared = proxy->CreateShare(vec2, 3);
+
+        /*
+         * Let us notify the Helper about the function that we want to perform.
+         * We need to send the size information specifying the size of the vectors of which we want to multiply elements.
+         * In this case, in addition to the name of the operation, we send param containing the size information of
+         * the vectors and the size of the param vector.
+         */
+        cout << "===================== Vectorized multiplication of two secret shared vectors ===========================" << endl;
+        uint32_t params[1] = {3};
+        proxy->SendBytes(coreVectorisedMultiply, params, 1);
+        uint64_t* vec1vec2_mul_secret_shared = Multiply(proxy, vec1_secret_shared, vec2_secret_shared, 3);
+        double* rec_vec1vec2_mul = ConvertToDouble(Reconstruct(proxy, vec1vec2_mul_secret_shared, 3), 3);
+        for (int i = 0; i < 3; i++) {
+            cout << "vec1[" << i << "] * " << "vec2[" << i << "]: " << (vec1[i] * vec2[i]) << "\t";
+            cout << "rec_vec1vec2_mul[" << i << "]: " << rec_vec1vec2_mul[i] << endl << endl;
+        }
+        cout << "===========================================================================================\n" << endl;
+        // Vectorized Multiplexer
+        cout << "===================== Vectorized multiplexer between two secret shared vectors using a secret shared vector of selection bits ===========================" << endl;
+        params[0] = 3;
+        proxy->SendBytes(coreVectorisedMultiplex, params, 1);
+        double double_selection_bits[3] = {0, 1, 1};
+        uint64_t* selection_bits = proxy->CreateShare(double_selection_bits, 3);
+        uint64_t* vec1vec2_mux_secret_shared = Multiplex(proxy, vec1_secret_shared, vec2_secret_shared, selection_bits, 3);
+        double* rec_vec1vec2_mux = ConvertToDouble(Reconstruct(proxy, vec1vec2_mux_secret_shared, 3), 3);
+        for (int i = 0; i < 3; i++) {
+            cout << "vec1[" << i << "] (" << vec1[i] << ") or vec2[" << i << "] (" << vec2[i] << ") for double_selection_bits[" << i << "] being "
+                 << double_selection_bits[i] << ": " << (vec1[i] - double_selection_bits[i] * (vec1[i] - vec2[i])) << "\t";
+            cout << "rec_vec1vec2_mux[" << i << "]: " << rec_vec1vec2_mux[i] << endl << endl;
+        }
+        cout << "===========================================================================================\n" << endl;
+
+
     }
         /*
          * As we expected, the secret shares look like garbage. However, the reconstructed value seems not correct! The
