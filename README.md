@@ -71,7 +71,7 @@ You have to run their executables separately.
 ```
 If you are working on your local machine you need these commands to run demo code
 ```bash
-./helper "172.31.43.235" 7777
+./helper "127.0.0.1" 7777
 ./demo 0 8888 "127.0.0.1" 7777 "127.0.0.1" 
 ./demo 1 8888 "127.0.0.1" 7777 "127.0.0.1" 
 ```
@@ -79,7 +79,7 @@ If you are working on your local machine you need these commands to run demo cod
 You can run the exercise code with the following commands
 If you are working on your local machine you need these commands to run demo code
 ```bash
-./helper "172.31.43.235" 7777
+./helper "127.0.0.1" 7777
 ./exercise 0 8888 "127.0.0.1" 7777 "127.0.0.1" 
 ./exercise 1 8888 "127.0.0.1" 7777 "127.0.0.1" 
 ```
