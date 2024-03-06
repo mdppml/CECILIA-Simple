@@ -72,11 +72,6 @@ int main(int argc, char* argv[]) {
                 sz = proxy->ReadInt();
                 Multiply(proxy, nullptr, nullptr, sz);
                 break;
-            case coreVectorisedMultiply2:
-                sz = proxy->ReadInt();
-                size2 = proxy->ReadInt();
-                MultiplyNarrow(proxy, nullptr, nullptr, sz, size2);
-                break;
             case coreDotProduct:
                 sz = proxy->ReadInt();
                 DotProduct(proxy, nullptr, nullptr, sz);
@@ -91,30 +86,6 @@ int main(int argc, char* argv[]) {
             case coreVectorisedExp:
                 sz = proxy->ReadInt();
                 Exp(proxy, nullptr, sz);
-                break;
-            case coreMatrixMatrixMultiply:
-                sz = proxy->ReadInt();
-                size1 = proxy->ReadInt();
-                size2 = proxy->ReadInt();
-                MatrixMatrixMultiply(proxy, nullptr, nullptr, sz, size1, size2);
-                break;
-            case coreVectorisedMatrixMatrixMultiply:
-                n_matrices = proxy->ReadInt();
-                sz = proxy->ReadInt();
-                size1 = proxy->ReadInt();
-                size2 = proxy->ReadInt();
-                MatrixMatrixMultiply(proxy, nullptr, nullptr, n_matrices, sz, size1, size2);
-                break;
-            case coreMatrixVectorMultiply:
-                size1 = proxy->ReadInt();
-                size2 = proxy->ReadInt();
-                MatrixVectorMultiply(proxy, nullptr, nullptr, size1, size2);
-                break;
-            case coreVectorisedMatrixVectorMultiply:
-                n_matrices = proxy->ReadInt();
-                size1 = proxy->ReadInt();
-                size2 = proxy->ReadInt();
-                MatrixVectorMultiply(proxy, nullptr, nullptr, n_matrices, size1, size2);
                 break;
             case coreDivide:
                 Divide(proxy, 0, 0);

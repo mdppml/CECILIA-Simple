@@ -111,29 +111,30 @@ int main(int argc, char* argv[]) {
         proxy->SendBytes(coreMultiply);
         uint64_t ed_secret_shared = Multiply(proxy, e_secret_shared, d_secret_share);
 
-        /*
-         * As expected, we see a weird value when we print out the shares of the result, but we can see the actual result
-         * when we reconstruct the result by bringing the shares together.
-         */
+
         cout << "ed_secret_shared: " << ed_secret_shared << endl;
         cout << "ed: " << ConvertToDouble(Reconstruct(proxy, ed_secret_shared)) << endl;
 
-
         /*
-         * Up until now, we worked on integers, which is fine for some applications. However, we so frequently need to be
-         * able to work with floating numbers. CECILIA2 supports this as well. Before changing some settings to handle
-         * floating numbers, let us see how the current setting could try to handle them. For this purpose, let us generate
-         * a double value, create its secret shares and see how they look like.
+         *Up until now we only work with single values. But usually we have more than a single data point.
+         *
          */
-        double f = 7.625;
-        uint64_t f_secret_shared = proxy->CreateShare(f);
 
-        /*
-         * Now, let us see how these values and the reconstructed version of it look like.
-         */
-        cout << "f: " << f << endl;
-        cout << "f_secret_shared: " << f_secret_shared << endl;
-        cout << "f_reconstructed: " << Reconstruct(proxy, f_secret_shared) << endl;
+        // Compare two secret shared values
+        cout << "===================== Compare two secret shared values ===========================" << endl;
+        proxy->SendBytes(coreCompare);
+        uint64_t de_cmp_secret_shared = Compare(proxy, d_secret_share, e_secret_shared);
+        cout << "Compare(proxy, v1, v2) is called" << endl;
+        cout << "v1 >=? v2: ";
+        if (d >= e)
+            cout << "Yes" << endl;
+        else
+            cout << "No" << endl;
+        cout << "de_cmp_secret_shared: " << de_cmp_secret_shared << endl;
+        cout << "Reconstructed de_cmp_secret_shared: " << ConvertToDouble(
+                Reconstruct(proxy, de_cmp_secret_shared)) << endl;
+        cout << "d >= e if the comparison result is 1. 0 otherwise." << endl << endl;
+
     }
         /*
          * As we expected, the secret shares look like garbage. However, the reconstructed value seems not correct! The
