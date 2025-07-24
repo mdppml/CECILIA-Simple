@@ -21,6 +21,8 @@ CECILIA is a three-party computational framework that offers a variety of buildi
 
 2. [ppAURORA: Privacy Preserving Area Under Receiver Operating Characteristic and Precision-Recall Curves](https://arxiv.org/abs/2102.08788)
 
+3. [Accelerating Privacy-Preserving Medical Record Linkage: A Three-Party MPC Approach](https://arxiv.org/abs/2410.21605)
+
 ## Installation
 
 No installation is required.
